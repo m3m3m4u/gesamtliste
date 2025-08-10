@@ -35,5 +35,7 @@ export interface StudentDoc {
   Schwerpunkte?: string[] | string;
   Schwerpunkt?: string[] | string;
   'Schwerpunkt 1'?: string;
+  _deleted?: boolean;
+  deletedAt?: string;
   [key: string]: unknown; // dynamische weitere Felder
 }

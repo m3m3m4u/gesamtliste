@@ -14,23 +14,28 @@ export default function Seite2() {
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<Student | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [creating, setCreating] = useState(false);
 
-  async function search(e?: React.FormEvent) {
-    e?.preventDefault();
-    if (!q.trim()) { setResults([]); setIndex(0); setMsg(null); return; }
+  async function loadByQuery(query: string) {
     setLoading(true); setMsg(null);
     try {
-  const params = new URLSearchParams({ q: q.trim(), limit: '200', onlyNames: '1' });
+      const params = new URLSearchParams({ q: query.trim(), limit: '200', onlyNames: '1' });
+      if (showDeleted) params.set('includeDeleted','1');
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       const items: Student[] = data.items || [];
-      setResults(items);
-      setIndex(0);
+      setResults(items); setIndex(0);
       if (!items.length) setMsg('Keine Treffer');
-    } catch (e) {
-      setResults([]); setIndex(0); setMsg((e as Error).message || 'Fehler');
-    } finally { setLoading(false); }
+    } catch (e) { setResults([]); setIndex(0); setMsg((e as Error).message || 'Fehler'); }
+    finally { setLoading(false); }
+  }
+
+  async function search(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!q.trim()) { setResults([]); setIndex(0); setMsg(null); return; }
+    await loadByQuery(q);
   }
 
   const current = results[index];
@@ -56,9 +61,11 @@ export default function Seite2() {
         <h1 className="text-xl font-semibold">Schüler Suche & Bearbeitung</h1>
   <Link href="/" className="text-sm text-blue-600 underline">Zur Startseite</Link>
       </div>
-      <form onSubmit={search} className="flex gap-2">
-  <input className="border rounded px-3 py-2 flex-1" placeholder="Suche (Vorname / Familienname)" value={q} onChange={e=>setQ(e.target.value)} />
+      <form onSubmit={search} className="flex flex-wrap gap-2 items-center">
+        <input className="border rounded px-3 py-2 flex-1 min-w-[220px]" placeholder="Suche (Vorname / Familienname)" value={q} onChange={e=>setQ(e.target.value)} />
         <button disabled={!q.trim() || loading} className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50">{loading ? '...' : 'Suchen'}</button>
+        <button type="button" onClick={()=>{setShowDeleted(s=>!s); if(q.trim()) loadByQuery(q);}} className="border px-3 py-2 rounded text-xs">{showDeleted? 'Aktive' : 'Papierkorb'}</button>
+        <button type="button" onClick={()=>{ setCreating(true); setDraft({ Vorname:'', Familienname:'', Benutzername:'', Passwort:'' }); setResults([]); setIndex(0); setMsg(null); }} className="border px-3 py-2 rounded text-xs">Neu</button>
       </form>
 
       {results.length > 0 && (
@@ -73,7 +80,42 @@ export default function Seite2() {
 
       {msg && <div className="text-sm">{msg}</div>}
 
-      {current && draft && (
+      {creating && draft && (
+        <div className="border rounded bg-white p-4">
+          <h2 className="font-semibold mb-4 text-sm">Neuen Schüler anlegen</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
+            {['Vorname','Familienname','Benutzername','Passwort','Geburtsdatum'].map(k => (
+              <React.Fragment key={k}>
+                <div className="col-span-1 font-semibold text-gray-600 pr-2">{k}</div>
+                <div className="sm:col-span-2 col-span-1">
+                  {k==='Geburtsdatum' ? (
+                    <input type="date" className="w-full border rounded px-2 py-1 font-mono text-xs" value={(draft[k] as string)||''} onChange={e=>{const v={...draft,[k]:e.target.value}; setDraft(v);}} />
+                  ) : (
+                    <input className="w-full border rounded px-2 py-1 font-mono text-xs" value={(draft[k] as string)||''} onChange={e=>{const v={...draft,[k]:e.target.value}; setDraft(v);}} />
+                  )}
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
+          <div className="mt-6 flex gap-3 justify-end">
+            <button disabled={saving} onClick={async ()=>{
+              if(!draft) return; setSaving(true); setMsg(null);
+              try {
+                const payload: Record<string, unknown> = {};
+                ['Vorname','Familienname','Benutzername','Passwort','Geburtsdatum'].forEach(k=>{ if(draft[k]!=null) payload[k]=draft[k]; });
+                const res = await fetch('/api/students', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+                if(!res.ok) throw new Error(await res.text());
+                const created = await res.json();
+                setMsg('Angelegt'); setCreating(false); setDraft(null); setResults([created]); setIndex(0);
+              } catch(e){ setMsg('Fehler beim Anlegen: '+ ((e as Error).message||'')); }
+              finally { setSaving(false); }
+            }} className="px-4 py-2 rounded bg-green-600 text-white text-sm">{saving? '...' : 'Speichern'}</button>
+            <button disabled={saving} onClick={()=>{ setCreating(false); setDraft(null); }} className="px-4 py-2 rounded border text-sm">Abbrechen</button>
+          </div>
+        </div>
+      )}
+
+      {current && draft && !creating && (
         <div className="border rounded bg-white p-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
             {orderedKeys(draft).map(k => {
@@ -113,7 +155,9 @@ export default function Seite2() {
               );
             })}
           </div>
-          <div className="mt-6 flex gap-3 justify-end">
+          <div className="mt-6 flex flex-wrap gap-3 justify-between items-center">
+            <div className="text-xs text-gray-500">{current._deleted ? 'Im Papierkorb' : ''}</div>
+            <div className="flex gap-3">
             <button disabled={!dirty || saving} onClick={async () => {
               if (!current?._id) return; setSaving(true); setMsg(null);
               try {
@@ -128,6 +172,23 @@ export default function Seite2() {
               finally { setSaving(false); }
             }} className="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50">{saving ? '...' : 'Speichern'}</button>
             <button disabled={!dirty || saving} onClick={() => { if (current) { const clone: Student = { ...current }; setDraft(clone); setDirty(false); setMsg('Änderungen verworfen'); } }} className="px-4 py-2 rounded border">Abbrechen</button>
+            {!current._deleted && (
+              <button disabled={saving} onClick={async ()=>{
+                if(!current?._id) return; setSaving(true); setMsg(null);
+                try { const res = await fetch(`/api/students/${current._id}`, { method:'DELETE' }); if(!res.ok) throw new Error(await res.text()); const upd = await res.json(); setResults(prev=> prev.map((r,i)=> i===index ? { ...r, ...upd } : r)); setMsg('In Papierkorb verschoben'); }
+                catch(e){ setMsg('Fehler beim Löschen: '+ ((e as Error).message||'')); }
+                finally { setSaving(false); }
+              }} className="px-4 py-2 rounded bg-rose-600 text-white">Löschen</button>
+            )}
+            {current._deleted && (
+              <button disabled={saving} onClick={async ()=>{
+                if(!current?._id) return; setSaving(true); setMsg(null);
+                try { const res = await fetch(`/api/students/${current._id}/restore`, { method:'POST' }); if(!res.ok) throw new Error(await res.text()); const upd = await res.json(); setResults(prev=> prev.map((r,i)=> i===index ? { ...r, ...upd } : r)); setMsg('Wiederhergestellt'); }
+                catch(e){ setMsg('Fehler beim Wiederherstellen: '+ ((e as Error).message||'')); }
+                finally { setSaving(false); }
+              }} className="px-4 py-2 rounded bg-amber-600 text-white">Wiederherstellen</button>
+            )}
+            </div>
           </div>
         </div>
       )}
