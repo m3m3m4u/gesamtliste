@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { exportExcel, exportPDF, exportWord } from '@/lib/exporters';
 import type { StudentDoc } from '@/lib/mongodb';
@@ -24,7 +24,7 @@ export default function AngebotePage() {
           if (Array.isArray(s.Angebote)) s.Angebote.forEach(a => { if (a) setA.add(String(a)); });
         }
         setAngeboteList(Array.from(setA).sort());
-      } catch (e) { /* ignore */ }
+  } catch { /* ignore */ }
     })();
   }, []);
 
@@ -32,30 +32,28 @@ export default function AngebotePage() {
     setSelectedFields(prev => prev.includes(f) ? prev.filter(x=>x!==f) : [...prev, f]);
   }
 
-  function fmtDate(v: unknown) {
+  function fmtDate(v: unknown): string | unknown {
     if (typeof v === 'string') {
       const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[3]}.${m[2]}.${m[1]}`;
       const m2 = v.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if (m2) return v;
     }
     return v;
   }
-
-  async function load() {
+  const load = useCallback(async () => {
     if (!angebot) { setData([]); return; }
     setLoading(true); setError(null);
     try {
       const params = new URLSearchParams({ angebot, limit: '3000', fields: selectedFields.join(',') });
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
       if (!res.ok) throw new Error(await res.text());
-      const json = await res.json();
+      const json: { items?: StudentDoc[] } = await res.json();
       setData(json.items || []);
     } catch (e) {
-      setError((e as Error).message || 'Fehler'); setData([]);
+      setError(e instanceof Error ? e.message : 'Fehler'); setData([]);
     } finally { setLoading(false); }
-  }
+  }, [angebot, selectedFields]);
   const depsKey = useMemo(()=>selectedFields.join('|'),[selectedFields]);
-  useEffect(() => { load(); // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [angebot, depsKey]);
+  useEffect(() => { load(); }, [load, angebot, depsKey]);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -89,28 +87,28 @@ export default function AngebotePage() {
           <div className="flex gap-2">
             <button onClick={() => {
               const rows = data.map(d => selectedFields.map(f => {
-                let val = d[f];
+                let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (Array.isArray(val)) return val.join(', ');
-                return val ?? '';
+                return (val == null ? '' : String(val));
               }));
               exportExcel({ filenameBase: `angebot-${angebot}`, headers: selectedFields, rows });
             }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
             <button onClick={() => {
               const rows = data.map(d => selectedFields.map(f => {
-                let val = d[f];
+                let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (Array.isArray(val)) return val.join(', ');
-                return val ?? '';
+                return (val == null ? '' : String(val));
               }));
               exportPDF({ filenameBase: `angebot-${angebot}`, headers: selectedFields, rows });
             }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
             <button onClick={() => {
               const rows = data.map(d => selectedFields.map(f => {
-                let val = d[f];
+                let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (Array.isArray(val)) return val.join(', ');
-                return val ?? '';
+                return (val == null ? '' : String(val));
               }));
               exportWord({ filenameBase: `angebot-${angebot}`, headers: selectedFields, rows, title: `Angebot: ${angebot}`, word: { zebra: true, orientation: 'landscape' } });
             }} className="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Word</button>

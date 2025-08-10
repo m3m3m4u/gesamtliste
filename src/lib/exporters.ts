@@ -65,17 +65,17 @@ export async function exportWord({ filenameBase, headers, rows, title, word }: E
     }
   });
 
-  const children: Paragraph[] | (Paragraph | Table)[] = [];
+  const sectionChildren: (Paragraph | Table)[] = [];
   if (title) {
-    children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: title, size: (headerFontSize + 4) * 2, bold: true })] }));
+    sectionChildren.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: title, size: (headerFontSize + 4) * 2, bold: true })] }));
   }
-  children.push(table as unknown as Paragraph);
+  sectionChildren.push(table);
 
   const doc = new Document({
     sections: [
       {
         properties: { page: { size: { orientation: opt.orientation === 'portrait' ? PageOrientation.PORTRAIT : PageOrientation.LANDSCAPE } } },
-  children: children as unknown as Paragraph[]
+        children: sectionChildren
       }
     ]
   });

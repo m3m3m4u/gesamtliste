@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import type { StudentDoc } from '@/lib/mongodb';
 
@@ -80,7 +80,7 @@ export default function Seite2() {
               const val = draft[k];
               const isObj = typeof val === 'object' && val !== null && !Array.isArray(val);
               const isArray = Array.isArray(val);
-              const displayVal = k==='Angebote' && isArray ? (val as any[]).join(', ') : isObj ? JSON.stringify(val, null, 2) : (val ?? '');
+              const displayVal = k==='Angebote' && isArray ? (val as unknown[]).join(', ') : isObj ? JSON.stringify(val, null, 2) : (val ?? '');
               function update(raw: string) {
                 const next = { ...draft };
                 if (k === 'Angebote') {
@@ -117,7 +117,7 @@ export default function Seite2() {
             <button disabled={!dirty || saving} onClick={async () => {
               if (!current?._id) return; setSaving(true); setMsg(null);
               try {
-                const payload: Record<string, any> = {};
+                const payload: Record<string, unknown> = {};
                 for (const k of orderedKeys(draft)) payload[k] = draft[k];
                 const res = await fetch(`/api/students/${current._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 if (!res.ok) throw new Error(await res.text());
