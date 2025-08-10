@@ -85,9 +85,15 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     body.createdAt = now;
     body.updatedAt = now;
-    // NormBenutzername falls Benutzername vorhanden
+    // NormBenutzername nur setzen, wenn Benutzername nach Trim nicht leer
     if (typeof body.Benutzername === 'string') {
-      body.NormBenutzername = body.Benutzername.trim().toLowerCase();
+      const trimmed = body.Benutzername.trim();
+      body.Benutzername = trimmed; // gespeicherte Variante ohne führende/trailing Spaces
+      if (trimmed) {
+        body.NormBenutzername = trimmed.toLowerCase();
+      } else {
+        delete body.NormBenutzername; // keine leere Normalisierung speichern
+      }
     }
     // Passwort Hash wird im separaten PATCH gehandhabt; hier Klartext nur übernehmen
     const ins = await col.insertOne(body);

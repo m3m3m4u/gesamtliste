@@ -16,6 +16,13 @@ export default function Seite2() {
   const [dirty, setDirty] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [creating, setCreating] = useState(false);
+  const CREATE_FIELDS = [
+    'Vorname','Familienname','Nachname','Geburtsdatum',
+    'Klasse','Klasse 25/26','Stufe 25/26',
+    'Status','Besuchsjahr','Familien-ID','Geschlecht',
+    'Klasse 22/23','Klasse 23/24','Muttersprache','Religion','Religon an/ab',
+    'Angebote','Frühbetreuung','Schwerpunkt 1','Schwerpunkte','Benutzername','Passwort','Sokrates ID'
+  ];
 
   async function loadByQuery(query: string) {
     setLoading(true); setMsg(null);
@@ -40,7 +47,7 @@ export default function Seite2() {
 
   const current = results[index];
 
-  const HIDDEN = new Set(['_id','createdAt','updatedAt','NormBenutzername','Stufe 24/25','Stufe 24/25_1','Klasse 24/25','Klasse 24/25_1','PasswortHash']);
+  const HIDDEN = new Set(['_id','createdAt','updatedAt','deletedAt','_deleted','NormBenutzername','Stufe 24/25','Stufe 24/25_1','Klasse 24/25','Klasse 24/25_1','PasswortHash']);
   function orderedKeys(s: Student) {
     const keys = Object.keys(s || {}).filter(k => !HIDDEN.has(k));
     const pref = ['Vorname','Familienname','Nachname','Geburtsdatum','Klasse','Klasse 25/26','Klasse25','Klasse26','Status','Angebote','Benutzername','Passwort'];
@@ -51,7 +58,18 @@ export default function Seite2() {
   function prev() { setIndex(i => Math.max(i - 1, 0)); }
 
   useEffect(() => {
-    if (current) { const clone: Student = { ...current }; setDraft(clone); setDirty(false); }
+    if (current) { 
+      const clone: Student = { ...current };
+      // Falls gelöschter Eintrag: fehlende Felder aus CREATE_FIELDS ergänzen
+      if ((current as any)._deleted) {
+        CREATE_FIELDS.forEach(f => {
+          if (!(f in clone)) {
+            clone[f] = f === 'Angebote' ? [] : '' as any;
+          }
+        });
+      }
+      setDraft(clone); setDirty(false); 
+    }
     else { setDraft(null); setDirty(false); }
   }, [current]);
 
@@ -70,7 +88,11 @@ export default function Seite2() {
         </label>
         <button type="button" onClick={()=>{
           setCreating(true);
-          setDraft({ Vorname:'', Familienname:'', Benutzername:'', Passwort:'', Geburtsdatum:'' });
+          const empty: Student = {};
+          CREATE_FIELDS.forEach(f=>{ empty[f] = ''; });
+          empty.Angebote = [];
+          setDraft(empty);
+          setDirty(false);
           setMsg(null);
         }} className="border px-3 py-2 rounded text-xs bg-white hover:bg-gray-50">Neu</button>
         {creating && (
@@ -97,7 +119,7 @@ export default function Seite2() {
             {!creating && current && <span className="text-xs text-gray-500">{current._deleted ? 'Im Papierkorb' : 'Aktiv'}</span>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
-            {(creating ? ['Vorname','Familienname','Nachname','Geburtsdatum','Klasse','Klasse 25/26','Status','Angebote','Benutzername','Passwort'] : orderedKeys(draft)).map(k => {
+            {((creating || (draft as any)._deleted) ? CREATE_FIELDS : orderedKeys(draft)).map(k => {
               const val = draft[k];
               const isObj = typeof val === 'object' && val !== null && !Array.isArray(val);
               const isArray = Array.isArray(val);
@@ -107,6 +129,8 @@ export default function Seite2() {
                 if (k === 'Angebote') {
                   const arr = raw.split(',').map(s=>s.trim()).filter(Boolean);
                   next[k] = arr;
+                } else if (k === 'Frühbetreuung') {
+                  next[k] = raw.trim();
                 } else if (k === 'Geburtsdatum') {
                   next[k] = raw.slice(0,10);
                 } else if (k === 'Passwort') {
@@ -141,7 +165,19 @@ export default function Seite2() {
                   if(!draft) return; setSaving(true); setMsg(null);
                   try {
                     const payload: Record<string, unknown> = {};
-                    Object.keys(draft).forEach(k=>{ const v = draft[k]; if(v!=null && v!=='' && !k.startsWith('_')) payload[k]=v; });
+                    CREATE_FIELDS.forEach(k=>{
+                      const v = draft[k];
+                      if(Array.isArray(v)) {
+                        payload[k] = v; // ggf. leeres Array behalten
+                      } else if(typeof v === 'string') {
+                        if(k === 'Geburtsdatum' && v) payload[k] = v.slice(0,10); else payload[k] = v; // auch leer speichern
+                      } else if(v != null) {
+                        payload[k] = v;
+                      } else {
+                        payload[k] = '';
+                      }
+                    });
+                    if(!Array.isArray(payload.Angebote)) payload.Angebote = [];
                     const res = await fetch('/api/students', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
                     if(!res.ok) throw new Error(await res.text());
                     const created = await res.json();
