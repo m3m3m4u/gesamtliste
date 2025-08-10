@@ -5,6 +5,15 @@ import type { StudentDoc } from '@/lib/mongodb';
 
 type Student = StudentDoc;
 
+// Statisch definierte Feldreihenfolge für Erstellung / Papierkorb
+const CREATE_FIELDS: string[] = [
+  'Vorname','Familienname','Nachname','Geburtsdatum',
+  'Klasse','Klasse 25/26','Stufe 25/26',
+  'Status','Besuchsjahr','Familien-ID','Geschlecht',
+  'Klasse 22/23','Klasse 23/24','Muttersprache','Religion','Religon an/ab',
+  'Angebote','Frühbetreuung','Schwerpunkt 1','Schwerpunkte','Benutzername','Passwort','Sokrates ID'
+];
+
 export default function Seite2() {
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,13 +25,6 @@ export default function Seite2() {
   const [dirty, setDirty] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [creating, setCreating] = useState(false);
-  const CREATE_FIELDS = [
-    'Vorname','Familienname','Nachname','Geburtsdatum',
-    'Klasse','Klasse 25/26','Stufe 25/26',
-    'Status','Besuchsjahr','Familien-ID','Geschlecht',
-    'Klasse 22/23','Klasse 23/24','Muttersprache','Religion','Religon an/ab',
-    'Angebote','Frühbetreuung','Schwerpunkt 1','Schwerpunkte','Benutzername','Passwort','Sokrates ID'
-  ];
 
   async function loadByQuery(query: string) {
     setLoading(true); setMsg(null);
@@ -58,19 +60,21 @@ export default function Seite2() {
   function prev() { setIndex(i => Math.max(i - 1, 0)); }
 
   useEffect(() => {
-    if (current) { 
+    if (current) {
       const clone: Student = { ...current };
-      // Falls gelöschter Eintrag: fehlende Felder aus CREATE_FIELDS ergänzen
-      if ((current as any)._deleted) {
+      if (current._deleted) {
         CREATE_FIELDS.forEach(f => {
           if (!(f in clone)) {
-            clone[f] = f === 'Angebote' ? [] : '' as any;
+            clone[f] = (f === 'Angebote') ? [] : '';
           }
         });
       }
-      setDraft(clone); setDirty(false); 
+      setDraft(clone);
+      setDirty(false);
+    } else {
+      setDraft(null);
+      setDirty(false);
     }
-    else { setDraft(null); setDirty(false); }
   }, [current]);
 
   return (
@@ -119,7 +123,7 @@ export default function Seite2() {
             {!creating && current && <span className="text-xs text-gray-500">{current._deleted ? 'Im Papierkorb' : 'Aktiv'}</span>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
-            {((creating || (draft as any)._deleted) ? CREATE_FIELDS : orderedKeys(draft)).map(k => {
+            {((creating || draft._deleted) ? CREATE_FIELDS : orderedKeys(draft)).map(k => {
               const val = draft[k];
               const isObj = typeof val === 'object' && val !== null && !Array.isArray(val);
               const isArray = Array.isArray(val);
