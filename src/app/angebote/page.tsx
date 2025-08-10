@@ -1,8 +1,8 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { exportExcel, exportPDF, exportWord } from '@/lib/exporters';
-
-type Student = Record<string, any>;
+import type { StudentDoc } from '@/lib/mongodb';
 
 const FIELD_OPTIONS = ['Vorname','Familienname','Nachname','Benutzername','Geburtsdatum','Klasse 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung','Schwerpunkte'];
 
@@ -10,7 +10,7 @@ export default function AngebotePage() {
   const [angebot, setAngebot] = useState('');
   const [angeboteList, setAngeboteList] = useState<string[]>([]);
   const [selectedFields, setSelectedFields] = useState<string[]>(['Vorname','Familienname','Benutzername']);
-  const [data, setData] = useState<Student[]>([]);
+  const [data, setData] = useState<StudentDoc[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,8 +20,8 @@ export default function AngebotePage() {
         const res = await fetch('/api/students?limit=3000&fields=Angebote');
         const json = await res.json();
         const setA = new Set<string>();
-        for (const s of json.items || []) {
-          if (Array.isArray(s.Angebote)) s.Angebote.forEach((a: any) => { if (a) setA.add(String(a)); });
+        for (const s of (json.items || []) as StudentDoc[]) {
+          if (Array.isArray(s.Angebote)) s.Angebote.forEach(a => { if (a) setA.add(String(a)); });
         }
         setAngeboteList(Array.from(setA).sort());
       } catch (e) { /* ignore */ }
@@ -32,7 +32,7 @@ export default function AngebotePage() {
     setSelectedFields(prev => prev.includes(f) ? prev.filter(x=>x!==f) : [...prev, f]);
   }
 
-  function fmtDate(v: any) {
+  function fmtDate(v: unknown) {
     if (typeof v === 'string') {
       const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[3]}.${m[2]}.${m[1]}`;
       const m2 = v.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if (m2) return v;
@@ -49,18 +49,19 @@ export default function AngebotePage() {
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json();
       setData(json.items || []);
-    } catch (e:any) {
-      setError(e.message || 'Fehler'); setData([]);
+    } catch (e) {
+      setError((e as Error).message || 'Fehler'); setData([]);
     } finally { setLoading(false); }
   }
-
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [angebot, selectedFields.join(',')]);
+  const depsKey = useMemo(()=>selectedFields.join('|'),[selectedFields]);
+  useEffect(() => { load(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [angebot, depsKey]);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Angebotsliste</h1>
-        <a href="/" className="text-sm text-blue-600 underline">Startseite</a>
+  <Link href="/" className="text-sm text-blue-600 underline">Startseite</Link>
       </div>
       <div className="flex flex-wrap gap-4 items-end">
         <div>

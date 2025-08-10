@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const client = await clientPromise;
   const db = client.db();
   const col = db.collection('students');
-  let filter: any = {};
+  let filter: Record<string, unknown> = {};
   if (raw) {
     // Split nach Leerzeichen für einfache UND-Suche (alle Tokens müssen matchen)
     const tokens = raw.split(/\s+/).filter(Boolean);
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
     };
     filter = Object.keys(filter).length ? { $and: [filter, schwerpunktFilter] } : schwerpunktFilter;
   }
-  const projection: any = {};
+  const projection: Record<string, number> = {};
   if (fields) {
     for (const f of fields.split(',').map(s=>s.trim()).filter(Boolean)) projection[f] = 1;
   }

@@ -1,8 +1,9 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { exportExcel, exportPDF, exportWord } from '@/lib/exporters';
-
-type Student = Record<string, any>;
+import type { StudentDoc } from '@/lib/mongodb';
+type Student = StudentDoc;
 
 const FIELD_OPTIONS = ['Vorname','Familienname','Nachname','Benutzername','Geburtsdatum','Klasse 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung','Schwerpunkte','Schwerpunkt 1'];
 
@@ -32,7 +33,7 @@ export default function SchwerpunktePage() {
           // Split an ; , / \\ | + & und Kombinationen sowie Tab
           return norm.split(/[;,+&|\\\/\t]/).flatMap(part => part.split(/\s{2,}/)).map(s=>s.trim()).filter(Boolean);
         };
-        for (const s of json.items || []) {
+  for (const s of (json.items || []) as Student[]) {
           let tokens: string[] = [];
           if (Array.isArray(s.Schwerpunkte)) tokens = tokens.concat(s.Schwerpunkte.map(String));
           else if (typeof s.Schwerpunkte === 'string') tokens = tokens.concat(splitString(s.Schwerpunkte));
@@ -90,13 +91,15 @@ export default function SchwerpunktePage() {
     } finally { setLoading(false); }
   }
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [schwerpunkt, selectedFields.join(',')]);
+  const depsKey = useMemo(()=>selectedFields.join('|'),[selectedFields]);
+  useEffect(() => { load(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schwerpunkt, depsKey]);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Schwerpunkte</h1>
-        <a href="/" className="text-sm text-blue-600 underline">Startseite</a>
+  <Link href="/" className="text-sm text-blue-600 underline">Startseite</Link>
       </div>
       <div className="flex flex-wrap gap-4 items-end">
         <div>

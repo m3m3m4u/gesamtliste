@@ -1,7 +1,9 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
+import type { StudentDoc } from '@/lib/mongodb';
 
-type Student = Record<string, any>;
+type Student = StudentDoc;
 
 export default function Seite2() {
   const [q, setQ] = useState('');
@@ -26,8 +28,8 @@ export default function Seite2() {
       setResults(items);
       setIndex(0);
       if (!items.length) setMsg('Keine Treffer');
-    } catch (e: any) {
-      setResults([]); setIndex(0); setMsg(e.message || 'Fehler');
+    } catch (e) {
+      setResults([]); setIndex(0); setMsg((e as Error).message || 'Fehler');
     } finally { setLoading(false); }
   }
 
@@ -46,13 +48,13 @@ export default function Seite2() {
   useEffect(() => {
     if (current) { const clone: Student = { ...current }; setDraft(clone); setDirty(false); }
     else { setDraft(null); setDirty(false); }
-  }, [current?._id]);
+  }, [current]);
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Schüler Suche & Bearbeitung</h1>
-        <a href="/" className="text-sm text-blue-600 underline">Zur Startseite</a>
+  <Link href="/" className="text-sm text-blue-600 underline">Zur Startseite</Link>
       </div>
       <form onSubmit={search} className="flex gap-2">
   <input className="border rounded px-3 py-2 flex-1" placeholder="Suche (Vorname / Familienname)" value={q} onChange={e=>setQ(e.target.value)} />
@@ -102,9 +104,9 @@ export default function Seite2() {
                     {k === 'Geburtsdatum' ? (
                       <input type="date" className="w-full border rounded px-2 py-1 font-mono text-xs" value={displayVal ? String(displayVal).slice(0,10) : ''} onChange={e=>update(e.target.value)} />
                     ) : isObj || (isArray && k === 'Angebote') || String(displayVal).length > 60 ? (
-                      <textarea className="w-full border rounded px-2 py-1 font-mono text-xs min-h-[60px]" value={displayVal} onChange={e=>update(e.target.value)} />
+                      <textarea className="w-full border rounded px-2 py-1 font-mono text-xs min-h-[60px]" value={String(displayVal)} onChange={e=>update(e.target.value)} />
                     ) : (
-                      <input className="w-full border rounded px-2 py-1 font-mono text-xs" value={displayVal} onChange={e=>update(e.target.value)} type={k === 'Passwort' ? 'text' : 'text'} />
+                      <input className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)} type={k === 'Passwort' ? 'text' : 'text'} />
                     )}
                   </div>
                 </React.Fragment>
@@ -122,7 +124,7 @@ export default function Seite2() {
                 const updated = await res.json();
                 setResults(prev => prev.map((r,i)=> i===index ? { ...r, ...updated } : r));
                 setDirty(false); setMsg('Gespeichert');
-              } catch (e:any) { setMsg('Fehler beim Speichern: ' + (e.message||'')); }
+              } catch (e) { setMsg('Fehler beim Speichern: ' + ((e as Error).message||'')); }
               finally { setSaving(false); }
             }} className="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50">{saving ? '...' : 'Speichern'}</button>
             <button disabled={!dirty || saving} onClick={() => { if (current) { const clone: Student = { ...current }; setDraft(clone); setDirty(false); setMsg('Änderungen verworfen'); } }} className="px-4 py-2 rounded border">Abbrechen</button>

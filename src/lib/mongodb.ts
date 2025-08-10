@@ -23,3 +23,17 @@ if (!global._mongoClientPromise) {
 clientPromise = global._mongoClientPromise;
 
 export default clientPromise;
+
+// Gemeinsamer Student Typ (flexibel, aber ohne any)
+export interface StudentDoc {
+  _id?: string;
+  Vorname?: string;
+  Familienname?: string;
+  Nachname?: string;
+  Benutzername?: string;
+  Geburtsdatum?: string;
+  Passwort?: string;
+  PasswortHash?: string;
+  Angebote?: string[];
+  [key: string]: unknown;
+}

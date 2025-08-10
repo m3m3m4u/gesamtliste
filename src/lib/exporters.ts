@@ -7,7 +7,7 @@ import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, Width
 export interface ExportConfig {
   filenameBase: string;
   headers: string[];
-  rows: any[][];
+  rows: (string | number | boolean | null | undefined)[][];
   title?: string;
   word?: {
     orientation?: 'portrait' | 'landscape';
@@ -19,7 +19,8 @@ export interface ExportConfig {
 }
 
 export function exportExcel({ filenameBase, headers, rows }: ExportConfig) {
-  const ws = utils.aoa_to_sheet([headers, ...rows]);
+  const norm = rows.map(r => r.map(c => c == null ? '' : String(c)));
+  const ws = utils.aoa_to_sheet([headers, ...norm]);
   const wb: WorkBook = utils.book_new();
   utils.book_append_sheet(wb, ws, 'Daten');
   writeXlsxFile(wb, filenameBase + '.xlsx');
@@ -27,7 +28,7 @@ export function exportExcel({ filenameBase, headers, rows }: ExportConfig) {
 
 export function exportPDF({ filenameBase, headers, rows }: ExportConfig) {
   const doc = new jsPDF({ orientation: 'landscape' });
-  autoTable(doc, { head: [headers], body: rows });
+  autoTable(doc, { head: [headers], body: rows.map(r=>r.map(c=> c==null ? '' : String(c))) });
   doc.save(filenameBase + '.pdf');
 }
 
@@ -68,13 +69,13 @@ export async function exportWord({ filenameBase, headers, rows, title, word }: E
   if (title) {
     children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: title, size: (headerFontSize + 4) * 2, bold: true })] }));
   }
-  children.push(table as any);
+  children.push(table as unknown as Paragraph);
 
   const doc = new Document({
     sections: [
       {
         properties: { page: { size: { orientation: opt.orientation === 'portrait' ? PageOrientation.PORTRAIT : PageOrientation.LANDSCAPE } } },
-        children: children as any
+  children: children as unknown as Paragraph[]
       }
     ]
   });

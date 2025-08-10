@@ -1,8 +1,8 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { exportExcel, exportPDF, exportWord } from '@/lib/exporters';
-
-type Student = Record<string, any>;
+import type { StudentDoc } from '@/lib/mongodb';
 
 interface Option { value: string; label: string; }
 
@@ -10,7 +10,7 @@ export default function KlassenListePage() {
   const [klasse, setKlasse] = useState('');
   const [availableKlassen, setAvailableKlassen] = useState<Option[]>([]);
   const [selectedFields, setSelectedFields] = useState<string[]>(['Vorname','Familienname','Benutzername','Passwort']);
-  const [data, setData] = useState<Student[]>([]);
+  const [data, setData] = useState<StudentDoc[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,13 +46,14 @@ export default function KlassenListePage() {
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json();
       setData(json.items || []);
-    } catch (e:any) {
-      setError(e.message || 'Fehler');
+    } catch (e) {
+      setError((e as Error).message || 'Fehler');
       setData([]);
     } finally { setLoading(false); }
   }
-
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [klasse, selectedFields.join(',')]);
+  const depsKey = useMemo(()=>selectedFields.join('|'),[selectedFields]);
+  useEffect(() => { load(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [klasse, depsKey]);
 
   function toggleField(f: string) {
     setSelectedFields(prev => prev.includes(f) ? prev.filter(x=>x!==f) : [...prev, f]);
@@ -72,7 +73,7 @@ export default function KlassenListePage() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Klassenliste</h1>
-        <a href="/" className="text-sm text-blue-600 underline">Startseite</a>
+  <Link href="/" className="text-sm text-blue-600 underline">Startseite</Link>
       </div>
       <div className="flex flex-wrap gap-4 items-end">
         <div>
