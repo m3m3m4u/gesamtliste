@@ -61,11 +61,21 @@ export default function Seite2() {
         <h1 className="text-xl font-semibold">Schüler Suche & Bearbeitung</h1>
   <Link href="/" className="text-sm text-blue-600 underline">Zur Startseite</Link>
       </div>
-      <form onSubmit={search} className="flex flex-wrap gap-2 items-center">
-        <input className="border rounded px-3 py-2 flex-1 min-w-[220px]" placeholder="Suche (Vorname / Familienname)" value={q} onChange={e=>setQ(e.target.value)} />
-        <button disabled={!q.trim() || loading} className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50">{loading ? '...' : 'Suchen'}</button>
-        <button type="button" onClick={()=>{setShowDeleted(s=>!s); if(q.trim()) loadByQuery(q);}} className="border px-3 py-2 rounded text-xs">{showDeleted? 'Aktive' : 'Papierkorb'}</button>
-        <button type="button" onClick={()=>{ setCreating(true); setDraft({ Vorname:'', Familienname:'', Benutzername:'', Passwort:'' }); setResults([]); setIndex(0); setMsg(null); }} className="border px-3 py-2 rounded text-xs">Neu</button>
+      <form onSubmit={search} className="flex flex-wrap gap-3 items-center">
+        <input className="border rounded px-3 py-2 flex-1 min-w-[240px]" placeholder="Suche (Vorname / Familienname)" value={q} onChange={e=>setQ(e.target.value)} />
+        <button disabled={!q.trim() || loading} className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50 text-sm">{loading ? '...' : 'Suchen'}</button>
+        <label className="flex items-center gap-2 text-xs select-none">
+          <input type="checkbox" checked={showDeleted} onChange={()=>{setShowDeleted(v=>!v); if(q.trim()) loadByQuery(q);}} />
+          Papierkorb anzeigen
+        </label>
+        <button type="button" onClick={()=>{
+          setCreating(true);
+          setDraft({ Vorname:'', Familienname:'', Benutzername:'', Passwort:'', Geburtsdatum:'' });
+          setMsg(null);
+        }} className="border px-3 py-2 rounded text-xs bg-white hover:bg-gray-50">Neu</button>
+        {creating && (
+          <button type="button" onClick={()=>{ setCreating(false); setDraft(null); }} className="border px-3 py-2 rounded text-xs">Abbrechen</button>
+        )}
       </form>
 
       {results.length > 0 && (
@@ -80,45 +90,14 @@ export default function Seite2() {
 
       {msg && <div className="text-sm">{msg}</div>}
 
-      {creating && draft && (
+      {draft && (
         <div className="border rounded bg-white p-4">
-          <h2 className="font-semibold mb-4 text-sm">Neuen Schüler anlegen</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
-            {['Vorname','Familienname','Benutzername','Passwort','Geburtsdatum'].map(k => (
-              <React.Fragment key={k}>
-                <div className="col-span-1 font-semibold text-gray-600 pr-2">{k}</div>
-                <div className="sm:col-span-2 col-span-1">
-                  {k==='Geburtsdatum' ? (
-                    <input type="date" className="w-full border rounded px-2 py-1 font-mono text-xs" value={(draft[k] as string)||''} onChange={e=>{const v={...draft,[k]:e.target.value}; setDraft(v);}} />
-                  ) : (
-                    <input className="w-full border rounded px-2 py-1 font-mono text-xs" value={(draft[k] as string)||''} onChange={e=>{const v={...draft,[k]:e.target.value}; setDraft(v);}} />
-                  )}
-                </div>
-              </React.Fragment>
-            ))}
+          <div className="flex items-center justify-between mb-4 text-sm">
+            <h2 className="font-semibold">{creating ? 'Neuer Schüler' : 'Schülereintrag'}</h2>
+            {!creating && current && <span className="text-xs text-gray-500">{current._deleted ? 'Im Papierkorb' : 'Aktiv'}</span>}
           </div>
-          <div className="mt-6 flex gap-3 justify-end">
-            <button disabled={saving} onClick={async ()=>{
-              if(!draft) return; setSaving(true); setMsg(null);
-              try {
-                const payload: Record<string, unknown> = {};
-                ['Vorname','Familienname','Benutzername','Passwort','Geburtsdatum'].forEach(k=>{ if(draft[k]!=null) payload[k]=draft[k]; });
-                const res = await fetch('/api/students', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-                if(!res.ok) throw new Error(await res.text());
-                const created = await res.json();
-                setMsg('Angelegt'); setCreating(false); setDraft(null); setResults([created]); setIndex(0);
-              } catch(e){ setMsg('Fehler beim Anlegen: '+ ((e as Error).message||'')); }
-              finally { setSaving(false); }
-            }} className="px-4 py-2 rounded bg-green-600 text-white text-sm">{saving? '...' : 'Speichern'}</button>
-            <button disabled={saving} onClick={()=>{ setCreating(false); setDraft(null); }} className="px-4 py-2 rounded border text-sm">Abbrechen</button>
-          </div>
-        </div>
-      )}
-
-      {current && draft && !creating && (
-        <div className="border rounded bg-white p-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
-            {orderedKeys(draft).map(k => {
+            {(creating ? ['Vorname','Familienname','Nachname','Geburtsdatum','Klasse','Klasse 25/26','Status','Angebote','Benutzername','Passwort'] : orderedKeys(draft)).map(k => {
               const val = draft[k];
               const isObj = typeof val === 'object' && val !== null && !Array.isArray(val);
               const isArray = Array.isArray(val);
@@ -155,46 +134,65 @@ export default function Seite2() {
               );
             })}
           </div>
-          <div className="mt-6 flex flex-wrap gap-3 justify-between items-center">
-            <div className="text-xs text-gray-500">{current._deleted ? 'Im Papierkorb' : ''}</div>
-            <div className="flex gap-3">
-            <button disabled={!dirty || saving} onClick={async () => {
-              if (!current?._id) return; setSaving(true); setMsg(null);
-              try {
-                const payload: Record<string, unknown> = {};
-                for (const k of orderedKeys(draft)) payload[k] = draft[k];
-                const res = await fetch(`/api/students/${current._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (!res.ok) throw new Error(await res.text());
-                const updated = await res.json();
-                setResults(prev => prev.map((r,i)=> i===index ? { ...r, ...updated } : r));
-                setDirty(false); setMsg('Gespeichert');
-              } catch (e) { setMsg('Fehler beim Speichern: ' + ((e as Error).message||'')); }
-              finally { setSaving(false); }
-            }} className="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50">{saving ? '...' : 'Speichern'}</button>
-            <button disabled={!dirty || saving} onClick={() => { if (current) { const clone: Student = { ...current }; setDraft(clone); setDirty(false); setMsg('Änderungen verworfen'); } }} className="px-4 py-2 rounded border">Abbrechen</button>
-            {!current._deleted && (
-              <button disabled={saving} onClick={async ()=>{
-                if(!current?._id) return; setSaving(true); setMsg(null);
-                try { const res = await fetch(`/api/students/${current._id}`, { method:'DELETE' }); if(!res.ok) throw new Error(await res.text()); const upd = await res.json(); setResults(prev=> prev.map((r,i)=> i===index ? { ...r, ...upd } : r)); setMsg('In Papierkorb verschoben'); }
-                catch(e){ setMsg('Fehler beim Löschen: '+ ((e as Error).message||'')); }
-                finally { setSaving(false); }
-              }} className="px-4 py-2 rounded bg-rose-600 text-white">Löschen</button>
+          <div className="mt-6 flex flex-wrap gap-3 justify-end items-center">
+            {creating ? (
+              <>
+                <button disabled={saving} onClick={async ()=>{
+                  if(!draft) return; setSaving(true); setMsg(null);
+                  try {
+                    const payload: Record<string, unknown> = {};
+                    Object.keys(draft).forEach(k=>{ const v = draft[k]; if(v!=null && v!=='' && !k.startsWith('_')) payload[k]=v; });
+                    const res = await fetch('/api/students', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+                    if(!res.ok) throw new Error(await res.text());
+                    const created = await res.json();
+                    setMsg('Angelegt');
+                    setCreating(false); setDirty(false);
+                    setResults([created]); setIndex(0); setDraft(created);
+                  } catch(e){ setMsg('Fehler beim Anlegen: '+ ((e as Error).message||'')); }
+                  finally { setSaving(false); }
+                }} className="px-4 py-2 rounded bg-green-600 text-white text-sm disabled:opacity-50">{saving? '...' : 'Speichern'}</button>
+                <button disabled={saving} onClick={()=>{ setCreating(false); setDraft(null); setDirty(false); }} className="px-4 py-2 rounded border text-sm">Abbrechen</button>
+              </>
+            ) : current && (
+              <>
+                <button disabled={!dirty || saving} onClick={async () => {
+                  if (!current?._id) return; setSaving(true); setMsg(null);
+                  try {
+                    const payload: Record<string, unknown> = {};
+                    for (const k of orderedKeys(draft)) payload[k] = draft[k];
+                    const res = await fetch(`/api/students/${current._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!res.ok) throw new Error(await res.text());
+                    const updated = await res.json();
+                    setResults(prev => prev.map((r,i)=> i===index ? { ...r, ...updated } : r));
+                    setDirty(false); setMsg('Gespeichert');
+                  } catch (e) { setMsg('Fehler beim Speichern: ' + ((e as Error).message||'')); }
+                  finally { setSaving(false); }
+                }} className="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50">{saving ? '...' : 'Speichern'}</button>
+                <button disabled={!dirty || saving} onClick={() => { if (current) { const clone: Student = { ...current }; setDraft(clone); setDirty(false); setMsg('Änderungen verworfen'); } }} className="px-4 py-2 rounded border">Abbrechen</button>
+                {!current._deleted && (
+                  <button disabled={saving} onClick={async ()=>{
+                    if(!current?._id) return; setSaving(true); setMsg(null);
+                    try { const res = await fetch(`/api/students/${current._id}`, { method:'DELETE' }); if(!res.ok) throw new Error(await res.text()); const upd = await res.json(); setResults(prev=> prev.map((r,i)=> i===index ? { ...r, ...upd } : r)); setDraft(prev=> prev? { ...prev, _deleted:true } : prev); setMsg('In Papierkorb verschoben'); }
+                    catch(e){ setMsg('Fehler beim Löschen: '+ ((e as Error).message||'')); }
+                    finally { setSaving(false); }
+                  }} className="px-4 py-2 rounded bg-rose-600 text-white">Löschen</button>
+                )}
+                {current._deleted && (
+                  <button disabled={saving} onClick={async ()=>{
+                    if(!current?._id) return; setSaving(true); setMsg(null);
+                    try { const res = await fetch(`/api/students/${current._id}/restore`, { method:'POST' }); if(!res.ok) throw new Error(await res.text()); const upd = await res.json(); setResults(prev=> prev.map((r,i)=> i===index ? { ...r, ...upd } : r)); setDraft(prev=> prev? { ...prev, _deleted:false, deletedAt: undefined } : prev); setMsg('Wiederhergestellt'); }
+                    catch(e){ setMsg('Fehler beim Wiederherstellen: '+ ((e as Error).message||'')); }
+                    finally { setSaving(false); }
+                  }} className="px-4 py-2 rounded bg-amber-600 text-white">Wiederherstellen</button>
+                )}
+              </>
             )}
-            {current._deleted && (
-              <button disabled={saving} onClick={async ()=>{
-                if(!current?._id) return; setSaving(true); setMsg(null);
-                try { const res = await fetch(`/api/students/${current._id}/restore`, { method:'POST' }); if(!res.ok) throw new Error(await res.text()); const upd = await res.json(); setResults(prev=> prev.map((r,i)=> i===index ? { ...r, ...upd } : r)); setMsg('Wiederhergestellt'); }
-                catch(e){ setMsg('Fehler beim Wiederherstellen: '+ ((e as Error).message||'')); }
-                finally { setSaving(false); }
-              }} className="px-4 py-2 rounded bg-amber-600 text-white">Wiederherstellen</button>
-            )}
-            </div>
           </div>
         </div>
       )}
 
-      {!current && !loading && results.length === 0 && q && <div className="text-sm text-gray-500">Keine Treffer</div>}
-      {!current && !q && <div className="text-sm text-gray-400">Suchbegriff eingeben und Suchen.</div>}
+  {!draft && !loading && results.length === 0 && q && <div className="text-sm text-gray-500">Keine Treffer</div>}
+  {!draft && !q && <div className="text-sm text-gray-400">Suchbegriff eingeben oder Neu für neuen Schüler.</div>}
     </div>
   );
 }
