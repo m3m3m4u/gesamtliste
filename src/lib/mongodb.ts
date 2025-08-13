@@ -6,7 +6,10 @@ declare global {
 }
 
 const uri = process.env.MONGODB_URI;
-const options = {};
+const options = {
+  // Kürzerer Timeout, damit Fehler schneller sichtbar werden
+  serverSelectionTimeoutMS: Number(process.env.MONGO_SELECT_TIMEOUT_MS || 10000),
+};
 
 let client: MongoClient | undefined;
 
@@ -16,7 +19,25 @@ if (!process.env.MONGODB_URI) {
 
 if (!global._mongoClientPromise) {
   client = new MongoClient(uri!, options);
-  global._mongoClientPromise = client.connect();
+  const debug = process.env.DB_DEBUG === '1';
+  const start = Date.now();
+  global._mongoClientPromise = client.connect()
+    .then(c => {
+      if (debug) {
+        // Erfolgsausgabe mit Dauer
+        console.log('[MongoDB] verbunden in', Date.now() - start, 'ms', 'DB:', c.db().databaseName);
+      }
+      return c;
+    })
+    .catch(err => {
+      if (debug) {
+        console.error('[MongoDB] Verbindungsfehler:', err?.message);
+        if (err?.name) console.error('Name:', err.name);
+        if (err?.code) console.error('Code:', err.code);
+        if (err?.stack) console.error(String(err.stack).split('\n').slice(0,6).join('\n'));
+      }
+      throw err;
+    });
 }
 const clientPromiseExport = global._mongoClientPromise; // wird nicht neu zugewiesen
 export default clientPromiseExport;
