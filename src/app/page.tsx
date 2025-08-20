@@ -9,7 +9,7 @@ export default function Home() {
         <p className="text-gray-600 leading-relaxed">Nutze den Button, um Schüler zu suchen und Daten zu bearbeiten.</p>
         <div className="flex flex-col gap-4">
           <a
-            href="/seite2"
+            href="/schueler"
             className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-md shadow transition-colors"
           >Suchen und bearbeiten</a>
           <a
