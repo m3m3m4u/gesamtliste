@@ -16,7 +16,7 @@ export default function KlassenListePage() {
 
   // Felder die auswählbar sind (kann erweitert werden)
   const FIELD_OPTIONS: string[] = [
-    'Vorname','Familienname','Nachname','Benutzername','Geburtsdatum','Klasse 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung'
+    'Vorname','Familienname','Benutzername','Geburtsdatum','Klasse 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung'
   ];
 
   // Klassen-Liste aus DB laden (einmal)
@@ -40,7 +40,7 @@ export default function KlassenListePage() {
     if (!klasse) { setData([]); return; }
     setLoading(true); setError(null);
     try {
-      const params = new URLSearchParams({ klasse, limit: '2000', fields: selectedFields.join(',') });
+  const params = new URLSearchParams({ klasse, limit: '2000', fields: selectedFields.join(',') });
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
       if (!res.ok) throw new Error(await res.text());
       const json: { items?: StudentDoc[] } = await res.json();

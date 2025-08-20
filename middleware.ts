@@ -1,30 +1,36 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const SECRET = process.env.SIMPLE_SECRET || '872020';
+const COOKIE_NAME = 'site_auth';
 
 export function middleware(req: NextRequest) {
-  const url = req.nextUrl.clone();
-  // Nur schützen: /schueler und /schueler/* api nicht betroffen
-  if (url.pathname.startsWith('/schueler')) {
-    const auth = req.headers.get('authorization') || '';
-    if (auth.startsWith('Basic ')) {
-      try {
-        const decoded = Buffer.from(auth.split(' ')[1], 'base64').toString('utf8');
-        // Expect format user:pass (we ignore user)
-        const parts = decoded.split(':');
-        const pass = parts.slice(1).join(':');
-        if (pass === SECRET) return NextResponse.next();
-      } catch {}
-    }
-    // Challenge
-    const res = new NextResponse('Authentication required', { status: 401 });
-    res.headers.set('WWW-Authenticate', 'Basic realm="Schueler"');
-    return res;
+  const { pathname } = req.nextUrl;
+
+  // Public: Login und statische Assets
+  if (
+    pathname === '/login' ||
+    pathname.startsWith('/api/login') ||
+    pathname.startsWith('/_next') ||
+    pathname === '/favicon.ico' ||
+    pathname === '/robots.txt' ||
+    pathname === '/sitemap.xml'
+  ) {
+    return NextResponse.next();
   }
-  return NextResponse.next();
+
+  const isApi = pathname.startsWith('/api/');
+  const authed = req.cookies.get(COOKIE_NAME)?.value === '1';
+  if (authed) return NextResponse.next();
+
+  if (isApi) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const url = req.nextUrl.clone();
+  url.pathname = '/login';
+  url.searchParams.set('next', req.nextUrl.pathname + req.nextUrl.search);
+  return NextResponse.redirect(url);
 }
 
 export const config = {
-  matcher: ['/schueler/:path*']
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)'],
 };

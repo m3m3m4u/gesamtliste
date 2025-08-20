@@ -5,7 +5,7 @@ import { exportExcel, exportPDF, exportWord } from '@/lib/exporters';
 import type { StudentDoc } from '@/lib/mongodb';
 type Student = StudentDoc;
 
-const FIELD_OPTIONS = ['Vorname','Familienname','Nachname','Benutzername','Geburtsdatum','Klasse 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung','Schwerpunkte','Schwerpunkt 1'];
+const FIELD_OPTIONS = ['Vorname','Familienname','Benutzername','Geburtsdatum','Klasse 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung','Schwerpunkte'];
 
 export default function SchwerpunktePage() {
   const [schwerpunkt, setSchwerpunkt] = useState('');
@@ -18,7 +18,7 @@ export default function SchwerpunktePage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/students?limit=3000&fields=Schwerpunkte,Schwerpunkt,Schwerpunkt 1');
+  const res = await fetch('/api/students?limit=3000&fields=Schwerpunkte,Schwerpunkt');
         const json = await res.json();
         const uniqueMap = new Map<string,string>(); // lower -> original
         const pushToken = (raw: string) => {
@@ -39,7 +39,7 @@ export default function SchwerpunktePage() {
           else if (typeof s.Schwerpunkte === 'string') tokens = tokens.concat(splitString(s.Schwerpunkte));
           if (Array.isArray(s.Schwerpunkt)) tokens = tokens.concat(s.Schwerpunkt.map(String));
           else if (typeof s.Schwerpunkt === 'string') tokens = tokens.concat(splitString(s.Schwerpunkt));
-          if (typeof s['Schwerpunkt 1'] === 'string') tokens = tokens.concat(splitString(s['Schwerpunkt 1']));
+          // 'Schwerpunkt 1' removed — older imports may still have data but we ignore this field now
           tokens.forEach(pushToken);
         }
         const list = Array.from(uniqueMap.values())
@@ -65,7 +65,7 @@ export default function SchwerpunktePage() {
     const sources: string[] = [];
     if (Array.isArray(s.Schwerpunkte)) sources.push(...s.Schwerpunkte.map(String));
     if (Array.isArray(s.Schwerpunkt)) sources.push(...s.Schwerpunkt.map(String));
-    ['Schwerpunkte','Schwerpunkt','Schwerpunkt 1'].forEach(k => {
+  ['Schwerpunkte','Schwerpunkt'].forEach(k => {
       const raw = s[k];
       if (typeof raw === 'string') sources.push(...raw.split(/\r?\n|[;,+&|\\\/]/));
     });
@@ -75,7 +75,7 @@ export default function SchwerpunktePage() {
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const baseFields = new Set<string>([...selectedFields,'Schwerpunkte','Schwerpunkt','Schwerpunkt 1']);
+  const baseFields = new Set<string>([...selectedFields,'Schwerpunkte','Schwerpunkt']);
       const params = new URLSearchParams({ limit: '3000', fields: Array.from(baseFields).join(',') });
       if (schwerpunkt) params.set('schwerpunkt', schwerpunkt);
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
@@ -143,7 +143,7 @@ export default function SchwerpunktePage() {
               const rows = data.map(d => selectedFields.map(f => {
                 let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
-                if (Array.isArray(val)) val = val.join(', ');
+        if (Array.isArray(val)) val = val.join(', ');
                 return val == null ? '' : String(val);
               }));
               exportWord({ filenameBase: `schwerpunkt-${schwerpunkt}`, headers: selectedFields, rows, title: `Schwerpunkt: ${schwerpunkt}`, word: { zebra: true, orientation: 'landscape' } });

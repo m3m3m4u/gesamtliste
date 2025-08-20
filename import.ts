@@ -86,14 +86,16 @@ async function run() {
     // Passwort-Hashing (falls vorhanden und nicht '0' oder leer)
     if (d.Passwort && d.Passwort !== '0') {
       try {
-        const hash = bcrypt.hashSync(String(d.Passwort), saltRounds);
+        const pwd = String(d.Passwort);
+        const hash = bcrypt.hashSync(pwd, saltRounds);
         d.PasswortHash = hash;
+        // Klartext-Passwort behalten (ist in diesem Projekt kein geheimes Passwort)
+        d.Passwort = pwd;
       } catch (e) {
         console.warn('Konnte Passwort nicht hashen für Benutzer:', d.Benutzername, e);
       }
     }
-    // Entferne Klartext Passwort
-    delete d.Passwort;
+      // Hinweis: wir löschen das Klartext-Passwort nicht, da es hier ausdrücklich erwünscht ist.
     return d;
   });
   // Duplikate im Input anhand (case-insensitive) Benutzername entfernen
@@ -147,7 +149,7 @@ async function run() {
       });
     } else {
       // Kein Benutzername -> optionaler Insert (kann Duplikate erzeugen, wir taggen ImportStamp)
-      d.ImportStamp = Date.now();
+  // ImportStamp removed: we no longer tag anonymous inserts with an import timestamp
       ops.push({ insertOne: { document: { ...d, createdAt: new Date(), updatedAt: new Date() } } });
       withoutUser++;
     }
@@ -158,6 +160,8 @@ async function run() {
   let upserts = 0;
   let modified = 0;
   let inserted = 0;
+  // Hilfsfunktion für 3-spaltige Ausgabe
+  const pad = (v: any, w = 14) => String(v).padEnd(w);
   for (let i = 0; i < ops.length; i += chunkSize) {
     const slice = ops.slice(i, i + chunkSize);
     const res = await col.bulkWrite(slice, { ordered: false });
@@ -165,9 +169,12 @@ async function run() {
     upserts += res.upsertedCount || 0;
     modified += res.modifiedCount || 0;
     inserted += res.insertedCount || 0; // Nur insertOne zählt hier; upsert inserts sind in upsertedCount
-    console.log(`Batch ${i / chunkSize + 1}: processed=${processed} upserts=${upserts} modified=${modified} inserted=${inserted}`);
+    // Ausgabe in 3+ Spalten: processed | upserts | modified | inserted
+    console.log(`Batch ${i / chunkSize + 1}: ${pad('processed:' + processed, 18)}${pad('upserts:' + upserts)}${pad('modified:' + modified)}${pad('inserted:' + inserted)}`);
   }
-  console.log(`Fertig. Total Ops: ${ops.length}, Upserts: ${upserts}, Modified: ${modified}, Inserted(no-username or upserted separately): ${inserted}, Ohne Benutzername im Input: ${withoutUser}`);
+  console.log('Fertig. Zusammenfassung:');
+  console.log(pad('TotalOps:' + ops.length, 18) + pad('Upserts:' + upserts) + pad('Modified:' + modified) + pad('Inserted:' + inserted));
+  console.log(`Ohne Benutzername im Input: ${withoutUser}`);
   } finally {
     await client.close();
   }

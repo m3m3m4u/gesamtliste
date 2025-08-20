@@ -8,6 +8,23 @@ export async function GET(request: Request) {
   const raw = (searchParams.get('q') || searchParams.get('search') || '').trim();
   const klasse = (searchParams.get('klasse') || '').trim();
   const angebot = (searchParams.get('angebot') || '').trim();
+  // Mehrfachwerte unterstützen (sowohl getAll als auch einzelner Fallback)
+  const stufeParams = Array.from(new Set([
+    ...searchParams.getAll('stufe').map(s => s.trim()).filter(Boolean),
+    ...(searchParams.get('stufe') ? [String(searchParams.get('stufe')).trim()] : [])
+  ]));
+  const statusParams = Array.from(new Set([
+    ...searchParams.getAll('status').map(s => s.trim()).filter(Boolean),
+    ...(searchParams.get('status') ? [String(searchParams.get('status')).trim()] : [])
+  ]));
+  const jahrParams = Array.from(new Set([
+    ...searchParams.getAll('jahr').map(s => s.trim()).filter(Boolean),
+    ...(searchParams.get('jahr') ? [String(searchParams.get('jahr')).trim()] : [])
+  ]));
+  const religionParams = Array.from(new Set([
+    ...searchParams.getAll('religion').map(s => s.trim()).filter(Boolean),
+    ...(searchParams.get('religion') ? [String(searchParams.get('religion')).trim()] : [])
+  ]));
   const onlyNames = searchParams.has('onlyNames');
   const schwerpunkt = (searchParams.get('schwerpunkt') || '').trim();
   const fields = (searchParams.get('fields') || '').trim(); // Kommagetrennte Feldliste
@@ -47,14 +64,42 @@ export async function GET(request: Request) {
     const angebotFilter = { Angebote: { $regex: `^${escaped}$`, $options: 'i' } };
     filter = Object.keys(filter).length ? { $and: [filter, angebotFilter] } : angebotFilter;
   }
+  if (stufeParams.length) {
+    // Exakt (case-insensitive); "0" bedeutet leere/fehlende Stufe
+    const ors: Record<string, unknown>[] = [];
+    for (const s of stufeParams) {
+      if (s === '0') {
+        ors.push({ 'Stufe 25/26': { $in: [null, '', '-', '—', 0, '0'] } });
+      } else {
+        const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        ors.push({ 'Stufe 25/26': { $regex: `^${escaped}$`, $options: 'i' } });
+      }
+    }
+    const stufeFilter = { $or: ors };
+    filter = Object.keys(filter).length ? { $and: [filter, stufeFilter] } : stufeFilter;
+  }
+  if (statusParams.length) {
+    const ors = statusParams.map(s => ({ Status: { $regex: `^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } }));
+    const statusFilter = { $or: ors };
+    filter = Object.keys(filter).length ? { $and: [filter, statusFilter] } : statusFilter;
+  }
+  if (jahrParams.length) {
+    const ors = jahrParams.map(s => ({ Besuchsjahr: { $regex: `^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } }));
+    const jahrFilter = { $or: ors };
+    filter = Object.keys(filter).length ? { $and: [filter, jahrFilter] } : jahrFilter;
+  }
+  if (religionParams.length) {
+    const ors = religionParams.map(s => ({ Religion: { $regex: `^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } }));
+    const religionFilter = { $or: ors };
+    filter = Object.keys(filter).length ? { $and: [filter, religionFilter] } : religionFilter;
+  }
   if (schwerpunkt) {
     // Exakte (case-insensitive) Übereinstimmung in Schwerpunkte (Array oder String) oder Schwerpunkt (Singular)
     const escaped = schwerpunkt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const schwerpunktFilter = {
       $or: [
-        { Schwerpunkte: { $regex: `(^|[,;/\s])${escaped}([,;/\s]|$)`, $options: 'i' } },
-        { Schwerpunkt: { $regex: `(^|[,;/\s])${escaped}([,;/\s]|$)`, $options: 'i' } },
-        { 'Schwerpunkt 1': { $regex: `(^|[,;/\s])${escaped}([,;/\s]|$)`, $options: 'i' } }
+        { Schwerpunkte: { $regex: `(^|[,;/\\s])${escaped}([,;/\\s]|$)`, $options: 'i' } },
+        { Schwerpunkt: { $regex: `(^|[,;/\\s])${escaped}([,;/\\s]|$)`, $options: 'i' } }
       ]
     };
     filter = Object.keys(filter).length ? { $and: [filter, schwerpunktFilter] } : schwerpunktFilter;

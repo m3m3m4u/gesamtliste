@@ -4,6 +4,18 @@ import Link from 'next/link';
 import type { StudentDoc } from '@/lib/mongodb';
 
 type Student = StudentDoc;
+type PartialStudent = Student & Record<string, unknown>;
+
+// Stabil: Reihenfolge der Eingabefelder (außerhalb der Komponente, damit sich die Referenz nicht bei jedem Render ändert)
+const CREATE_FIELDS: string[] = [
+  // Reihenfolge entspricht deiner Vorgabe (je 3 Spalten / Zeilen)
+  'Vorname','Familienname','Geburtsdatum',
+  'Klasse 25/26','Stufe 25/26','Besuchsjahr',
+  'Muttersprache','Religion','Geschlecht',
+  'Schwerpunkte','Angebote','Frühbetreuung',
+  'Benutzername','Passwort','Anton',
+  'Sokrates ID','Familien-ID','Status'
+];
 
 export default function Schueler() {
   const [q, setQ] = useState('');
@@ -16,14 +28,6 @@ export default function Schueler() {
   const [dirty, setDirty] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [creating, setCreating] = useState(false);
-
-  const CREATE_FIELDS: string[] = [
-    'Vorname','Familienname','Nachname','Geburtsdatum',
-    'Klasse','Klasse 25/26','Stufe 25/26',
-    'Status','Besuchsjahr','Familien-ID','Geschlecht',
-    'Klasse 22/23','Klasse 23/24','Muttersprache','Religion','Religon an/ab',
-    'Angebote','Frühbetreuung','Schwerpunkt 1','Schwerpunkte','Benutzername','Passwort','Sokrates ID'
-  ];
 
   async function loadByQuery(query: string) {
     setLoading(true); setMsg(null);
@@ -48,10 +52,18 @@ export default function Schueler() {
 
   const current = results[index];
 
-  const HIDDEN = new Set(['_id','createdAt','updatedAt','deletedAt','_deleted','NormBenutzername','Stufe 24/25','Stufe 24/25_1','Klasse 24/25','Klasse 24/25_1','PasswortHash']);
+  const HIDDEN = new Set(['_id','createdAt','updatedAt','deletedAt','_deleted','NormBenutzername','Stufe 24/25','Stufe 24/25_1','Klasse 24/25','Klasse 24/25_1','PasswortHash','Schwerpunkt 1','Klasse 22/23','Klasse 23/24','ImportStamp']);
   function orderedKeys(s: Student) {
     const keys = Object.keys(s || {}).filter(k => !HIDDEN.has(k));
-    const pref = ['Vorname','Familienname','Nachname','Geburtsdatum','Klasse','Klasse 25/26','Klasse25','Klasse26','Status','Angebote','Benutzername','Passwort'];
+    // Präferenzliste um Reihenfolge beizubehalten (erste Elemente werden oben/links gerendert)
+    const pref = [
+      'Vorname','Familienname','Geburtsdatum',
+      'Klasse 25/26','Stufe 25/26','Besuchsjahr',
+      'Muttersprache','Religion','Geschlecht',
+      'Schwerpunkte','Angebote','Frühbetreuung',
+      'Benutzername','Passwort','Anton',
+  'Sokrates ID','Familien-ID','Status'
+    ];
     return [...pref.filter(k=>keys.includes(k)), ...keys.filter(k=>!pref.includes(k))];
   }
 
@@ -60,10 +72,10 @@ export default function Schueler() {
 
   useEffect(() => {
     if (current) {
-      const clone: Student = { ...current };
+      const clone = { ...(current as PartialStudent) } as Student;
       if (current._deleted) {
         CREATE_FIELDS.forEach(f => {
-          if (!(f in clone)) clone[f] = (f === 'Angebote') ? [] : '';
+          if (!(f in clone)) (clone as PartialStudent)[f] = (f === 'Angebote') ? [] : '';
         });
       }
       setDraft(clone);
@@ -73,6 +85,12 @@ export default function Schueler() {
       setDirty(false);
     }
   }, [current]);
+
+  // Ensure we display important fields (like Passwort) even when they're missing
+  const keysToRender = (creating || (draft && (draft as PartialStudent)._deleted))
+    ? CREATE_FIELDS
+    // Ensure CREATE_FIELDS defines the primary order so grouping stays stable
+    : Array.from(new Set([ ...CREATE_FIELDS, ...(draft ? orderedKeys(draft as Student) : []) ]));
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -89,10 +107,10 @@ export default function Schueler() {
         </label>
         <button type="button" onClick={()=>{
           setCreating(true);
-          const empty: Student = {} as Student;
-          CREATE_FIELDS.forEach(f=>{ (empty as any)[f] = ''; });
-          (empty as any).Angebote = [];
-          setDraft(empty);
+          const empty = {} as PartialStudent;
+          CREATE_FIELDS.forEach(f=>{ empty[f] = ''; });
+          empty.Angebote = [];
+          setDraft(empty as Student);
           setDirty(false);
           setMsg(null);
         }} className="border px-3 py-2 rounded text-xs bg-white hover:bg-gray-50">Neu</button>
@@ -119,14 +137,14 @@ export default function Schueler() {
             <h2 className="font-semibold">{creating ? 'Neuer Schüler' : 'Schülereintrag'}</h2>
             {!creating && current && <span className="text-xs text-gray-500">{current._deleted ? 'Im Papierkorb' : 'Aktiv'}</span>}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-            {((creating || draft._deleted) ? CREATE_FIELDS : orderedKeys(draft as Student)).map(k => {
-              const val = (draft as any)[k];
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-4 text-sm">
+            {keysToRender.map(k => {
+                const val = (draft as PartialStudent)[k];
               const isObj = typeof val === 'object' && val !== null && !Array.isArray(val);
               const isArray = Array.isArray(val);
               const displayVal = k==='Angebote' && isArray ? (val as unknown[]).join(', ') : isObj ? JSON.stringify(val, null, 2) : (val ?? '');
               function update(raw: string) {
-                const next = { ...(draft as any) } as any;
+                  const next = { ...(draft as PartialStudent) } as PartialStudent;
                 if (k === 'Angebote') {
                   const arr = raw.split(',').map(s=>s.trim()).filter(Boolean);
                   next[k] = arr;
@@ -141,7 +159,7 @@ export default function Schueler() {
                 } else {
                   next[k] = raw;
                 }
-                setDraft(next); setDirty(true);
+                  setDraft(next as Student); setDirty(true);
               }
               return (
                 <div key={k} className="p-1">
@@ -162,12 +180,12 @@ export default function Schueler() {
           <div className="mt-6 flex flex-wrap gap-3 justify-end items-center">
             {creating ? (
               <>
-                <button disabled={saving} onClick={async ()=>{
+        <button disabled={saving} onClick={async ()=>{
                   if(!draft) return; setSaving(true); setMsg(null);
                   try {
                     const payload: Record<string, unknown> = {};
                     CREATE_FIELDS.forEach(k=>{
-                      const v = (draft as any)[k];
+          const v = (draft as PartialStudent)[k];
                       if(Array.isArray(v)) {
                         payload[k] = v;
                       } else if(typeof v === 'string') {
@@ -196,7 +214,7 @@ export default function Schueler() {
                   if (!current?._id) return; setSaving(true); setMsg(null);
                   try {
                     const payload: Record<string, unknown> = {};
-                    for (const k of orderedKeys(draft as Student)) payload[k] = (draft as any)[k];
+                    for (const k of orderedKeys(draft as Student)) payload[k] = (draft as PartialStudent)[k];
                     const res = await fetch(`/api/students/${current._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                     if (!res.ok) throw new Error(await res.text());
                     const updated = await res.json();
