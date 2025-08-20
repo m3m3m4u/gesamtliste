@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       maxAge: 60 * 60 * 12,
     });
     return res;
-  } catch (e) {
+  } catch {
     return NextResponse.json({ ok: false, error: 'Fehler' }, { status: 500 });
   }
 }

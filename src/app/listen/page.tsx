@@ -136,7 +136,7 @@ function FilterForm() {
     } finally {
       setLoading(false);
     }
-  }, [stufe, status, jahr]);
+  }, [stufe, status, jahr, religion]);
 
   React.useEffect(() => { void onSearch(); }, [onSearch]);
 
