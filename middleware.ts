@@ -9,6 +9,7 @@ export function middleware(req: NextRequest) {
 
   // Public: Login und statische Assets
   if (
+  pathname === '/' ||
     pathname === '/login' ||
     pathname.startsWith('/api/login') ||
     pathname.startsWith('/_next') ||
@@ -27,7 +28,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const url = req.nextUrl.clone();
-  url.pathname = '/login';
+  url.pathname = '/';
   url.searchParams.set('next', req.nextUrl.pathname + req.nextUrl.search);
   return NextResponse.redirect(url);
 }
