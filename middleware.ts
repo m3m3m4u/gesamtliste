@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const COOKIE_NAME = 'site_auth';
+const COOKIE_VALUE = process.env.SITE_AUTH_VERSION || '1';
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -19,7 +20,7 @@ export function middleware(req: NextRequest) {
   }
 
   const isApi = pathname.startsWith('/api/');
-  const authed = req.cookies.get(COOKIE_NAME)?.value === '1';
+  const authed = req.cookies.get(COOKIE_NAME)?.value === COOKIE_VALUE;
   if (authed) return NextResponse.next();
 
   if (isApi) {
