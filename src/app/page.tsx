@@ -33,7 +33,7 @@ export default async function Home({ searchParams }: { searchParams?: SP }) {
           <a href="/schwerpunkte" className="inline-block bg-rose-600 hover:bg-rose-700 text-white px-8 py-3 rounded-md shadow transition-colors">Schwerpunkte</a>
           <a href="/statistik" className="inline-block bg-yellow-600 hover:bg-yellow-700 text-white px-8 py-3 rounded-md shadow transition-colors">Statistik</a>
           <a href="/listen" className="inline-block bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-md shadow transition-colors">Listen (Filter)</a>
-          <form action="/api/logout" method="post" onSubmit={async ()=>{}}>
+          <form action="/api/logout" method="post">
             <button type="submit" className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 px-8 py-3 rounded-md shadow transition-colors">Ausloggen</button>
           </form>
         </div>
