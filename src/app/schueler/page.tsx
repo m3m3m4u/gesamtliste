@@ -17,6 +17,28 @@ const CREATE_FIELDS: string[] = [
   'Sokrates ID','Familien-ID','Status'
 ];
 
+function MultiSelectAngebote({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const OPTIONS = ['Hausaufgabenbetreuung','Theater','Chor','Robotik','Fußball','Kunst'];
+  return (
+    <div className="flex flex-wrap gap-1">
+      {OPTIONS.map(opt => {
+        const active = value.includes(opt);
+        return (
+          <button
+            type="button"
+            key={opt}
+            onClick={() => {
+              const next = active ? value.filter(v => v !== opt) : [...value, opt];
+              onChange(next);
+            }}
+            className={`px-2 py-1 text-xs rounded border ${active ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white hover:bg-gray-50'}`}
+          >{opt}</button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Schueler() {
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
@@ -167,6 +189,25 @@ export default function Schueler() {
                   <div>
                     {k === 'Geburtsdatum' ? (
                       <input type="date" className="w-full border rounded px-2 py-1 font-mono text-xs" value={displayVal ? String(displayVal).slice(0,10) : ''} onChange={e=>update(e.target.value)} />
+                    ) : k === 'Geschlecht' ? (
+                      <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
+                        <option value=""></option>
+                        <option value="m">m</option>
+                        <option value="w">w</option>
+                        <option value="s">s</option>
+                      </select>
+                    ) : k === 'Schwerpunkte' ? (
+                      <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
+                        <option value=""></option>
+                        <option value="Sport">Sport</option>
+                        <option value="Musik">Musik</option>
+                        <option value="MINT">MINT</option>
+                        <option value="Sprache">Sprache</option>
+                      </select>
+                    ) : k === 'Angebote' ? (
+                      <MultiSelectAngebote value={Array.isArray(val)? val as string[] : []} onChange={(arr)=>{
+                        const next = { ...(draft as PartialStudent) } as PartialStudent; next[k] = arr; setDraft(next as Student); setDirty(true);
+                      }} />
                     ) : isObj || (isArray && k === 'Angebote') || String(displayVal).length > 60 ? (
                       <textarea className="w-full border rounded px-2 py-1 font-mono text-xs min-h-[60px]" value={String(displayVal)} onChange={e=>update(e.target.value)} />
                     ) : (
