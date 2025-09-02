@@ -19,44 +19,28 @@ export function middleware(req: NextRequest) {
     return NextResponse.next(); // Nur rein technische Assets weiterhin freigeben
   }
 
-  // --- IFRAME / Einbettungs-Restriktion ---
-  // Anforderung: Seite darf nur funktionieren, wenn sie als Iframe auf diler.schuleamsee.at geladen ist.
-  // Umsetzung: Prüfe Sec-Fetch-Dest + Referer. Setze Cookie embed_ok bei erlaubter Iframe-Einbettung.
-  // Nachfolgende Requests (API, Assets) werden nur erlaubt, wenn embed_ok vorhanden oder weiterhin ein gültiger iframe load.
-  // In Development (NODE_ENV=development) deaktiviert für einfacheres Testen.
-  // Immer erzwingen (auch in Development), damit lokal das gleiche Verhalten geprüft werden kann.
+  // --- IFRAME / Einbettungs-Restriktion (Token-basiert) ---
+  // Vereinfachtes Modell: Seite nur nutzbar, wenn zuvor ein gültiger Einbettungs-Token (?embed=TOKEN) gesetzt hat.
+  // 1. EMBED_TOKEN (Environment) definieren.
+  // 2. Iframe-Src: https://gesamtliste.vercel.app/?embed=TOKEN
+  // 3. Middleware setzt Cookie embed_ok, danach alle Folge-Requests erlaubt.
+  // 4. Direkter Aufruf ohne Cookie & ohne Token -> 403.
   const enforce = true;
-  const allowedParentHost = 'diler.schuleamsee.at';
+  const allowedToken = process.env.EMBED_TOKEN;
   if (enforce) {
-    const referer = req.headers.get('referer') || '';
-    let refererHost = '';
-    try { if (referer) { const u = new URL(referer); refererHost = u.host; } } catch {}
+    const token = req.nextUrl.searchParams.get('embed') || req.nextUrl.searchParams.get('t');
     const embedCookie = req.cookies.get('embed_ok')?.value === '1';
     const isApi = pathname.startsWith('/api/');
-    const token = req.nextUrl.searchParams.get('t') || req.nextUrl.searchParams.get('embed');
-    const allowedToken = process.env.EMBED_TOKEN;
-    const refererAllowed = refererHost === allowedParentHost && !!refererHost;
-    const tokenAllowed = allowedToken && token === allowedToken;
-    const secFetchSite = req.headers.get('sec-fetch-site') || '';
-    const secFetchDest = req.headers.get('sec-fetch-dest') || '';
-    const isLikelyTopLevel = (!refererHost && (secFetchSite === 'none' || secFetchSite === '')) && (secFetchDest === 'document' || secFetchDest === '');
-
-    // Harte Sperre für echte Top-Level Aufrufe, unabhängig vom Cookie
-    if (isLikelyTopLevel) {
-      const html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Blocked</title><style>body{font-family:system-ui,Arial,sans-serif;background:#fafafa;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}div{max-width:520px;padding:24px;border:1px solid #ddd;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.05);}h1{font-size:18px;margin:0 0 12px;}code{background:#eee;padding:2px 4px;border-radius:4px;}p{margin:6px 0;font-size:14px;line-height:1.45;}</style></head><body><div><h1>Direkter Aufruf blockiert</h1><p>Nur als Iframe auf <strong>' + allowedParentHost + '</strong> erlaubt.</p><p>Debug: site=' + secFetchSite + ' dest=' + secFetchDest + ' cookie=' + (embedCookie?'1':'0') + '</p></div></body></html>';
-      return new NextResponse(html, { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Embed-Debug': `block top-level site=${secFetchSite} dest=${secFetchDest}` } });
-    }
 
     if (!embedCookie) {
-      if (refererAllowed || tokenAllowed) {
+      if (allowedToken && token && token === allowedToken) {
         const res = NextResponse.next();
         res.cookies.set('embed_ok', '1', { path: '/', httpOnly: true, sameSite: 'none', secure: process.env.NODE_ENV === 'production', maxAge: 60 * 60 * 8 });
-        res.headers.set('X-Embed-Debug', `grant referer=${refererHost} token=${tokenAllowed?'yes':'no'}`);
+        res.headers.set('X-Embed-Debug', 'grant token');
         return res;
       }
-      if (isApi) return NextResponse.json({ error: 'Embedding required', detail: { refererHost, tokenProvided: !!token } }, { status: 403 });
-      const html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Blocked</title><style>body{font-family:system-ui,Arial,sans-serif;background:#fafafa;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}div{max-width:520px;padding:24px;border:1px solid #ddd;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.04);}h1{font-size:18px;margin:0 0 12px;}code{background:#eee;padding:2px 4px;border-radius:4px;}p{margin:6px 0;font-size:14px;line-height:1.45;}</style></head><body><div><h1>Zugriff blockiert</h1><p>Nur eingebettet über <strong>'+allowedParentHost+'</strong> (oder mit gültigem Token) nutzbar.</p><p>Debug: refererHost=<code>'+refererHost+'</code> token='+ (token? 'vorhanden':'keins') +'</p></div></body></html>';
-      return new NextResponse(html, { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Embed-Debug': `block referer=${refererHost||'none'} token=${token||'none'}` } });
+      if (isApi) return NextResponse.json({ error: 'Embedding required', detail: { tokenPresent: !!token } }, { status: 403 });
+      return new NextResponse('<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Blocked</title><style>body{font-family:system-ui,Arial,sans-serif;background:#fafafa;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}div{max-width:520px;padding:24px;border:1px solid #ddd;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.04);}h1{font-size:18px;margin:0 0 12px;}code{background:#eee;padding:2px 4px;border-radius:4px;}p{margin:6px 0;font-size:14px;line-height:1.45;}</style></head><body><div><h1>Zugriff blockiert</h1><p>Diese Anwendung ist nur über einen gültigen Einbettungs-Token nutzbar.</p><p>Parameter z.B.: <code>?embed=TOKEN</code></p><p>Debug: token=' + (token? 'übergeben' : 'fehlt') + '</p></div></body></html>', { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Embed-Debug': `block token=${token||'none'}` } });
     }
   }
 
