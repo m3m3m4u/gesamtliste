@@ -12,15 +12,15 @@
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
+    "docx": "^8.5.0",
     "dotenv": "^17.2.1",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.2",
     "mongodb": "^6.18.0",
     "next": "15.4.6",
-  "react": "19.1.0",
-  "react-dom": "19.1.0",
-  "xlsx": "^0.18.5",
-  "docx": "^8.5.0",
-  "jspdf": "^2.5.1",
-  "jspdf-autotable": "^3.8.2"
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

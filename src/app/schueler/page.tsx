@@ -8,33 +8,36 @@ type PartialStudent = Student & Record<string, unknown>;
 
 // Stabil: Reihenfolge der Eingabefelder (außerhalb der Komponente, damit sich die Referenz nicht bei jedem Render ändert)
 const CREATE_FIELDS: string[] = [
-  // Reihenfolge entspricht deiner Vorgabe (je 3 Spalten / Zeilen)
+  // Reihenfolge: Frühbetreuung direkt unter Schwerpunkte, Angebote danach (breit)
   'Vorname','Familienname','Geburtsdatum',
   'Klasse 25/26','Stufe 25/26','Besuchsjahr',
   'Muttersprache','Religion','Geschlecht',
-  'Schwerpunkte','Angebote','Frühbetreuung',
+  'Schwerpunkte','Frühbetreuung','Angebote',
   'Benutzername','Passwort','Anton',
   'Sokrates ID','Familien-ID','Status'
 ];
 
-function MultiSelectAngebote({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
-  const OPTIONS = ['Hausaufgabenbetreuung','Theater','Chor','Robotik','Fußball','Kunst'];
+function ToggleMulti({value, onChange, options, color='green'}: {value: string[]; onChange:(v:string[])=>void; options: string[]; color?: 'green'|'blue'|'emerald'}) {
+  function toggle(item: string){
+    const set = new Set(value);
+    if(set.has(item)) set.delete(item); else set.add(item);
+    onChange(Array.from(set));
+  }
+  const activeCls = color==='green'
+    ? 'bg-green-600 text-white border border-green-700'
+    : color==='blue'
+      ? 'bg-blue-600 text-white border border-blue-700'
+      : 'bg-emerald-600 text-white border border-emerald-700';
+  const inactiveCls = 'bg-gray-100 hover:bg-gray-200 border border-gray-300';
   return (
     <div className="flex flex-wrap gap-1">
-      {OPTIONS.map(opt => {
-        const active = value.includes(opt);
+      {options.map(o=>{
+        const act = value.includes(o);
         return (
-          <button
-            type="button"
-            key={opt}
-            onClick={() => {
-              const next = active ? value.filter(v => v !== opt) : [...value, opt];
-              onChange(next);
-            }}
-            className={`px-2 py-1 text-xs rounded border ${active ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white hover:bg-gray-50'}`}
-          >{opt}</button>
+          <button type="button" key={o} onClick={()=>toggle(o)} className={`px-2 py-1 rounded text-xs transition select-none ${act? activeCls : inactiveCls}`}>{o}</button>
         );
       })}
+      {options.length===0 && <span className="text-xs text-gray-400">(keine Optionen)</span>}
     </div>
   );
 }
@@ -50,6 +53,31 @@ export default function Schueler() {
   const [dirty, setDirty] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [angebotOptionen, setAngebotOptionen] = useState<string[]>([]);
+  const [schwerpunktOptionen, setSchwerpunktOptionen] = useState<string[]>([]);
+  const [fruehOptionen, setFruehOptionen] = useState<string[]>([]);
+  const [religionOptionen, setReligionOptionen] = useState<string[]>([]);
+  const [statusOptionen, setStatusOptionen] = useState<string[]>([]);
+  const [klassenOptionen, setKlassenOptionen] = useState<string[]>([]);
+  const [sprachenOptionen, setSprachenOptionen] = useState<string[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/students/distincts');
+        if(res.ok){
+          const json = await res.json();
+          if(Array.isArray(json.angebote)) setAngebotOptionen(json.angebote);
+          if(Array.isArray(json.schwerpunkte)) setSchwerpunktOptionen(json.schwerpunkte);
+          if(Array.isArray(json.fruehbetreuung)) setFruehOptionen(json.fruehbetreuung);
+          if(Array.isArray(json.religionen)) setReligionOptionen(json.religionen);
+          if(Array.isArray(json.status)) setStatusOptionen(json.status);
+          if(Array.isArray(json.klassen)) setKlassenOptionen(json.klassen);
+          if(Array.isArray(json.sprachen)) setSprachenOptionen(json.sprachen);
+        }
+      } catch {}
+    })();
+  }, []);
 
   async function loadByQuery(query: string) {
     setLoading(true); setMsg(null);
@@ -82,9 +110,9 @@ export default function Schueler() {
       'Vorname','Familienname','Geburtsdatum',
       'Klasse 25/26','Stufe 25/26','Besuchsjahr',
       'Muttersprache','Religion','Geschlecht',
-      'Schwerpunkte','Angebote','Frühbetreuung',
+      'Schwerpunkte','Frühbetreuung','Angebote',
       'Benutzername','Passwort','Anton',
-  'Sokrates ID','Familien-ID','Status'
+      'Sokrates ID','Familien-ID','Status'
     ];
     return [...pref.filter(k=>keys.includes(k)), ...keys.filter(k=>!pref.includes(k))];
   }
@@ -94,13 +122,25 @@ export default function Schueler() {
 
   useEffect(() => {
     if (current) {
-      const clone = { ...(current as PartialStudent) } as Student;
+      const clone = { ...(current as PartialStudent) } as any;
+      // Normalisieren: Schwerpunkte / Frühbetreuung / Angebote als Arrays
+      const toArr = (v: any): string[] => {
+        if (Array.isArray(v)) return v.map(x=>String(x).trim()).filter(Boolean);
+        if (v == null) return [];
+        const s = String(v).trim();
+        if (!s) return [];
+        // Split bei gängigen Separatoren
+        return s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean);
+      };
+      clone.Angebote = toArr(clone.Angebote);
+      clone.Schwerpunkte = toArr(clone.Schwerpunkte ?? clone.Schwerpunkt);
+      clone['Frühbetreuung'] = toArr(clone['Frühbetreuung']);
       if (current._deleted) {
         CREATE_FIELDS.forEach(f => {
-          if (!(f in clone)) (clone as PartialStudent)[f] = (f === 'Angebote') ? [] : '';
+          if (!(f in clone)) (clone as PartialStudent)[f] = (f === 'Angebote' || f==='Schwerpunkte' || f==='Frühbetreuung') ? [] : '';
         });
       }
-      setDraft(clone);
+      setDraft(clone as Student);
       setDirty(false);
     } else {
       setDraft(null);
@@ -164,14 +204,12 @@ export default function Schueler() {
                 const val = (draft as PartialStudent)[k];
               const isObj = typeof val === 'object' && val !== null && !Array.isArray(val);
               const isArray = Array.isArray(val);
-              const displayVal = k==='Angebote' && isArray ? (val as unknown[]).join(', ') : isObj ? JSON.stringify(val, null, 2) : (val ?? '');
+              const displayVal = (k==='Angebote' || k==='Schwerpunkte' || k==='Frühbetreuung') && isArray ? (val as unknown[]).join(', ') : isObj ? JSON.stringify(val, null, 2) : (val ?? '');
               function update(raw: string) {
                   const next = { ...(draft as PartialStudent) } as PartialStudent;
-                if (k === 'Angebote') {
+                if (k === 'Angebote' || k==='Schwerpunkte' || k==='Frühbetreuung') {
                   const arr = raw.split(',').map(s=>s.trim()).filter(Boolean);
                   next[k] = arr;
-                } else if (k === 'Frühbetreuung') {
-                  next[k] = raw.trim();
                 } else if (k === 'Geburtsdatum') {
                   next[k] = raw.slice(0,10);
                 } else if (k === 'Passwort') {
@@ -184,28 +222,49 @@ export default function Schueler() {
                   setDraft(next as Student); setDirty(true);
               }
               return (
-                <div key={k} className="p-1">
+                <div key={k} className={`p-1 ${['Angebote','Frühbetreuung','Schwerpunkte'].includes(k)?'sm:col-span-3':''} ${['Benutzername','Passwort','Anton'].includes(k)?'':''} `}> 
                   <div className="font-semibold text-gray-600 mb-1">{k}</div>
                   <div>
                     {k === 'Geburtsdatum' ? (
                       <input type="date" className="w-full border rounded px-2 py-1 font-mono text-xs" value={displayVal ? String(displayVal).slice(0,10) : ''} onChange={e=>update(e.target.value)} />
+                    ) : k === 'Klasse 25/26' ? (
+                      <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
+                        <option value=""></option>
+                        {klassenOptionen.map(c=> <option key={c} value={c}>{c}</option>)}
+                      </select>
                     ) : k === 'Geschlecht' ? (
                       <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
                         <option value=""></option>
                         <option value="m">m</option>
                         <option value="w">w</option>
-                        <option value="s">s</option>
+                        <option value="d">d</option>
                       </select>
-                    ) : k === 'Schwerpunkte' ? (
+                    ) : k === 'Religion' ? (
                       <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
                         <option value=""></option>
-                        <option value="Sport">Sport</option>
-                        <option value="Musik">Musik</option>
-                        <option value="MINT">MINT</option>
-                        <option value="Sprache">Sprache</option>
+                        {religionOptionen.map(r => <option key={r} value={r}>{r}</option>)}
                       </select>
+                    ) : k === 'Muttersprache' ? (
+                      <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
+                        <option value=""></option>
+                        {sprachenOptionen.map(s => <option key={s} value={s}>{s}</option>)}
+                        {displayVal && !sprachenOptionen.includes(String(displayVal)) && <option value={String(displayVal)}>{String(displayVal)}</option>}
+                      </select>
+                    ) : k === 'Status' ? (
+                      <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
+                        <option value=""></option>
+                        {statusOptionen.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    ) : k === 'Schwerpunkte' ? (
+                      <ToggleMulti value={Array.isArray(val)? val as string[] : []} options={schwerpunktOptionen} color="green" onChange={(arr)=>{
+                        const next = { ...(draft as PartialStudent) } as PartialStudent; next[k] = arr; setDraft(next as Student); setDirty(true);
+                      }} />
+                    ) : k === 'Frühbetreuung' ? (
+                      <ToggleMulti value={Array.isArray(val)? val as string[] : []} options={fruehOptionen} color="green" onChange={(arr)=>{
+                        const next = { ...(draft as PartialStudent) } as PartialStudent; next[k] = arr; setDraft(next as Student); setDirty(true);
+                      }} />
                     ) : k === 'Angebote' ? (
-                      <MultiSelectAngebote value={Array.isArray(val)? val as string[] : []} onChange={(arr)=>{
+                      <ToggleMulti value={Array.isArray(val)? val as string[] : []} options={angebotOptionen} color="green" onChange={(arr)=>{
                         const next = { ...(draft as PartialStudent) } as PartialStudent; next[k] = arr; setDraft(next as Student); setDirty(true);
                       }} />
                     ) : isObj || (isArray && k === 'Angebote') || String(displayVal).length > 60 ? (

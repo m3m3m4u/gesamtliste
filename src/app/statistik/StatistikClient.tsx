@@ -40,7 +40,7 @@ export default function StatistikClient({ data }: { data: DataProp }) {
   return (
   <div className="w-full overflow-x-auto">
   {/* No client-side sorting controls — server order is used */}
-  <table className="min-w-[520px] table-fixed border-collapse border mx-auto">
+  <table className="min-w-[520px] table-fixed border-collapse mx-auto">
         <colgroup>
           {/* Klasse wider, Gesamt und w/m schmaler, dann für jede Stufe zwei schmale Spalten */}
   <col style={{ width: '120px' }} />
@@ -56,35 +56,25 @@ export default function StatistikClient({ data }: { data: DataProp }) {
   {/* no trailing m/w columns */}
         </colgroup>
           <thead>
-            <tr className="bg-gray-100">
+            <tr className="bg-gray-100 border-t-2 border-b-2">
               <th className="border px-1 py-0.5 whitespace-nowrap">Klasse</th>
               <th className="border px-2 py-1 text-right whitespace-nowrap">Schüler</th>
               <th className="border px-2 py-1 text-center whitespace-nowrap" colSpan={2}>Gesamt</th>
-              {data.stufen.map(s => (
-                <th key={s} className="border px-2 py-1 text-center whitespace-nowrap" colSpan={2}>{'Stufe ' + s}</th>
+              {data.stufen.map((s,i) => (
+                <th key={s} className={`border px-2 py-1 text-center whitespace-nowrap ${i>0? 'border-l-2':''}`} colSpan={2}>{'Stufe ' + s}</th>
               ))}
             </tr>
-            <tr className="bg-gray-100">
+            <tr className="bg-gray-100 border-b-2">
               {/* placeholders for Klasse and Schüler */}
               <th className="border px-2 py-1" />
               <th className="border px-2 py-1" />
               {/* Gesamt: w then m */}
               <th className="border px-2 py-1 whitespace-nowrap text-center">w</th>
-              <th className="border px-2 py-1 whitespace-nowrap text-center">m</th>
+              <th className="border px-2 py-1 whitespace-nowrap text-center border-r-2">m</th>
               {data.stufen.map((s, idx) => (
                 <React.Fragment key={s + '_sub'}>
-                  {/* For the last two stufen, show m then w to produce last 4 columns: m w m w */}
-                  {idx >= Math.max(0, data.stufen.length - 2) ? (
-                    <>
-                      <th className="border px-2 py-1 whitespace-nowrap">w</th>
-                      <th className="border px-2 py-1 whitespace-nowrap">m</th>
-                    </>
-                  ) : (
-                    <>
-                      <th className="border px-2 py-1 whitespace-nowrap">w</th>
-                      <th className="border px-2 py-1 whitespace-nowrap">m</th>
-                    </>
-                  )}
+                  <th className="border px-2 py-1 whitespace-nowrap">w</th>
+                  <th className="border px-2 py-1 whitespace-nowrap border-r-2">m</th>
                 </React.Fragment>
               ))}
               {/* no final trailing m & w */}
@@ -92,24 +82,24 @@ export default function StatistikClient({ data }: { data: DataProp }) {
           </thead>
           <tbody>
             {sorted.map(r=> (
-              <tr key={r.klasse} className="hover:bg-gray-50 odd:bg-white even:bg-gray-50">
+              <tr key={r.klasse} className="hover:bg-gray-50 odd:bg-white even:bg-gray-50 border-b-2">
                 <td className="border px-2 py-1">{r.klasse}</td>
-                <td className="border px-2 py-1 text-right">{r.total}</td>
-                <td className="border px-2 py-1 text-right">{r.w}</td>
-                <td className="border px-2 py-1 text-right">{r.m}</td>
+                <td className="border px-2 py-1 text-right">{r.total===0? '' : r.total}</td>
+                <td className="border px-2 py-1 text-right text-red-600">{r.w===0? '' : r.w}</td>
+                <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{r.m===0? '' : r.m}</td>
                 {data.stufen.map((s, idx) => {
                   const st = r.stufen[s] || { w: 0, m: 0 };
                   return (
                     <React.Fragment key={r.klasse + '_' + s}>
                       {idx >= Math.max(0, data.stufen.length - 2) ? (
                         <>
-                          <td className="border px-2 py-1 text-right">{st.w}</td>
-                          <td className="border px-2 py-1 text-right">{st.m}</td>
+                          <td className="border px-2 py-1 text-right text-red-600">{st.w===0? '' : st.w}</td>
+                          <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{st.m===0? '' : st.m}</td>
                         </>
                       ) : (
                         <>
-                          <td className="border px-2 py-1 text-right">{st.w}</td>
-                          <td className="border px-2 py-1 text-right">{st.m}</td>
+                          <td className="border px-2 py-1 text-right text-red-600">{st.w===0? '' : st.w}</td>
+                          <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{st.m===0? '' : st.m}</td>
                         </>
                       )}
                     </React.Fragment>

@@ -49,7 +49,8 @@ type MultiSelectProps = {
 function MultiSelect({ label, options, values, onChange, renderOption, className }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement | null>(null);
-  const shown = values.length ? values.map(v => (renderOption ? renderOption(v) : v)).join(', ') : 'Alle';
+  const allSelected = values.length>0 && values.length === options.length;
+  const shown = allSelected ? 'Alle' : (values.length ? values.map(v => (renderOption ? renderOption(v) : v)).join(', ') : 'Alle');
   React.useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
@@ -102,6 +103,7 @@ function FilterForm() {
   const [status, setStatus] = React.useState<string[]>([]);
   const [jahr, setJahr] = React.useState<string[]>([]);
   const [religion, setReligion] = React.useState<string[]>([]);
+  const [klassen, setKlassen] = React.useState<string[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [items, setItems] = React.useState<Student[]>([]);
   const [error, setError] = React.useState<string | null>(null);
@@ -109,6 +111,7 @@ function FilterForm() {
   const [statusOpt, setStatusOpt] = React.useState<string[]>([]);
   const [jahreOpt, setJahreOpt] = React.useState<string[]>([]);
   const [religionOpt, setReligionOpt] = React.useState<string[]>([]);
+  const [klassenOpt, setKlassenOpt] = React.useState<string[]>([]);
   const [exporting, setExporting] = React.useState<null | 'excel' | 'pdf' | 'word'>(null);
   const [exportDone, setExportDone] = React.useState<null | 'excel' | 'pdf' | 'word'>(null);
 
@@ -118,10 +121,11 @@ function FilterForm() {
     setError(null);
     try {
       const p = new URLSearchParams();
-      stufe.forEach(s => p.append('stufe', s));
+  stufe.forEach(s => p.append('stufe', s));
       status.forEach(s => p.append('status', s));
       jahr.forEach(j => p.append('jahr', j));
   religion.forEach(r => p.append('religion', r));
+  klassen.forEach(k => p.append('klasse', k));
       p.set('limit', '2000');
       const res = await fetch(`/api/students?${p.toString()}`, { cache: 'no-store' });
       if (!res.ok) {
@@ -136,7 +140,7 @@ function FilterForm() {
     } finally {
       setLoading(false);
     }
-  }, [stufe, status, jahr, religion]);
+  }, [stufe, status, jahr, religion, klassen]);
 
   React.useEffect(() => { void onSearch(); }, [onSearch]);
 
@@ -148,8 +152,9 @@ function FilterForm() {
         const d = await res.json();
         setStufenOpt(d.stufen || []);
         setStatusOpt(d.status || []);
-        setJahreOpt(d.jahre || []);
+    setJahreOpt(d.jahre || []);
   setReligionOpt(d.religionen || []);
+    setKlassenOpt(d.klassen || []);
       } catch {}
     })();
   }, []);
@@ -176,6 +181,36 @@ function FilterForm() {
     }
   };
 
+  // Sortierung
+  const [sortKey, setSortKey] = React.useState<'Vorname'|'Familienname'|'Klasse'|'Stufe'|'Status'|'Besuchsjahr'|'Religion'>('Familienname');
+  const [sortDir, setSortDir] = React.useState<'asc'|'desc'>('asc');
+  const sortedItems = React.useMemo(()=>{
+    const arr = [...items];
+    arr.sort((a,b)=>{
+      function val(it: Student, key: string){
+        if(key==='Klasse') return (it['Klasse 25/26']||it.Klasse||'').toString();
+        if(key==='Stufe') return (it['Stufe 25/26']||'').toString();
+        if(key==='Besuchsjahr') return (it.Besuchsjahr||'').toString();
+        return (it as any)[key] ? String((it as any)[key]) : '';
+      }
+      const va = val(a, sortKey);
+      const vb = val(b, sortKey);
+      return sortDir==='asc' ? va.localeCompare(vb,'de',{numeric:true,sensitivity:'base'}) : vb.localeCompare(va,'de',{numeric:true,sensitivity:'base'});
+    });
+    return arr;
+  }, [items, sortKey, sortDir]);
+  function toggleSort(key: typeof sortKey){
+    setSortKey(prev=> prev===key ? prev : key);
+    setSortDir(prev=> sortKey===key ? (prev==='asc'?'desc':'asc') : 'asc');
+  }
+  function th(label: string, key: typeof sortKey){
+    const active = sortKey===key;
+    return (
+      <th className={"border px-2 py-1 text-left cursor-pointer select-none "+(active? 'bg-blue-50':'')} onClick={()=>toggleSort(key)}>
+        {label}{active && <span className="ml-1 text-xs">{sortDir==='asc'?'▲':'▼'}</span>}
+      </th>
+    );
+  }
   return (
     <form onSubmit={onSearch} className="mb-3 flex flex-wrap items-end gap-3">
       <MultiSelect label="Stufe" options={stufenOpt} values={stufe} onChange={setStufe} className="w-48"
@@ -183,6 +218,7 @@ function FilterForm() {
       <MultiSelect label="Status" options={statusOpt} values={status} onChange={setStatus} className="w-64" />
       <MultiSelect label="Besuchsjahr" options={jahreOpt} values={jahr} onChange={setJahr} className="w-48" />
   <MultiSelect label="Religion" options={religionOpt} values={religion} onChange={setReligion} className="w-48" />
+      <MultiSelect label="Klasse" options={klassenOpt} values={klassen} onChange={setKlassen} className="w-48" />
       <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded disabled:opacity-50" disabled={loading}>{loading? 'Laden…':'Filtern'}</button>
       <span className="text-gray-500 text-sm">Treffer: {items.length}</span>
   {/* Hinweis entfällt, da Checkbox-Dropdowns */}
@@ -213,17 +249,17 @@ function FilterForm() {
         <table className="min-w-[700px] w-full table-fixed border-collapse">
           <thead>
             <tr className="bg-gray-100">
-              <th className="border px-2 py-1 text-left">Vorname</th>
-              <th className="border px-2 py-1 text-left">Familienname</th>
-              <th className="border px-2 py-1 text-left">Klasse</th>
-              <th className="border px-2 py-1 text-left">Stufe</th>
-              <th className="border px-2 py-1 text-left">Status</th>
-              <th className="border px-2 py-1 text-left">Besuchsjahr</th>
-              <th className="border px-2 py-1 text-left">Religion</th>
+              {th('Vorname','Vorname')}
+              {th('Familienname','Familienname')}
+              {th('Klasse','Klasse')}
+              {th('Stufe','Stufe')}
+              {th('Status','Status')}
+              {th('Besuchsjahr','Besuchsjahr')}
+              {th('Religion','Religion')}
             </tr>
           </thead>
           <tbody>
-            {items.map((it: Student) => (
+            {sortedItems.map((it: Student) => (
               <tr key={it._id} className="odd:bg-white even:bg-gray-50">
                 <td className="border px-2 py-1">{it.Vorname}</td>
                 <td className="border px-2 py-1">{it.Familienname || it.Nachname}</td>

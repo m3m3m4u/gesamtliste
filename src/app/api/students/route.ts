@@ -6,7 +6,10 @@ import clientPromise from '@/lib/mongodb';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const raw = (searchParams.get('q') || searchParams.get('search') || '').trim();
-  const klasse = (searchParams.get('klasse') || '').trim();
+  const klasseParams = Array.from(new Set([
+    ...searchParams.getAll('klasse').map(s=>s.trim()).filter(Boolean),
+    ...(searchParams.get('klasse') ? [String(searchParams.get('klasse')).trim()] : [])
+  ]));
   const angebot = (searchParams.get('angebot') || '').trim();
   // Mehrfachwerte unterstützen (sowohl getAll als auch einzelner Fallback)
   const stufeParams = Array.from(new Set([
@@ -38,7 +41,40 @@ export async function GET(request: Request) {
   if (raw) {
     // Split nach Leerzeichen für einfache UND-Suche (alle Tokens müssen matchen)
     const tokens = raw.split(/\s+/).filter(Boolean);
-    const makeRegex = (t: string) => ({ $regex: t, $options: 'i' });
+    // Flexible Regex-Erzeugung: Akzent-/Diakritika-unabhängig (Jose -> findet José, İpek -> finden mit Ipek etc.)
+    const variantMap: Record<string,string> = {
+      a: 'aàáâäãåāą',
+      c: 'cçčć',
+      e: 'eèéêëēėęě',
+      i: 'iıíîïīįì', // enthält türkisches ı
+      o: 'oòóôöõōőø',
+      u: 'uùúûüūůű',
+      y: 'yÿý',
+      s: 'sśšß',
+      n: 'nñńň',
+      l: 'lł',
+      d: 'dď',
+      t: 'tť',
+      z: 'zźżž',
+      g: 'gğ',
+      r: 'rř'
+    };
+    const regexSpecial = /[.*+?^${}()|[\]\\]/g;
+    function escape(ch: string){ return ch.replace(regexSpecial, r=> '\\' + r); }
+    function tokenToPattern(token: string){
+      let out = '';
+      for(const rawCh of token.toLowerCase()){
+        if(variantMap[rawCh]){
+          // Zeichenklasse mit allen Varianten
+          const chars = variantMap[rawCh];
+          out += '[' + chars + ']';
+        } else {
+          out += escape(rawCh);
+        }
+      }
+      return out;
+    }
+    const makeRegex = (t: string) => ({ $regex: tokenToPattern(t), $options: 'i' });
     const fieldNames = onlyNames ? ['Vorname','Familienname'] : ['Vorname','Familienname','Benutzername'];
     filter = {
       $and: tokens.map(t => ({
@@ -46,16 +82,17 @@ export async function GET(request: Request) {
       }))
     };
   }
-  if (klasse) {
-    // Klasse kann in mehreren Feldern vorkommen -> wir prüfen gängige Feldnamen
-    const klasseFilter = {
-      $or: [
-        { Klasse: klasse },
-        { 'Klasse 25/26': klasse },
-        { Klasse25: klasse },
-        { Klasse26: klasse }
-      ]
-    };
+  if (klasseParams.length) {
+    const orList: Record<string, unknown>[] = [];
+    for (const k of klasseParams) {
+      orList.push(
+        { Klasse: k },
+        { 'Klasse 25/26': k },
+        { Klasse25: k },
+        { Klasse26: k }
+      );
+    }
+    const klasseFilter = { $or: orList };
     filter = Object.keys(filter).length ? { $and: [filter, klasseFilter] } : klasseFilter;
   }
   if (angebot) {
