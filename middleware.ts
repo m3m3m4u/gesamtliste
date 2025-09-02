@@ -44,13 +44,17 @@ export function middleware(req: NextRequest) {
       res.headers.set('X-Embed-Debug', `grant iframe referer=${refererHost}`);
       return res;
     }
-
-    // Jede Anfrage ohne gültiges Embed-Cookie blocken
+    const isApi = pathname.startsWith('/api/');
+    const isDocument = dest === 'document' || dest === '';
+    // Top-Level Aufrufe immer blocken
+    if (isDocument) {
+      const html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Blocked</title><style>body{font-family:system-ui,Arial,sans-serif;background:#f8f8f8;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}div{max-width:520px;padding:24px;border:1px solid #ddd;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.06);}h1{font-size:18px;margin:0 0 12px;}code{background:#eee;padding:2px 4px;border-radius:4px;}p{margin:6px 0;font-size:14px;line-height:1.45;}</style></head><body><div><h1>Direkter Zugriff blockiert</h1><p>Nur eingebettet über <strong>'+allowedParentHost+'</strong> erlaubt.</p><p>Debug: dest=<code>'+dest+'</code> refererHost=<code>'+refererHost+'</code> cookie='+embedCookie+'</p></div></body></html>';
+      return new NextResponse(html, { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Embed-Debug': `block document dest=${dest} referer=${refererHost}` } });
+    }
+    // Nicht-Document (z.B. fetch von außen) nur erlauben, wenn iframe vorher Cookie gesetzt hat
     if (!embedCookie) {
-      const isApi = pathname.startsWith('/api/');
-      if (isApi) return NextResponse.json({ error: 'Embedding required', detail: { dest, refererHost } }, { status: 403 });
-      const html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Blocked</title><style>body{font-family:system-ui,Arial,sans-serif;background:#f8f8f8;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}div{max-width:520px;padding:24px;border:1px solid #ddd;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.06);}h1{font-size:18px;margin:0 0 12px;}code{background:#eee;padding:2px 4px;border-radius:4px;}p{margin:6px 0;font-size:14px;line-height:1.45;}</style></head><body><div><h1>Embedding erforderlich</h1><p>Diese Anwendung darf nur als Iframe auf <strong>'+allowedParentHost+'</strong> geladen werden.</p><p>Debug: dest=<code>'+dest+'</code> refererHost=<code>'+refererHost+'</code></p></div></body></html>';
-      return new NextResponse(html, { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Embed-Debug': `block no-cookie dest=${dest} referer=${refererHost}` } });
+      if (isApi) return NextResponse.json({ error: 'Embedding required', detail: { dest, refererHost, cookie: false } }, { status: 403 });
+      return new NextResponse('Forbidden', { status: 403, headers: { 'X-Embed-Debug': `block no-cookie non-doc dest=${dest} referer=${refererHost}` } });
     }
   }
 
