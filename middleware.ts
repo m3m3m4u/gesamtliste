@@ -66,6 +66,14 @@ export function middleware(req: NextRequest) {
   if (authed) return NextResponse.next();
 
   const isApi = pathname.startsWith('/api/');
+  // Wenn eingebettet (iframe) und noch keine Auth -> erst zur Übersicht statt sofort Login
+  const dest = req.headers.get('sec-fetch-dest');
+  if (dest === 'iframe') {
+    const overviewUrl = req.nextUrl.clone();
+    overviewUrl.pathname = '/';
+    overviewUrl.search = '';
+    return NextResponse.redirect(overviewUrl);
+  }
   if (isApi) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const url = req.nextUrl.clone();
