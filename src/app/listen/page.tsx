@@ -191,7 +191,7 @@ function FilterForm() {
         if(key==='Klasse') return (it['Klasse 25/26']||it.Klasse||'').toString();
         if(key==='Stufe') return (it['Stufe 25/26']||'').toString();
         if(key==='Besuchsjahr') return (it.Besuchsjahr||'').toString();
-        return (it as any)[key] ? String((it as any)[key]) : '';
+  return (it as Record<string, unknown>)[key] ? String((it as Record<string, unknown>)[key]) : '';
       }
       const va = val(a, sortKey);
       const vb = val(b, sortKey);

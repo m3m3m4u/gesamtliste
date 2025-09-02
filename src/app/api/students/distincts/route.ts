@@ -39,10 +39,12 @@ export async function GET() {
 
   // Konfigurationsdokument lesen (falls vorhanden)
   const configCol = db.collection('config');
-  const cfg = await configCol.findOne({ _id: 'optionen' } as any).catch(()=>null);
+  type CfgDoc = { _id: string; angebote?: string[]; schwerpunkte?: string[]; fruehbetreuung?: string[]; status?: string[]; religionen?: string[]; klassen?: string[]; sprachen?: string[] };
+  // Filter auf String-ID; mit as unknown als Workaround für ObjectId-Typkonflikt
+  const cfg = await configCol.findOne<CfgDoc>({ _id: 'optionen' } as unknown as Record<string, unknown>).catch(()=>null);
   let angebote: string[];
-  if (cfg && Array.isArray((cfg as any).angebote) && (cfg as any).angebote.length) {
-  angebote = unique((cfg as any).angebote.map((v: any)=>String(v??'')).filter((s: string)=>s.length>0));
+  if (cfg && Array.isArray(cfg.angebote) && cfg.angebote.length) {
+    angebote = unique(cfg.angebote.map(v=>String(v??'')).filter(s=>s.length>0));
   } else {
     const rawAngebote = await col.distinct('Angebote', baseFilter);
     angebote = unique(rawAngebote.map(v => String(v ?? '').trim()))
@@ -75,32 +77,32 @@ export async function GET() {
   let schwerpunkte = unique(collect.map(v=>v.trim()))
     .filter(s=>s!=='' && s !== '-')
     .sort((a,b)=>a.localeCompare(b,'de'));
-  if (cfg && Array.isArray((cfg as any).schwerpunkte) && (cfg as any).schwerpunkte.length) {
-  schwerpunkte = unique((cfg as any).schwerpunkte.map((v: any)=>String(v??'')).filter((s: string)=>s.length>0));
+  if (cfg && Array.isArray(cfg.schwerpunkte) && cfg.schwerpunkte.length) {
+    schwerpunkte = unique(cfg.schwerpunkte.map(v=>String(v??'')).filter(s=>s.length>0));
   }
 
   let fruehbetreuung = unique((rawFrueh as unknown[]).map(v=>String(v??'').trim()))
     .filter(s=>s!=='')
     .sort((a,b)=>a.localeCompare(b,'de'));
-  if (cfg && Array.isArray((cfg as any).fruehbetreuung) && (cfg as any).fruehbetreuung.length) {
-  fruehbetreuung = unique((cfg as any).fruehbetreuung.map((v: any)=>String(v??'')).filter((s: string)=>s.length>0));
+  if (cfg && Array.isArray(cfg.fruehbetreuung) && cfg.fruehbetreuung.length) {
+    fruehbetreuung = unique(cfg.fruehbetreuung.map(v=>String(v??'')).filter(s=>s.length>0));
   }
 
-  if (cfg && Array.isArray((cfg as any).status) && (cfg as any).status.length) {
-    status = unique(((cfg as any).status as any[]).map((v: any)=>String(v??''))).filter((s: string)=> (s as string).length>0) as string[];
+  if (cfg && Array.isArray(cfg.status) && cfg.status.length) {
+    status = unique(cfg.status.map(v=>String(v??''))).filter(s=>s.length>0);
   }
-  if (cfg && Array.isArray((cfg as any).religionen) && (cfg as any).religionen.length) {
-    religionen = unique((cfg as any).religionen.map((v: any)=>String(v??'')).filter((s: string)=>s.length>0));
+  if (cfg && Array.isArray(cfg.religionen) && cfg.religionen.length) {
+    religionen = unique(cfg.religionen.map(v=>String(v??'')).filter(s=>s.length>0));
   }
-  if (cfg && Array.isArray((cfg as any).sprachen) && (cfg as any).sprachen.length) {
-    sprachen = unique((cfg as any).sprachen.map((v: any)=>String(v??'')).filter((s: any)=>(s as string).length>0)) as string[];
+  if (cfg && Array.isArray(cfg.sprachen) && cfg.sprachen.length) {
+    sprachen = unique(cfg.sprachen.map(v=>String(v??'')).filter(s=>s.length>0));
   }
   // Klassen (aus aktueller Klasse 25/26 oder historisch) aggregieren
   const rawKlassenNeu = await col.distinct('Klasse 25/26', baseFilter);
   const rawKlassenAlt1 = await col.distinct('Klasse 24/25', baseFilter).catch(()=>[]);
   let klassen = unique([...(rawKlassenNeu as unknown[]), ...(rawKlassenAlt1 as unknown[])].map(v=>String(v??'').trim()).filter(s=>s!==''));
-  if (cfg && Array.isArray((cfg as any).klassen) && (cfg as any).klassen.length) {
-  klassen = unique((cfg as any).klassen.map((v: any)=>String(v??''))).filter((s: any)=>(s as string).length>0) as string[];
+  if (cfg && Array.isArray(cfg.klassen) && cfg.klassen.length) {
+    klassen = unique(cfg.klassen.map(v=>String(v??''))).filter(s=>s.length>0);
   } else {
     klassen = klassen.sort((a,b)=>a.localeCompare(b,'de')); 
   }

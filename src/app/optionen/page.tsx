@@ -7,7 +7,7 @@ type Lists = { angebote: string[]; schwerpunkte: string[]; fruehbetreuung: strin
 export default function OptionenPage(){
   const [data,setData] = useState<Lists>({ angebote:[], schwerpunkte:[], fruehbetreuung:[], status:[], religionen:[], klassen:[], sprachen:[] });
   const [dirty,setDirty] = useState(false);
-  const [raw,setRaw] = useState<any>({ angebote:'', schwerpunkte:'', fruehbetreuung:'', status:'', religionen:'', klassen:'', sprachen:'' });
+  const [raw,setRaw] = useState<Record<keyof Lists,string>>({ angebote:'', schwerpunkte:'', fruehbetreuung:'', status:'', religionen:'', klassen:'', sprachen:'' });
   const [saving,setSaving] = useState(false);
   const [msg,setMsg] = useState<string|null>(null);
 
@@ -26,7 +26,7 @@ export default function OptionenPage(){
           dj.sprachen.forEach((s: string)=>{ if(s && !setS.has(s)) setS.add(s); });
           next.sprachen = Array.from(setS);
         }
-  setRaw((r: any)=>({ ...r, religionen: next.religionen.join('\n'), klassen: next.klassen.join('\n'), sprachen: next.sprachen.join('\n') }));
+  setRaw(r=>({ ...r, religionen: next.religionen.join('\n'), klassen: next.klassen.join('\n'), sprachen: next.sprachen.join('\n') }));
         return next;
       });
     }
@@ -34,7 +34,7 @@ export default function OptionenPage(){
 
   function upd(key: keyof Lists, text: string){
     // Leere Zeilen im Raw erhalten, aber nicht als Eintrag speichern
-  setRaw((r: any)=>({ ...r, [key]: text }));
+  setRaw(r=>({ ...r, [key]: text }));
     const arr = text.replace(/\r/g,'').split('\n').filter(line=>line.length>0);
     setData(d=>({ ...d, [key]: arr }));
     setDirty(true); setMsg(null);

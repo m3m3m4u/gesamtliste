@@ -8,7 +8,7 @@ interface OptionenDoc { _id: string; angebote: string[]; schwerpunkte: string[];
 
 async function loadDoc(){
   const client = await clientPromise; const db = client.db(); const col = db.collection<OptionenDoc>('config');
-  const doc = await col.findOne({ _id: 'optionen' as any });
+  const doc = await col.findOne({ _id: 'optionen' });
   return { col, doc };
 }
 
@@ -27,21 +27,21 @@ export async function GET(){
 
 export async function PUT(request: Request){
   try {
-    const body = await request.json();
-    const norm = (v: any): string[] => Array.isArray(v) ? v.map(x=>String(x)).filter(x=>x.length>0) : [];
+    const body: Partial<OptionenDoc> = await request.json();
+    const norm = (v: unknown): string[] => Array.isArray(v) ? v.map(x=>String(x)).filter(x=>x.length>0) : [];
     const doc = {
       _id: 'optionen',
       angebote: norm(body.angebote),
       schwerpunkte: norm(body.schwerpunkte),
       fruehbetreuung: norm(body.fruehbetreuung),
       status: norm(body.status),
-  religionen: norm(body.religionen),
-  klassen: norm(body.klassen),
-  sprachen: norm(body.sprachen),
+      religionen: norm(body.religionen),
+      klassen: norm(body.klassen),
+      sprachen: norm(body.sprachen),
       updatedAt: new Date().toISOString()
     };
     const { col } = await loadDoc();
-  await col.updateOne({ _id: 'optionen' as any }, { $set: doc }, { upsert: true });
+    await col.updateOne({ _id: 'optionen' }, { $set: doc }, { upsert: true });
     return NextResponse.json(doc);
   } catch(e){
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Fehler' }, { status: 500 });

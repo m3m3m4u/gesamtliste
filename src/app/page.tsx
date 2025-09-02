@@ -3,9 +3,7 @@ import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
-type SP = Promise<Record<string, string | string[] | undefined>>;
-
-export default async function Home({ searchParams }: { searchParams?: SP }) {
+export default async function Home() {
   const cookieStore = await cookies();
   const version = process.env.SITE_AUTH_VERSION || '1';
   const authed = cookieStore.get('site_auth')?.value === version;

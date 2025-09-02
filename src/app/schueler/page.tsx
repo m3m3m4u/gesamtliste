@@ -122,9 +122,9 @@ export default function Schueler() {
 
   useEffect(() => {
     if (current) {
-      const clone = { ...(current as PartialStudent) } as any;
+      const clone: PartialStudent = { ...(current as PartialStudent) };
       // Normalisieren: Schwerpunkte / Frühbetreuung / Angebote als Arrays
-      const toArr = (v: any): string[] => {
+  const toArr = (v: unknown): string[] => {
         if (Array.isArray(v)) return v.map(x=>String(x).trim()).filter(Boolean);
         if (v == null) return [];
         const s = String(v).trim();
