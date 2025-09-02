@@ -26,7 +26,8 @@ export function middleware(req: NextRequest) {
   // Umsetzung: Prüfe Sec-Fetch-Dest + Referer. Setze Cookie embed_ok bei erlaubter Iframe-Einbettung.
   // Nachfolgende Requests (API, Assets) werden nur erlaubt, wenn embed_ok vorhanden oder weiterhin ein gültiger iframe load.
   // In Development (NODE_ENV=development) deaktiviert für einfacheres Testen.
-  const enforce = process.env.NODE_ENV !== 'development';
+  // Immer erzwingen (auch in Development), damit lokal das gleiche Verhalten geprüft werden kann.
+  const enforce = true;
   const allowedParentHost = 'diler.schuleamsee.at';
   if (enforce) {
     const dest = req.headers.get('sec-fetch-dest'); // 'iframe', 'document', 'empty', ...
@@ -40,9 +41,15 @@ export function middleware(req: NextRequest) {
     const fromAllowedParent = refererHost === allowedParentHost;
 
     if (isIframeLoad && fromAllowedParent) {
-      // Setze Cookie für Folge-Requests
+      // Setze Cookie für Folge-Requests (SameSite=None für Drittanbieter-Iframe, httpOnly zur Abschirmung)
       const res = NextResponse.next();
-      res.cookies.set('embed_ok', '1', { path: '/', httpOnly: false });
+      res.cookies.set('embed_ok', '1', {
+        path: '/',
+        httpOnly: true,
+        sameSite: 'none',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 8,
+      });
       return res;
     }
 
@@ -52,7 +59,7 @@ export function middleware(req: NextRequest) {
     }
 
     // Für API / nachgelagerte Requests: nur erlauben, wenn Cookie vorhanden
-    if (!embedCookie) {
+  if (!embedCookie) {
       const isApi = pathname.startsWith('/api/');
       if (isApi) return NextResponse.json({ error: 'Embedding required' }, { status: 403 });
       return new NextResponse('<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Blocked</title><style>body{font-family:system-ui,Arial,sans-serif;background:#f8f8f8;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}div{max-width:480px;padding:24px;border:1px solid #ddd;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.06);}h1{font-size:18px;margin:0 0 12px;}p{margin:4px 0;font-size:14px;line-height:1.4;}</style></head><body><div><h1>Embedding erforderlich</h1><p>Bitte nur über <strong>" + allowedParentHost + "</strong> im Iframe aufrufen.</p></div></body></html>', { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
