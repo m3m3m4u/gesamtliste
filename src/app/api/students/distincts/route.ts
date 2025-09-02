@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
+import { requireEmbedAllowed } from '@/lib/embedGuard';
 
 function normStufe(v: unknown): string {
   const s = String(v ?? '').trim();
@@ -10,6 +11,9 @@ function normStufe(v: unknown): string {
 function unique<T>(arr: T[]): T[] { return Array.from(new Set(arr)); }
 
 export async function GET() {
+  if (!(await requireEmbedAllowed())) {
+    return NextResponse.json({ error: 'Embedding required' }, { status: 403 });
+  }
   const client = await clientPromise;
   const db = client.db();
   const col = db.collection('students');
