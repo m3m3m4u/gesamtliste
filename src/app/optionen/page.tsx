@@ -55,7 +55,7 @@ export default function OptionenPage(){
     <div className="max-w-3xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Optionen verwalten</h1>
-        <Link href="/" className="text-sm text-blue-600 underline">Zur Startseite</Link>
+  <Link href="/" className="text-sm text-blue-600 underline">Zur Übersicht</Link>
       </div>
       <p className="text-sm text-gray-600">Eine Zeile pro Eintrag. Leere Zeilen werden ignoriert.</p>
 
