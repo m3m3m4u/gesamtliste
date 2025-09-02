@@ -3,8 +3,8 @@ import { NextResponse } from 'next/server';
 const COOKIE_NAME = 'site_auth';
 
 export async function POST() {
-  // Nach dem Ausloggen zurück zur öffentlichen Übersicht (/)
-  const res = NextResponse.redirect(new URL('/', process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'));
+  // Cookie löschen, aber kein Redirect (Iframe bleibt stabil)
+  const res = new NextResponse(null, { status: 204 });
   res.cookies.set(COOKIE_NAME, '', {
     httpOnly: true,
     sameSite: 'lax',
