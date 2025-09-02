@@ -52,7 +52,7 @@ export default function OptionenPage(){
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
+  <div className="w-full max-w-3xl mx-auto p-6 pt-10 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Optionen verwalten</h1>
   <Link href="/" className="text-sm text-blue-600 underline">Zur Übersicht</Link>

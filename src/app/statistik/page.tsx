@@ -124,10 +124,12 @@ export default async function StatistikPage() {
 
   const data = { classes: allClasses, stufen, years: yearsAll, map: clientMap, aggregatedMap };
   return (
-    <div className="p-6 w-full">
-  <BackLink />
-      <h1 className="text-2xl font-bold mb-4">Statistik nach Klassen</h1>
-      <StatistikClient data={data} />
+    <div className="w-full flex justify-center pt-10 px-6">
+      <div className="w-full max-w-6xl">
+        <BackLink />
+        <h1 className="text-2xl font-bold mb-6">Statistik nach Klassen</h1>
+        <StatistikClient data={data} />
+      </div>
     </div>
   );
 }

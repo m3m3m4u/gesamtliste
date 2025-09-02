@@ -212,7 +212,7 @@ function FilterForm() {
     );
   }
   return (
-    <form onSubmit={onSearch} className="mb-3 flex flex-wrap items-end gap-3">
+    <form onSubmit={onSearch} className="mb-3 flex flex-wrap items-end gap-3 pt-6">
       <MultiSelect label="Stufe" options={stufenOpt} values={stufe} onChange={setStufe} className="w-48"
         renderOption={(v)=> v === '0' ? '0 (leer)' : v} />
       <MultiSelect label="Status" options={statusOpt} values={status} onChange={setStatus} className="w-64" />

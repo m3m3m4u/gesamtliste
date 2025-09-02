@@ -9,8 +9,8 @@ export default async function Home() {
   const authed = cookieStore.get('site_auth')?.value === version;
   // Übersicht ist immer öffentlich sichtbar
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
-      <div className="text-center space-y-8 max-w-md">
+    <main className="w-full flex justify-center p-8">
+      <div className="text-center space-y-8 max-w-md mt-8">
         <h1 className="text-3xl font-bold tracking-tight">Übersicht</h1>
         <p className="text-gray-600 leading-relaxed">Wähle einen Bereich.</p>
         <div className="flex flex-col gap-4">
