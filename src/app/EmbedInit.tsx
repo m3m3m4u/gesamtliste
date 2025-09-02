@@ -6,8 +6,13 @@ export default function EmbedInit() {
   const [done,setDone] = useState(false);
   useEffect(() => {
     if (!need) return;
-    // Versuch Cookie zu setzen
-    fetch('/api/embed-set', { method: 'POST', credentials: 'include' })
+    const token = process.env.NEXT_PUBLIC_EMBED_TOKEN;
+    fetch('/api/embed-set', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    })
       .catch(()=>{})
       .finally(()=>setDone(true));
   }, [need]);
