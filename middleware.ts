@@ -28,19 +28,20 @@ export function middleware(req: NextRequest) {
   const enforce = true;
   const allowedToken = process.env.EMBED_TOKEN;
   if (enforce) {
+    const EMBED_COOKIE_NAME = 'embed2_ok';
     const token = req.nextUrl.searchParams.get('embed') || req.nextUrl.searchParams.get('t');
-    const embedCookie = req.cookies.get('embed_ok')?.value === '1';
+    const embedCookie = req.cookies.get(EMBED_COOKIE_NAME)?.value === '1';
     const isApi = pathname.startsWith('/api/');
 
     if (!embedCookie) {
       if (allowedToken && token && token === allowedToken) {
         const res = NextResponse.next();
-        res.cookies.set('embed_ok', '1', { path: '/', httpOnly: true, sameSite: 'none', secure: process.env.NODE_ENV === 'production', maxAge: 60 * 60 * 8 });
+        res.cookies.set(EMBED_COOKIE_NAME, '1', { path: '/', httpOnly: true, sameSite: 'none', secure: process.env.NODE_ENV === 'production', maxAge: 60 * 60 * 8 });
         res.headers.set('X-Embed-Debug', 'grant token');
         return res;
       }
       if (isApi) return NextResponse.json({ error: 'Embedding required', detail: { tokenPresent: !!token } }, { status: 403 });
-      return new NextResponse('<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Blocked</title><style>body{font-family:system-ui,Arial,sans-serif;background:#fafafa;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}div{max-width:520px;padding:24px;border:1px solid #ddd;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.04);}h1{font-size:18px;margin:0 0 12px;}code{background:#eee;padding:2px 4px;border-radius:4px;}p{margin:6px 0;font-size:14px;line-height:1.45;}</style></head><body><div><h1>Zugriff blockiert</h1><p>Diese Anwendung ist nur über einen gültigen Einbettungs-Token nutzbar.</p><p>Parameter z.B.: <code>?embed=TOKEN</code></p><p>Debug: token=' + (token? 'übergeben' : 'fehlt') + '</p></div></body></html>', { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Embed-Debug': `block token=${token||'none'}` } });
+      return new NextResponse('<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Blocked</title><style>body{font-family:system-ui,Arial,sans-serif;background:#fafafa;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}div{max-width:520px;padding:24px;border:1px solid #ddd;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.04);}h1{font-size:18px;margin:0 0 12px;}code{background:#eee;padding:2px 4px;border-radius:4px;}p{margin:6px 0;font-size:14px;line-height:1.45;}</style></head><body><div><h1>Zugriff blockiert</h1><p>Nur mit gültigem Token nutzbar.</p><p>Nutze: <code>?embed=TOKEN</code></p><p>Debug: token=' + (token? 'übergeben' : 'fehlt') + '</p></div></body></html>', { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Embed-Debug': `block token=${token||'none'}` } });
     }
   }
 
