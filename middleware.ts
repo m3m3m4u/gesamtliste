@@ -28,34 +28,35 @@ export function middleware(req: NextRequest) {
   const enforce = true;
   const allowedParentHost = 'diler.schuleamsee.at';
   if (enforce) {
-    const dest = req.headers.get('sec-fetch-dest') || '';
     const referer = req.headers.get('referer') || '';
-    const hostHeader = req.headers.get('host') || '';
     let refererHost = '';
     try { if (referer) { const u = new URL(referer); refererHost = u.host; } } catch {}
     const embedCookie = req.cookies.get('embed_ok')?.value === '1';
-    const isIframeInitial = dest === 'iframe' && refererHost === allowedParentHost;
     const isApi = pathname.startsWith('/api/');
-    const isDocument = dest === 'document' || dest === '';
+    const token = req.nextUrl.searchParams.get('t') || req.nextUrl.searchParams.get('embed');
+    const allowedToken = process.env.EMBED_TOKEN;
+    const refererAllowed = refererHost === allowedParentHost && !!refererHost;
+    const tokenAllowed = allowedToken && token === allowedToken;
+    const secFetchSite = req.headers.get('sec-fetch-site') || '';
+    const secFetchDest = req.headers.get('sec-fetch-dest') || '';
+    const isLikelyTopLevel = (!refererHost && (secFetchSite === 'none' || secFetchSite === '')) && (secFetchDest === 'document' || secFetchDest === '');
 
-    // Erster gültiger Iframe-Load setzt Cookie
-    if (isIframeInitial) {
-      const res = NextResponse.next();
-      res.cookies.set('embed_ok', '1', { path: '/', httpOnly: true, sameSite: 'none', secure: process.env.NODE_ENV === 'production', maxAge: 60 * 60 * 8 });
-      res.headers.set('X-Embed-Debug', `grant iframe referer=${refererHost}`);
-      return res;
+    // Harte Sperre für echte Top-Level Aufrufe, unabhängig vom Cookie
+    if (isLikelyTopLevel) {
+      const html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Blocked</title><style>body{font-family:system-ui,Arial,sans-serif;background:#fafafa;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}div{max-width:520px;padding:24px;border:1px solid #ddd;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.05);}h1{font-size:18px;margin:0 0 12px;}code{background:#eee;padding:2px 4px;border-radius:4px;}p{margin:6px 0;font-size:14px;line-height:1.45;}</style></head><body><div><h1>Direkter Aufruf blockiert</h1><p>Nur als Iframe auf <strong>' + allowedParentHost + '</strong> erlaubt.</p><p>Debug: site=' + secFetchSite + ' dest=' + secFetchDest + ' cookie=' + (embedCookie?'1':'0') + '</p></div></body></html>';
+      return new NextResponse(html, { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Embed-Debug': `block top-level site=${secFetchSite} dest=${secFetchDest}` } });
     }
 
-    // Direkter Top-Level Zugriff (document) immer blockieren (auch wenn Cookie existiert)
-    if (isDocument) {
-      const html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Blocked</title><style>body{font-family:system-ui,Arial,sans-serif;background:#f8f8f8;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}div{max-width:520px;padding:24px;border:1px solid #ddd;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.06);}h1{font-size:18px;margin:0 0 12px;}code{background:#eee;padding:2px 4px;border-radius:4px;}p{margin:6px 0;font-size:14px;line-height:1.45;}</style></head><body><div><h1>Direkter Zugriff blockiert</h1><p>Nur als Iframe auf <strong>'+allowedParentHost+'</strong> nutzbar.</p><p>Debug: dest=<code>'+dest+'</code> refererHost=<code>'+refererHost+'</code> cookie='+embedCookie+' host='+hostHeader+'</p></div></body></html>';
-      return new NextResponse(html, { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Embed-Debug': `block document host=${hostHeader} referer=${refererHost}` } });
-    }
-
-    // Folge-Requests: nur zulassen, wenn vorher Cookie gesetzt (aus gültigem Iframe)
     if (!embedCookie) {
-      if (isApi) return NextResponse.json({ error: 'Embedding required', detail: { dest, refererHost, host: hostHeader } }, { status: 403 });
-      return new NextResponse('Forbidden', { status: 403, headers: { 'X-Embed-Debug': `block no-cookie dest=${dest} ref=${refererHost} host=${hostHeader}` } });
+      if (refererAllowed || tokenAllowed) {
+        const res = NextResponse.next();
+        res.cookies.set('embed_ok', '1', { path: '/', httpOnly: true, sameSite: 'none', secure: process.env.NODE_ENV === 'production', maxAge: 60 * 60 * 8 });
+        res.headers.set('X-Embed-Debug', `grant referer=${refererHost} token=${tokenAllowed?'yes':'no'}`);
+        return res;
+      }
+      if (isApi) return NextResponse.json({ error: 'Embedding required', detail: { refererHost, tokenProvided: !!token } }, { status: 403 });
+      const html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Blocked</title><style>body{font-family:system-ui,Arial,sans-serif;background:#fafafa;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}div{max-width:520px;padding:24px;border:1px solid #ddd;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.04);}h1{font-size:18px;margin:0 0 12px;}code{background:#eee;padding:2px 4px;border-radius:4px;}p{margin:6px 0;font-size:14px;line-height:1.45;}</style></head><body><div><h1>Zugriff blockiert</h1><p>Nur eingebettet über <strong>'+allowedParentHost+'</strong> (oder mit gültigem Token) nutzbar.</p><p>Debug: refererHost=<code>'+refererHost+'</code> token='+ (token? 'vorhanden':'keins') +'</p></div></body></html>';
+      return new NextResponse(html, { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Embed-Debug': `block referer=${refererHost||'none'} token=${token||'none'}` } });
     }
   }
 
