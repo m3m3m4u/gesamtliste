@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
+import { requireEmbedAllowed } from '@/lib/embedGuard';
 
 // Single-Dokument-Konfiguration der erlaubten Listenwerte
 // _id: 'optionen', Felder: { angebote: string[], schwerpunkte: string[], fruehbetreuung: string[] }
@@ -13,6 +14,9 @@ async function loadDoc(){
 }
 
 export async function GET(){
+  if (!(await requireEmbedAllowed())) {
+    return NextResponse.json({ error: 'Embedding required' }, { status: 403 });
+  }
   const { doc } = await loadDoc();
   return NextResponse.json({
     angebote: Array.isArray(doc?.angebote) ? doc!.angebote : [],
@@ -27,6 +31,9 @@ export async function GET(){
 
 export async function PUT(request: Request){
   try {
+    if (!(await requireEmbedAllowed())) {
+      return NextResponse.json({ error: 'Embedding required' }, { status: 403 });
+    }
     const body: Partial<OptionenDoc> = await request.json();
     const norm = (v: unknown): string[] => Array.isArray(v) ? v.map(x=>String(x)).filter(x=>x.length>0) : [];
     const doc = {
