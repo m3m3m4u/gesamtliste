@@ -11,14 +11,12 @@ export function middleware(req: NextRequest) {
 
   // Always public: root overview and other pages; only protect listed prefixes.
   if (
-    pathname === '/login' ||
-    pathname.startsWith('/api/login') ||
     pathname.startsWith('/_next') ||
     pathname === '/favicon.ico' ||
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml'
   ) {
-    return NextResponse.next();
+    return NextResponse.next(); // Nur rein technische Assets weiterhin freigeben
   }
 
   // --- IFRAME / Einbettungs-Restriktion ---
