@@ -28,39 +28,29 @@ export function middleware(req: NextRequest) {
   const enforce = true;
   const allowedParentHost = 'diler.schuleamsee.at';
   if (enforce) {
-    const dest = req.headers.get('sec-fetch-dest'); // 'iframe', 'document', 'empty', ...
+    const dest = req.headers.get('sec-fetch-dest') || '';
     const referer = req.headers.get('referer') || '';
     let refererHost = '';
     try { if (referer) { const u = new URL(referer); refererHost = u.host; } } catch {}
     const embedCookie = req.cookies.get('embed_ok')?.value === '1';
-
-    // Erlaubnisfall: initialer Iframe-Abruf
     const isIframeLoad = dest === 'iframe';
     const fromAllowedParent = refererHost === allowedParentHost;
 
     if (isIframeLoad && fromAllowedParent) {
-      // Setze Cookie für Folge-Requests (SameSite=None für Drittanbieter-Iframe, httpOnly zur Abschirmung)
       const res = NextResponse.next();
       res.cookies.set('embed_ok', '1', {
-        path: '/',
-        httpOnly: true,
-        sameSite: 'none',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 60 * 60 * 8,
+        path: '/', httpOnly: true, sameSite: 'none', secure: process.env.NODE_ENV === 'production', maxAge: 60 * 60 * 8,
       });
+      res.headers.set('X-Embed-Debug', `grant iframe referer=${refererHost}`);
       return res;
     }
 
-    // Blockiere jede Top-Level Navigation (dest=document) oder fehlende dest, wenn nicht ausdrücklich als iframe erlaubt
-    if (dest === 'document' || !dest) {
-      return new NextResponse('<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Blocked</title><style>body{font-family:system-ui,Arial,sans-serif;background:#f8f8f8;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}div{max-width:480px;padding:24px;border:1px solid #ddd;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.06);}h1{font-size:18px;margin:0 0 12px;}p{margin:4px 0;font-size:14px;line-height:1.4;}</style></head><body><div><h1>Nur eingebettet verfügbar</h1><p>Diese Anwendung kann ausschließlich eingebettet auf <strong>" + allowedParentHost + "</strong> genutzt werden.</p></div></body></html>', { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-    }
-
-    // Für API / nachgelagerte Requests: nur erlauben, wenn Cookie vorhanden
-  if (!embedCookie) {
+    // Jede Anfrage ohne gültiges Embed-Cookie blocken
+    if (!embedCookie) {
       const isApi = pathname.startsWith('/api/');
-      if (isApi) return NextResponse.json({ error: 'Embedding required' }, { status: 403 });
-      return new NextResponse('<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Blocked</title><style>body{font-family:system-ui,Arial,sans-serif;background:#f8f8f8;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}div{max-width:480px;padding:24px;border:1px solid #ddd;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.06);}h1{font-size:18px;margin:0 0 12px;}p{margin:4px 0;font-size:14px;line-height:1.4;}</style></head><body><div><h1>Embedding erforderlich</h1><p>Bitte nur über <strong>" + allowedParentHost + "</strong> im Iframe aufrufen.</p></div></body></html>', { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      if (isApi) return NextResponse.json({ error: 'Embedding required', detail: { dest, refererHost } }, { status: 403 });
+      const html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Blocked</title><style>body{font-family:system-ui,Arial,sans-serif;background:#f8f8f8;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}div{max-width:520px;padding:24px;border:1px solid #ddd;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.06);}h1{font-size:18px;margin:0 0 12px;}code{background:#eee;padding:2px 4px;border-radius:4px;}p{margin:6px 0;font-size:14px;line-height:1.45;}</style></head><body><div><h1>Embedding erforderlich</h1><p>Diese Anwendung darf nur als Iframe auf <strong>'+allowedParentHost+'</strong> geladen werden.</p><p>Debug: dest=<code>'+dest+'</code> refererHost=<code>'+refererHost+'</code></p></div></body></html>';
+      return new NextResponse(html, { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Embed-Debug': `block no-cookie dest=${dest} referer=${refererHost}` } });
     }
   }
 
