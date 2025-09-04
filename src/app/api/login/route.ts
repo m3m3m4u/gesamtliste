@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 
 const COOKIE_NAME = 'site_auth';
 const COOKIE_VALUE = process.env.SITE_AUTH_VERSION || '1';

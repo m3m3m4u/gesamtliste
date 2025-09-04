@@ -8,8 +8,7 @@ export default async function Home() {
   const cookieStore = await cookies();
   const version = process.env.SITE_AUTH_VERSION || '1';
   const authed = cookieStore.get('site_auth')?.value === version;
-  const requireEmbed = false;
-  const embedded = true;
+  // ehemals Embed-Variablen entfernt
   // Übersicht ist immer öffentlich sichtbar
   return (
     <main className="w-full flex justify-center p-8">
