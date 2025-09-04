@@ -256,17 +256,26 @@ export default function Schueler() {
                         {statusOptionen.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     ) : k === 'Schwerpunkte' ? (
-                      <ToggleMulti value={Array.isArray(val)? val as string[] : []} options={schwerpunktOptionen} color="green" onChange={(arr)=>{
-                        const next = { ...(draft as PartialStudent) } as PartialStudent; next[k] = arr; setDraft(next as Student); setDirty(true);
-                      }} />
+                      <div className="space-y-1">
+                        <ToggleMulti value={Array.isArray(val)? val as string[] : []} options={schwerpunktOptionen} color="green" onChange={(arr)=>{
+                          const next = { ...(draft as PartialStudent) } as PartialStudent; next[k] = arr; setDraft(next as Student); setDirty(true);
+                        }} />
+                        {schwerpunktOptionen.length===0 && <div className="text-xs text-amber-600">(Noch keine Schwerpunkte definiert – später in Optionen ergänzen)</div>}
+                      </div>
                     ) : k === 'Frühbetreuung' ? (
-                      <ToggleMulti value={Array.isArray(val)? val as string[] : []} options={fruehOptionen} color="green" onChange={(arr)=>{
-                        const next = { ...(draft as PartialStudent) } as PartialStudent; next[k] = arr; setDraft(next as Student); setDirty(true);
-                      }} />
+                      <div className="space-y-1">
+                        <ToggleMulti value={Array.isArray(val)? val as string[] : []} options={fruehOptionen} color="green" onChange={(arr)=>{
+                          const next = { ...(draft as PartialStudent) } as PartialStudent; next[k] = arr; setDraft(next as Student); setDirty(true);
+                        }} />
+                        {fruehOptionen.length===0 && <div className="text-xs text-amber-600">(Noch keine Frühbetreuungs-Optionen definiert)</div>}
+                      </div>
                     ) : k === 'Angebote' ? (
-                      <ToggleMulti value={Array.isArray(val)? val as string[] : []} options={angebotOptionen} color="green" onChange={(arr)=>{
-                        const next = { ...(draft as PartialStudent) } as PartialStudent; next[k] = arr; setDraft(next as Student); setDirty(true);
-                      }} />
+                      <div className="space-y-1">
+                        <ToggleMulti value={Array.isArray(val)? val as string[] : []} options={angebotOptionen} color="green" onChange={(arr)=>{
+                          const next = { ...(draft as PartialStudent) } as PartialStudent; next[k] = arr; setDraft(next as Student); setDirty(true);
+                        }} />
+                        {angebotOptionen.length===0 && <div className="text-xs text-amber-600">(Noch keine Angebote definiert)</div>}
+                      </div>
                     ) : isObj || (isArray && k === 'Angebote') || String(displayVal).length > 60 ? (
                       <textarea className="w-full border rounded px-2 py-1 font-mono text-xs min-h-[60px]" value={String(displayVal)} onChange={e=>update(e.target.value)} />
                     ) : (
