@@ -12,11 +12,11 @@ export default async function LoginPage({ searchParams }: { searchParams?: SP })
   const sp = searchParams ? await searchParams : undefined;
   const rawNext = sp?.next;
   const next = Array.isArray(rawNext) ? rawNext[0] : rawNext;
-  // Auth momentan deaktiviert – Cookies nur auskommentiert um Lint zu vermeiden
-  // const cookieStore = await cookies();
-  // const version = process.env.SITE_AUTH_VERSION || '1';
-  // Hinweis: Auth derzeit deaktiviert; Variable nicht genutzt -> entfernt um Lint-Warnung zu vermeiden
-  // const authed = cookieStore.get('site_auth')?.value === version;
-  // Auth deaktiviert -> kein Redirect bei vorhandenem Cookie
+  const cookieStore = await cookies();
+  const version = process.env.SITE_AUTH_VERSION || '1';
+  // Wenn bereits eingeloggt, direkt gewünschte Route aufrufen
+  if (cookieStore.get('site_auth')?.value === version) {
+    return <LoginClient nextPath={typeof next === 'string' && next ? next : '/'} />;
+  }
   return <LoginClient nextPath={typeof next === 'string' && next ? next : '/'} />;
 }

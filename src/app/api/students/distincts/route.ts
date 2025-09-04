@@ -140,7 +140,7 @@ export async function GET() {
         const docs = await col.find(baseFilter, { projection: { _id: 0 } }).limit(5000).toArray();
         const pattern = /^[ABC][0-9]{2}$/i; // A01, B22, C13 usw.
         for (const d of docs) {
-          for (const [k, v] of Object.entries(d)) {
+    for (const [_, v] of Object.entries(d)) {
             if (v == null) continue;
             if (typeof v === 'string') {
               const s = v.trim();

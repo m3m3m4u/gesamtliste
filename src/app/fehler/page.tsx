@@ -6,13 +6,14 @@ export default function FehlerMeldenPage(){
   const [text,setText] = useState('');
   const [sending,setSending] = useState(false);
   const [msg,setMsg] = useState<string|null>(null);
-  async function submit(e: React.FormEvent){
-    e.preventDefault(); setSending(true); setMsg(null);
+  async function submit(event: React.FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    setSending(true); setMsg(null);
     try {
       const res = await fetch('/api/reports',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text }) });
       if(!res.ok) throw new Error(await res.text());
       setMsg('Gesendet – danke!'); setText('');
-    } catch(e){ setMsg('Fehler beim Senden'); }
+  } catch{ setMsg('Fehler beim Senden'); }
     finally { setSending(false); }
   }
   return (
