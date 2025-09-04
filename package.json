@@ -9,6 +9,7 @@
     "lint": "next lint",
     "import:data": "node -r dotenv/config -r ts-node/register/transpile-only import.ts",
     "db:wipe": "node -r dotenv/config -r ts-node/register/transpile-only scripts/wipeDatabase.ts"
+  ,"replace:students": "node -r dotenv/config -r ts-node/register/transpile-only scripts/replaceStudents.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

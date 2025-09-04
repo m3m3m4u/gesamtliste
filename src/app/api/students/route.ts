@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
-import { requireEmbedAllowed } from '@/lib/embedGuard';
+// Embed-Einschränkung entfernt
 
 // GET /api/students
 // Unterstützt Parameter: q (bevorzugt) oder search
 export async function GET(request: Request) {
-  if (!(await requireEmbedAllowed())) {
-    return NextResponse.json({ error: 'Embedding required' }, { status: 403 });
-  }
   const { searchParams } = new URL(request.url);
   const raw = (searchParams.get('q') || searchParams.get('search') || '').trim();
   const klasseParams = Array.from(new Set([
@@ -164,9 +161,6 @@ export async function GET(request: Request) {
 // POST /api/students  (Neuen Schüler anlegen)
 export async function POST(request: Request) {
   try {
-    if (!(await requireEmbedAllowed())) {
-      return NextResponse.json({ error: 'Embedding required' }, { status: 403 });
-    }
     const client = await clientPromise;
     const db = client.db();
     const col = db.collection('students');
