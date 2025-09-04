@@ -71,8 +71,8 @@ export default function StatistikClient({ data }: { data: DataProp }) {
               <th className="border px-1 py-0.5 whitespace-nowrap">Klasse</th>
               <th className="border px-2 py-1 text-right whitespace-nowrap">Schüler</th>
               <th className="border px-2 py-1 text-center whitespace-nowrap" colSpan={2}>Gesamt</th>
-              {data.stufen.map((s,i) => (
-                <th key={s} className={`border px-2 py-1 text-center whitespace-nowrap ${i>0? 'border-l-2':''}`} colSpan={2}>{'Stufe ' + s}</th>
+              {data.stufen.map((s) => (
+                <th key={s} className="border px-2 py-1 text-center whitespace-nowrap" colSpan={2}>{'Stufe ' + s}</th>
               ))}
             </tr>
             <tr className="bg-gray-100 border-b-2">
@@ -82,7 +82,7 @@ export default function StatistikClient({ data }: { data: DataProp }) {
               {/* Gesamt: w then m */}
               <th className="border px-2 py-1 whitespace-nowrap text-center">w</th>
               <th className="border px-2 py-1 whitespace-nowrap text-center border-r-2">m</th>
-              {data.stufen.map((s, idx) => (
+              {data.stufen.map((s) => (
                 <React.Fragment key={s + '_sub'}>
                   <th className="border px-2 py-1 whitespace-nowrap">w</th>
                   <th className="border px-2 py-1 whitespace-nowrap border-r-2">m</th>
@@ -98,21 +98,12 @@ export default function StatistikClient({ data }: { data: DataProp }) {
                 <td className="border px-2 py-1 text-right">{r.total}</td>
                 <td className="border px-2 py-1 text-right text-red-600">{r.w}</td>
                 <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{r.m}</td>
-                {data.stufen.map((s, idx) => {
+        {data.stufen.map((s) => {
                   const st = r.stufen[s] || { w: 0, m: 0 };
                   return (
                     <React.Fragment key={r.klasse + '_' + s}>
-                      {idx >= Math.max(0, data.stufen.length - 2) ? (
-                        <>
-                          <td className="border px-2 py-1 text-right text-red-600">{st.w}</td>
-                          <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{st.m}</td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="border px-2 py-1 text-right text-red-600">{st.w}</td>
-                          <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{st.m}</td>
-                        </>
-                      )}
+          <td className="border px-2 py-1 text-right text-red-600">{st.w}</td>
+          <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{st.m}</td>
                     </React.Fragment>
                   );
                 })}
@@ -124,7 +115,7 @@ export default function StatistikClient({ data }: { data: DataProp }) {
               <td className="border px-2 py-1 text-right">{totalRow.total}</td>
               <td className="border px-2 py-1 text-right text-red-600">{totalRow.w}</td>
               <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{totalRow.m}</td>
-              {data.stufen.map((s, idx)=>{
+              {data.stufen.map((s)=>{
                 const st = totalRow.stufen[s] || { w:0, m:0 };
                 return (
                   <React.Fragment key={'Σ_'+s}>

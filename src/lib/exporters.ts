@@ -27,9 +27,7 @@ export function exportExcel({ filenameBase, headers, rows, title }: ExportConfig
   const ws = utils.aoa_to_sheet(aoa);
   // Wenn Titel vorhanden: Merge erste Zeile über Anzahl Spalten
   if (title) {
-    const range = utils.decode_range(ws['!ref'] || 'A1');
-    // Header ist jetzt zweite Zeile; Merge nur erste Zeile A1: ?1
-    const lastCol = String.fromCharCode('A'.charCodeAt(0) + headers.length - 1);
+  // Bereichs-Info entfällt; wir nutzen nur merge über Spaltenanzahl
     (ws['!merges'] = ws['!merges'] || []).push({ s:{r:0,c:0}, e:{r:0,c:headers.length-1} });
     // Optionale leichte Formatierung (nicht alle Reader berücksichtigen Stil)
     const cell = ws['A1'] as unknown as { v: string; t: string; s?: unknown } | undefined;

@@ -8,15 +8,7 @@ function normalizeKey(v: unknown) {
   return String(v);
 }
 
-function sortStufen(arr: string[]) {
-  // try numeric sort when possible, fallback to string
-  return arr.slice().sort((a,b)=>{
-    const an = parseInt(a,10); const bn = parseInt(b,10);
-    if (!isNaN(an) && !isNaN(bn)) return an - bn;
-    if (!isNaN(an)) return -1; if (!isNaN(bn)) return 1;
-    return String(a).localeCompare(String(b));
-  });
-}
+// sortStufen nicht mehr benötigt – entfernt
 
 export default async function StatistikPage() {
   const client = await clientPromise;
@@ -42,7 +34,7 @@ export default async function StatistikPage() {
     classes = Array.from(new Set([...(classes||[]).map(c=>String(c||'').trim()).filter(Boolean), ...extra]));
   }
   // Stufen werden später dynamisch aus den realen Dokumenten ermittelt
-  let rawStufen: string[] = [];
+  // rawStufen entfällt (nicht genutzt)
   const rawYears = await col.distinct('Besuchsjahr', match) as string[];
   let stufen: string[] = [];
   const yearsNormalized = rawYears.map(y=>normalizeKey(y)).filter(Boolean);
@@ -67,7 +59,8 @@ export default async function StatistikPage() {
     if (!s || s === '-' || s === '—') return null;
     return s;
   }
-  function canonKlasse(d: any): string {
+  interface RawDoc { [key: string]: unknown; }
+  function canonKlasse(d: RawDoc): string {
     const order = ['Klasse 25/26','Klasse','25/26','Klasse25','Klasse26','Klasse 24/25','Klasse 24/25_1'];
     for (const k of order) {
       const c = clean(d[k]);
@@ -79,7 +72,7 @@ export default async function StatistikPage() {
     }
     return '—';
   }
-  function canonStufe(d: any): string {
+  function canonStufe(d: RawDoc): string {
     const vals: string[] = [];
     const order = ['Stufe 25/26','Stufe 24/25','Stufe 24/25_1'];
     for (const k of order) {
