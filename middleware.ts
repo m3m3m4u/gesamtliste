@@ -21,7 +21,8 @@ export function middleware(req: NextRequest) {
 
   // Embed-Restriktionen vollständig entfernt (ehemalige Token-Prüfung gelöscht)
 
-  const needsAuth = PROTECTED_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'));
+  // TEMP: Auth deaktiviert
+  const needsAuth = false;
   if (!needsAuth) return NextResponse.next();
 
   const authed = req.cookies.get(COOKIE_NAME)?.value === COOKIE_VALUE;
