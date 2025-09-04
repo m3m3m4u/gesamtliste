@@ -76,7 +76,7 @@ export async function GET(request: Request) {
       return out;
     }
     const makeRegex = (t: string) => ({ $regex: tokenToPattern(t), $options: 'i' });
-    const fieldNames = onlyNames ? ['Vorname','Familienname'] : ['Vorname','Familienname','Benutzername'];
+  const fieldNames = onlyNames ? ['Vorname','Familienname'] : ['Vorname','Familienname','Benutzername'];
     filter = {
       $and: tokens.map(t => ({
         $or: fieldNames.map(fn => ({ [fn]: makeRegex(t) }))
@@ -143,6 +143,8 @@ export async function GET(request: Request) {
     filter = Object.keys(filter).length ? { $and: [filter, schwerpunktFilter] } : schwerpunktFilter;
   }
   const projection: Record<string, number> = {};
+  // Sicherstellen, dass Geschlecht immer mitkommt (für Anzeige/Normalisierung)
+  projection['Geschlecht'] = 1;
   if (fields) {
     for (const f of fields.split(',').map(s=>s.trim()).filter(Boolean)) projection[f] = 1;
   }

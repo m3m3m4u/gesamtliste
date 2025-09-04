@@ -14,8 +14,8 @@ async function loadDoc(){
 }
 
 export async function GET(){
-  const { doc } = await loadDoc();
-  return NextResponse.json({
+  const { col, doc } = await loadDoc();
+  let out: any = {
     angebote: Array.isArray(doc?.angebote) ? doc!.angebote : [],
     schwerpunkte: Array.isArray(doc?.schwerpunkte) ? doc!.schwerpunkte : [],
     fruehbetreuung: Array.isArray(doc?.fruehbetreuung) ? doc!.fruehbetreuung : [],
@@ -23,7 +23,14 @@ export async function GET(){
     religionen: Array.isArray(doc?.religionen) ? doc!.religionen : [],
     klassen: Array.isArray(doc?.klassen) ? doc!.klassen : [],
     sprachen: Array.isArray(doc?.sprachen) ? doc!.sprachen : []
-  });
+  };
+  // Einmalige Übernahme der Klassen falls leer
+  if(!out.klassen.length){
+    const client = await clientPromise; const db = client.db(); const students = db.collection('students');
+    const rawKl = await students.distinct('Klasse 25/26', { _deleted: { $ne: true } });
+    out.klassen = Array.from(new Set((rawKl as unknown[]).map(v=>String(v??'').trim()).filter(s=>s.length>0))).sort((a,b)=>a.localeCompare(b,'de'));
+  }
+  return NextResponse.json(out);
 }
 
 export async function PUT(request: Request){

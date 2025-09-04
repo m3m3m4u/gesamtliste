@@ -84,6 +84,17 @@ async function run(){
         }
       }
       if(!Array.isArray(d.Angebote)) d.Angebote = [];
+      // Geschlecht normalisieren (Varianten akzeptieren)
+      if(!d.Geschlecht){
+        for(const alt of Object.keys(d)){
+          if(/geschl|gender|sex/i.test(alt) && alt !== 'Geschlecht' && d[alt]) { d.Geschlecht = d[alt]; break; }
+        }
+      }
+      if(typeof d.Geschlecht === 'string'){
+        const g = d.Geschlecht.trim().toLowerCase();
+        d.Geschlecht = g.startsWith('m') ? 'm' : g.startsWith('w') ? 'w' : '';
+        if(!d.Geschlecht) delete d.Geschlecht;
+      }
       if(Array.isArray(d.Angebote)){
         d.Angebote = d.Angebote.filter((x:any)=>!(typeof x==='string' && PLACEHOLDERS.has(x.trim())));
       }

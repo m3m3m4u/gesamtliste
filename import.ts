@@ -69,6 +69,16 @@ async function run() {
       d[renamed[oldKey]] = d[oldKey];
       delete d[oldKey];
     }
+    // Geschlecht normalisieren (akzeptiere Varianten wie Geschl, Gender, sex)
+    const genderKeys = Object.keys(d).filter(k=>/geschl|gender|sex/i.test(k) && k !== 'Geschlecht');
+    if(!d.Geschlecht){
+      for(const gk of genderKeys){ if(d[gk]) { d.Geschlecht = d[gk]; break; } }
+    }
+    if(typeof d.Geschlecht === 'string'){
+      const g = d.Geschlecht.trim().toLowerCase();
+      d.Geschlecht = g.startsWith('m') ? 'm' : g.startsWith('w') ? 'w' : '';
+      if(!d.Geschlecht) delete d.Geschlecht;
+    }
     // Normalisiere Angebote zu Array
     if (!Array.isArray(d.Angebote)) d.Angebote = [];
     // Trim Strings
