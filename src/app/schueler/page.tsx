@@ -214,6 +214,9 @@ export default function Schueler() {
                   next[k] = raw.slice(0,10);
                 } else if (k === 'Passwort') {
                   next[k] = raw;
+                } else if (k === 'Geschlecht') {
+                  const g = raw.trim().toLowerCase();
+                  next[k] = g === 'm' ? 'm' : g === 'w' ? 'w' : '';
                 } else if (isObj) {
                   try { next[k] = raw.trim() ? JSON.parse(raw) : null; } catch {}
                 } else {
@@ -232,12 +235,11 @@ export default function Schueler() {
                         <option value=""></option>
                         {klassenOptionen.map(c=> <option key={c} value={c}>{c}</option>)}
                       </select>
-                    ) : k === 'Geschlecht' ? (
+          ) : k === 'Geschlecht' ? (
                       <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
                         <option value=""></option>
-                        <option value="m">m</option>
-                        <option value="w">w</option>
-                        <option value="d">d</option>
+            <option value="m">m</option>
+            <option value="w">w</option>
                       </select>
                     ) : k === 'Religion' ? (
                       <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>

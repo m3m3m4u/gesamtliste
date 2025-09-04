@@ -17,9 +17,17 @@ export async function GET() {
   const baseFilter = { _deleted: { $ne: true } };
 
   const rawStufen = await col.distinct('Stufe 25/26', baseFilter);
-  const stufen = unique(rawStufen.map(normStufe))
+  let stufen = unique(rawStufen.map(normStufe))
     .filter(s => s !== '')
     .sort((a, b) => (a === '0' ? -1 : b === '0' ? 1 : Number(a) - Number(b)));
+  // Spezialfall: Einträge '25/26' und '24/25' sollen als Klassen behandelt werden, nicht als Stufen
+  const klassenAusStufen: string[] = [];
+  for (const spec of ['25/26','24/25']) {
+    if (stufen.includes(spec)) {
+      stufen = stufen.filter(s => s !== spec);
+      klassenAusStufen.push(spec);
+    }
+  }
 
   const rawStatus = await col.distinct('Status', baseFilter);
   let status = unique(rawStatus.map(v => String(v ?? '').trim()))
@@ -90,18 +98,30 @@ export async function GET() {
   }
 
   if (cfg && Array.isArray(cfg.status) && cfg.status.length) {
-    status = unique(cfg.status.map(v=>String(v??''))).filter(s=>s.length>0);
+    status = unique([
+      ...status,
+      ...cfg.status.map(v=>String(v??'').trim()).filter(s=>s.length>0)
+    ]).sort((a,b)=>a.localeCompare(b,'de'));
   }
   if (cfg && Array.isArray(cfg.religionen) && cfg.religionen.length) {
-    religionen = unique(cfg.religionen.map(v=>String(v??'')).filter(s=>s.length>0));
+    religionen = unique([
+      ...religionen,
+      ...cfg.religionen.map(v=>String(v??'').trim()).filter(s=>s.length>0)
+    ]).sort((a,b)=>a.localeCompare(b,'de'));
   }
   if (cfg && Array.isArray(cfg.sprachen) && cfg.sprachen.length) {
-    sprachen = unique(cfg.sprachen.map(v=>String(v??'')).filter(s=>s.length>0));
+    sprachen = unique([
+      ...sprachen,
+      ...cfg.sprachen.map(v=>String(v??'').trim()).filter(s=>s.length>0)
+    ]).sort((a,b)=>a.localeCompare(b,'de'));
   }
   // Klassen (aus aktueller Klasse 25/26 oder historisch) aggregieren
   const rawKlassenNeu = await col.distinct('Klasse 25/26', baseFilter);
   const rawKlassenAlt1 = await col.distinct('Klasse 24/25', baseFilter).catch(()=>[]);
   let klassen = unique([...(rawKlassenNeu as unknown[]), ...(rawKlassenAlt1 as unknown[])].map(v=>String(v??'').trim()).filter(s=>s!==''));
+  for (const k of klassenAusStufen) {
+    if (!klassen.includes(k)) klassen.push(k);
+  }
   if (cfg && Array.isArray(cfg.klassen) && cfg.klassen.length) {
     klassen = unique(cfg.klassen.map(v=>String(v??''))).filter(s=>s.length>0);
   } else {
