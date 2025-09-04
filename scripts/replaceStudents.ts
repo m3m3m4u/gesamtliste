@@ -70,7 +70,6 @@ async function run(){
     } else {
       console.log('Collection war bereits leer.');
     }
-    const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS || 10);
     const PLACEHOLDERS = new Set(['0','-','---','']);
     let inserted = 0;
     const bulk = col.initializeUnorderedBulkOp();
@@ -89,11 +88,9 @@ async function run(){
       if(Array.isArray(d.Angebote)){
         d.Angebote = d.Angebote.filter((x:any)=>!(typeof x==='string' && PLACEHOLDERS.has(x.trim())));
       }
-      if(d.Passwort && d.Passwort !== '0'){
-        try {
-          const pwd = String(d.Passwort);
-            d.PasswortHash = bcrypt.hashSync(pwd, saltRounds);
-        } catch(e){ console.warn('Passwort Hash Fehler:', e); }
+      if(d.Passwort && typeof d.Passwort === 'string'){
+        d.Passwort = String(d.Passwort).trim();
+        if(!d.Passwort) delete d.Passwort; // leere entfernen
       }
       // NormBenutzername
       if(d.Benutzername){

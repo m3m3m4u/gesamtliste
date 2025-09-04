@@ -83,19 +83,12 @@ async function run() {
     if (Array.isArray(d.Angebote)) {
       d.Angebote = d.Angebote.filter((x: any) => !(typeof x === 'string' && PLACEHOLDERS.has(x.trim())));
     }
-    // Passwort-Hashing (falls vorhanden und nicht '0' oder leer)
-    if (d.Passwort && d.Passwort !== '0') {
-      try {
-        const pwd = String(d.Passwort);
-        const hash = bcrypt.hashSync(pwd, saltRounds);
-        d.PasswortHash = hash;
-        // Klartext-Passwort behalten (ist in diesem Projekt kein geheimes Passwort)
-        d.Passwort = pwd;
-      } catch (e) {
-        console.warn('Konnte Passwort nicht hashen für Benutzer:', d.Benutzername, e);
-      }
+    // Passwort nur Klartext behalten; kein Hash mehr
+    if (d.Passwort && typeof d.Passwort === 'string') {
+      d.Passwort = String(d.Passwort).trim();
+      if (!d.Passwort) delete d.Passwort;
     }
-      // Hinweis: wir löschen das Klartext-Passwort nicht, da es hier ausdrücklich erwünscht ist.
+    delete d.PasswortHash;
     return d;
   });
   // Duplikate im Input anhand (case-insensitive) Benutzername entfernen

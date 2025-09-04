@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-import bcrypt from 'bcryptjs';
 
 // PATCH /api/students/:id
 // Next.js RouteContext erwartet params u.U. als Promise
@@ -15,14 +14,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   delete body.createdAt;
   // updatedAt setzen
   body.updatedAt = new Date().toISOString();
-  // Klartext Passwort -> Hash
-  if (typeof body.Passwort === 'string' && (body.Passwort as string).trim()) {
-    try {
-      const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS || 10);
-      body.PasswortHash = bcrypt.hashSync((body.Passwort as string).trim(), saltRounds);
-    } catch {}
-  } else {
-    delete body.Passwort; // kein Update falls leer
+  // Passwort jetzt nur im Klartext speichern; kein Hash mehr
+  if (typeof body.Passwort === 'string') {
+    if (!(body.Passwort as string).trim()) {
+      delete body.Passwort; // leere Eingabe ignorieren
+    }
   }
   // Geburtsdatum normalisieren auf YYYY-MM-DD falls Datum
   if (typeof body.Geburtsdatum === 'string' && (body.Geburtsdatum as string).length >= 10) {
