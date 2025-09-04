@@ -29,8 +29,15 @@ export async function GET(){
   // Einmalige Übernahme der Klassen falls leer
   if(!out.klassen || out.klassen.length===0){
     const client = await clientPromise; const db = client.db(); const students = db.collection('students');
-    const rawKl = await students.distinct('Klasse 25/26', { _deleted: { $ne: true } });
-    out.klassen = Array.from(new Set((rawKl as unknown[]).map(v=>String(v??'').trim()).filter(s=>s.length>0))).sort((a,b)=>a.localeCompare(b,'de'));
+    const baseFilter = { _deleted: { $ne: true } };
+    const f1 = await students.distinct('Klasse 25/26', baseFilter).catch(()=>[]);
+    const f2 = await students.distinct('Klasse 24/25', baseFilter).catch(()=>[]);
+    const f3 = await students.distinct('Klasse', baseFilter).catch(()=>[]);
+    const f4 = await students.distinct('25/26', baseFilter).catch(()=>[]);
+    const f5 = await students.distinct('Klasse25', baseFilter).catch(()=>[]);
+    const f6 = await students.distinct('Klasse26', baseFilter).catch(()=>[]);
+    const all = [...(f1 as unknown[]),...(f2 as unknown[]),...(f3 as unknown[]),...(f4 as unknown[]),...(f5 as unknown[]),...(f6 as unknown[])] as unknown[];
+    out.klassen = Array.from(new Set(all.map(v=>String(v??'').trim()).filter(s=>s.length>0))).sort((a,b)=>a.localeCompare(b,'de'));
   }
   return NextResponse.json(out);
 }

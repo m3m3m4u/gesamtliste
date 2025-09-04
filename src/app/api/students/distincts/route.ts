@@ -118,7 +118,18 @@ export async function GET() {
   // Klassen (aus aktueller Klasse 25/26 oder historisch) aggregieren
   const rawKlassenNeu = await col.distinct('Klasse 25/26', baseFilter);
   const rawKlassenAlt1 = await col.distinct('Klasse 24/25', baseFilter).catch(()=>[]);
-  let klassen = unique([...(rawKlassenNeu as unknown[]), ...(rawKlassenAlt1 as unknown[])].map(v=>String(v??'').trim()).filter(s=>s!==''));
+  const rawKlassePlain = await col.distinct('Klasse', baseFilter).catch(()=>[]);
+  const rawLegacy2526 = await col.distinct('25/26', baseFilter).catch(()=>[]);
+  const rawKlasse25 = await col.distinct('Klasse25', baseFilter).catch(()=>[]);
+  const rawKlasse26 = await col.distinct('Klasse26', baseFilter).catch(()=>[]);
+  let klassen = unique([
+    ...(rawKlassenNeu as unknown[]),
+    ...(rawKlassenAlt1 as unknown[]),
+    ...(rawKlassePlain as unknown[]),
+    ...(rawLegacy2526 as unknown[]),
+    ...(rawKlasse25 as unknown[]),
+    ...(rawKlasse26 as unknown[])
+  ].map(v=>String(v??'').trim()).filter(s=>s!==''));
   for (const k of klassenAusStufen) {
     if (!klassen.includes(k)) klassen.push(k);
   }

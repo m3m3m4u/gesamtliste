@@ -142,17 +142,18 @@ export async function GET(request: Request) {
     };
     filter = Object.keys(filter).length ? { $and: [filter, schwerpunktFilter] } : schwerpunktFilter;
   }
-  const projection: Record<string, number> = {};
-  // Sicherstellen, dass Geschlecht immer mitkommt (für Anzeige/Normalisierung)
-  projection['Geschlecht'] = 1;
+  // Nur dann Projection verwenden, wenn explizit Felder angefordert wurden.
+  // Bisherige Logik lieferte sonst nur Geschlecht und blendete den Rest aus -> "leere" Datensätze.
+  let projection: Record<string, number> | undefined = undefined;
   if (fields) {
+    projection = { Geschlecht: 1 };
     for (const f of fields.split(',').map(s=>s.trim()).filter(Boolean)) projection[f] = 1;
   }
   if (!includeDeleted) {
     filter = Object.keys(filter).length ? { $and: [filter, { _deleted: { $ne: true } }] } : { _deleted: { $ne: true } };
   }
   const total = await col.countDocuments(filter);
-  const cursor = col.find(filter, Object.keys(projection).length ? { projection } : undefined)
+  const cursor = col.find(filter, projection ? { projection } : undefined)
     .skip(skip)
     .limit(limit)
     .sort({ Familienname: 1, Vorname: 1 })
