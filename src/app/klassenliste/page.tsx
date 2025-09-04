@@ -104,7 +104,7 @@ export default function KlassenListePage() {
                 if (Array.isArray(val)) return val.join(', ');
                 return val == null ? '' : String(val);
               }));
-              exportExcel({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows });
+              exportExcel({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}` });
             }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
             <button onClick={() => {
               const rows = data.map(d => selectedFields.map(f => {
@@ -113,7 +113,7 @@ export default function KlassenListePage() {
                 if (Array.isArray(val)) return val.join(', ');
                 return val == null ? '' : String(val);
               }));
-              exportPDF({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows });
+              exportPDF({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}` });
             }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
             <button onClick={() => {
               const rows = data.map(d => selectedFields.map(f => {
@@ -122,7 +122,7 @@ export default function KlassenListePage() {
                 if (Array.isArray(val)) return val.join(', ');
                 return val == null ? '' : String(val);
               }));
-              exportWord({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows });
+              exportWord({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}`, word: { zebra: true } });
             }} className="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Word</button>
           </div>
         )}

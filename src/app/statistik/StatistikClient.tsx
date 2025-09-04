@@ -84,22 +84,22 @@ export default function StatistikClient({ data }: { data: DataProp }) {
             {sorted.map(r=> (
               <tr key={r.klasse} className="hover:bg-gray-50 odd:bg-white even:bg-gray-50 border-b-2">
                 <td className="border px-2 py-1">{r.klasse}</td>
-                <td className="border px-2 py-1 text-right">{r.total===0? '' : r.total}</td>
-                <td className="border px-2 py-1 text-right text-red-600">{r.w===0? '' : r.w}</td>
-                <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{r.m===0? '' : r.m}</td>
+                <td className="border px-2 py-1 text-right">{r.total}</td>
+                <td className="border px-2 py-1 text-right text-red-600">{r.w}</td>
+                <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{r.m}</td>
                 {data.stufen.map((s, idx) => {
                   const st = r.stufen[s] || { w: 0, m: 0 };
                   return (
                     <React.Fragment key={r.klasse + '_' + s}>
                       {idx >= Math.max(0, data.stufen.length - 2) ? (
                         <>
-                          <td className="border px-2 py-1 text-right text-red-600">{st.w===0? '' : st.w}</td>
-                          <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{st.m===0? '' : st.m}</td>
+                          <td className="border px-2 py-1 text-right text-red-600">{st.w}</td>
+                          <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{st.m}</td>
                         </>
                       ) : (
                         <>
-                          <td className="border px-2 py-1 text-right text-red-600">{st.w===0? '' : st.w}</td>
-                          <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{st.m===0? '' : st.m}</td>
+                          <td className="border px-2 py-1 text-right text-red-600">{st.w}</td>
+                          <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{st.m}</td>
                         </>
                       )}
                     </React.Fragment>

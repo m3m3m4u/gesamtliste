@@ -25,9 +25,38 @@ export default async function StatistikPage() {
 
   const match = { _deleted: { $ne: true } };
 
-  // distinct Klassen, Stufen and Besuchsjahre
-  const classes = await col.distinct('Klasse 25/26', match) as string[];
-  const rawStufen = await col.distinct('Stufe 25/26', match) as string[];
+  // distinct Klassen (primär aus 'Klasse 25/26', Fallback auf Legacy-Felder falls nötig)
+  let classes = await col.distinct('Klasse 25/26', match) as string[];
+  if (!classes || classes.filter(c=>c && String(c).trim()).length <= 1) {
+    const altFields = ['Klasse','25/26','Klasse25','Klasse26','Klasse 24/25','Klasse 24/25_1'];
+    const extra: string[] = [];
+    for (const f of altFields) {
+      try {
+        const vals = await col.distinct(f, match);
+        for (const v of vals as unknown[]) {
+          const s = String(v ?? '').trim();
+          if (s) extra.push(s);
+        }
+      } catch {}
+    }
+    classes = Array.from(new Set([...(classes||[]).map(c=>String(c||'').trim()).filter(Boolean), ...extra]));
+  }
+  // Stufen inkl. Fallback auf Vorjahresfelder sammeln
+  let rawStufen = await col.distinct('Stufe 25/26', match) as string[];
+  if (!rawStufen || rawStufen.filter(s=>String(s??'').trim()).length === 0) {
+    const altStufeFields = ['Stufe 24/25','Stufe 24/25_1'];
+    const extra: string[] = [];
+    for (const f of altStufeFields) {
+      try {
+        const vals = await col.distinct(f, match);
+        for (const v of vals as unknown[]) {
+          const s = String(v ?? '').trim();
+          if (s) extra.push(s);
+        }
+      } catch {}
+    }
+    rawStufen = Array.from(new Set([...(rawStufen||[]), ...extra]));
+  }
   const rawYears = await col.distinct('Besuchsjahr', match) as string[];
   // map any empty/placeholder stufe ('-', '—' or null) to '0' and ensure '0' is first
   const mappedStufen = rawStufen.map(s => {
@@ -50,10 +79,39 @@ export default async function StatistikPage() {
     yearsAll = Array.from(new Set(yearsNormalized.sort()));
   }
 
-  // Aggregate counts by klasse / stufe / geschlecht / jahr
+  // Aggregate counts by kanonischer klasse / stufe / geschlecht / jahr
   const agg = [
     { $match: match },
-    { $group: { _id: { klasse: '$Klasse 25/26', stufe: '$Stufe 25/26', geschlecht: '$Geschlecht', jahr: '$Besuchsjahr' }, count: { $sum: 1 } } }
+    { $addFields: {
+      _canonKlasse: {
+        $let: {
+          vars: {
+            a: '$Klasse 25/26', b: '$Klasse', c: '$25/26', d: '$Klasse25', e: '$Klasse26', f: '$Klasse 24/25', g: '$Klasse 24/25_1'
+          },
+          in: {
+            $ifNull: ['$$a', { $ifNull: ['$$b', { $ifNull: ['$$c', { $ifNull: ['$$d', { $ifNull: ['$$e', { $ifNull: ['$$f', '$$g'] }] }] }] }] }]
+          }
+        }
+      },
+      _canonStufe: {
+        $let: {
+          vars: { s1: '$Stufe 25/26', s2: '$Stufe 24/25', s3: '$Stufe 24/25_1' },
+          in: {
+            $let: {
+              vars: { raw: { $ifNull: ['$$s1', { $ifNull: ['$$s2', '$$s3'] }] } },
+              in: {
+                $cond: [
+                  { $or: [ { $eq: ['$$raw', null] }, { $eq: ['$$raw',''] }, { $eq: ['$$raw','-'] }, { $eq: ['$$raw','—'] } ] },
+                  '0',
+                  '$$raw'
+                ]
+              }
+            }
+          }
+        }
+      }
+    } },
+    { $group: { _id: { klasse: '$_canonKlasse', stufe: '$_canonStufe', geschlecht: '$Geschlecht', jahr: '$Besuchsjahr' }, count: { $sum: 1 } } }
   ];
   const rows = await col.aggregate(agg).toArray();
 

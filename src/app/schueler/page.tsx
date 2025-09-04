@@ -136,9 +136,10 @@ export default function Schueler() {
       clone.Angebote = toArr(clone.Angebote);
       clone.Schwerpunkte = toArr(clone.Schwerpunkte ?? clone.Schwerpunkt);
       clone['Frühbetreuung'] = toArr(clone['Frühbetreuung']);
+    clone.Status = toArr((clone as any).Status);
       if (current._deleted) {
         CREATE_FIELDS.forEach(f => {
-          if (!(f in clone)) (clone as PartialStudent)[f] = (f === 'Angebote' || f==='Schwerpunkte' || f==='Frühbetreuung') ? [] : '';
+      if (!(f in clone)) (clone as PartialStudent)[f] = (f === 'Angebote' || f==='Schwerpunkte' || f==='Frühbetreuung' || f==='Status') ? [] : '';
         });
       }
       setDraft(clone as Student);
@@ -173,6 +174,9 @@ export default function Schueler() {
           const empty = {} as PartialStudent;
           CREATE_FIELDS.forEach(f=>{ empty[f] = ''; });
           empty.Angebote = [];
+          (empty as any).Schwerpunkte = [];
+          (empty as any)['Frühbetreuung'] = [];
+          (empty as any).Status = [];
           setDraft(empty as Student);
           setDirty(false);
           setMsg(null);
@@ -205,10 +209,10 @@ export default function Schueler() {
                 const val = (draft as PartialStudent)[k];
               const isObj = typeof val === 'object' && val !== null && !Array.isArray(val);
               const isArray = Array.isArray(val);
-              const displayVal = (k==='Angebote' || k==='Schwerpunkte' || k==='Frühbetreuung') && isArray ? (val as unknown[]).join(', ') : isObj ? JSON.stringify(val, null, 2) : (val ?? '');
+              const displayVal = (k==='Angebote' || k==='Schwerpunkte' || k==='Frühbetreuung' || k==='Status') && isArray ? (val as unknown[]).join(', ') : isObj ? JSON.stringify(val, null, 2) : (val ?? '');
               function update(raw: string) {
                   const next = { ...(draft as PartialStudent) } as PartialStudent;
-                if (k === 'Angebote' || k==='Schwerpunkte' || k==='Frühbetreuung') {
+                if (k === 'Angebote' || k==='Schwerpunkte' || k==='Frühbetreuung' || k==='Status') {
                   const arr = raw.split(',').map(s=>s.trim()).filter(Boolean);
                   next[k] = arr;
                 } else if (k === 'Geburtsdatum') {
@@ -226,7 +230,7 @@ export default function Schueler() {
                   setDraft(next as Student); setDirty(true);
               }
               return (
-                <div key={k} className={`p-1 ${['Angebote','Frühbetreuung','Schwerpunkte'].includes(k)?'sm:col-span-3':''} ${['Benutzername','Passwort','Anton'].includes(k)?'':''} `}> 
+                <div key={k} className={`p-1 ${['Angebote','Frühbetreuung','Schwerpunkte','Status'].includes(k)?'sm:col-span-3':''} ${['Benutzername','Passwort','Anton'].includes(k)?'':''} `}> 
                   <div className="font-semibold text-gray-600 mb-1">{k}</div>
                   <div>
                     {k === 'Geburtsdatum' ? (
@@ -254,10 +258,12 @@ export default function Schueler() {
                         {displayVal && !sprachenOptionen.includes(String(displayVal)) && <option value={String(displayVal)}>{String(displayVal)}</option>}
                       </select>
                     ) : k === 'Status' ? (
-                      <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
-                        <option value=""></option>
-                        {statusOptionen.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
+                      <div className="space-y-1">
+                        <ToggleMulti value={Array.isArray(val)? val as string[] : []} options={statusOptionen} color="green" onChange={(arr)=>{
+                          const next = { ...(draft as PartialStudent) } as PartialStudent; next[k] = arr; setDraft(next as Student); setDirty(true);
+                        }} />
+                        {statusOptionen.length===0 && <div className="text-xs text-amber-600">(Noch keine Status-Optionen definiert)</div>}
+                      </div>
                     ) : k === 'Schwerpunkte' ? (
                       <div className="space-y-1">
                         <ToggleMulti value={Array.isArray(val)? val as string[] : []} options={schwerpunktOptionen} color="green" onChange={(arr)=>{
@@ -309,6 +315,7 @@ export default function Schueler() {
                       }
                     });
                     if(!Array.isArray(payload.Angebote)) payload.Angebote = [];
+                    if(!Array.isArray(payload.Status)) payload.Status = [];
                     const res = await fetch('/api/students', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
                     if(!res.ok) throw new Error(await res.text());
                     const created = await res.json();

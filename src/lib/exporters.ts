@@ -18,17 +18,37 @@ export interface ExportConfig {
   };
 }
 
-export function exportExcel({ filenameBase, headers, rows }: ExportConfig) {
+export function exportExcel({ filenameBase, headers, rows, title }: ExportConfig) {
   const norm = rows.map(r => r.map(c => c == null ? '' : String(c)));
-  const ws = utils.aoa_to_sheet([headers, ...norm]);
+  const aoa: string[][] = [];
+  if (title) aoa.push([title]);
+  aoa.push(headers);
+  aoa.push(...norm as string[][]);
+  const ws = utils.aoa_to_sheet(aoa);
+  // Wenn Titel vorhanden: Merge erste Zeile über Anzahl Spalten
+  if (title) {
+    const range = utils.decode_range(ws['!ref'] || 'A1');
+    // Header ist jetzt zweite Zeile; Merge nur erste Zeile A1: ?1
+    const lastCol = String.fromCharCode('A'.charCodeAt(0) + headers.length - 1);
+    (ws['!merges'] = ws['!merges'] || []).push({ s:{r:0,c:0}, e:{r:0,c:headers.length-1} });
+    // Optionale leichte Formatierung (nicht alle Reader berücksichtigen Stil)
+    const cell = ws['A1'];
+    if (cell) (cell as any).s = { font: { bold: true } };
+  }
   const wb: WorkBook = utils.book_new();
   utils.book_append_sheet(wb, ws, 'Daten');
   writeXlsxFile(wb, filenameBase + '.xlsx');
 }
 
-export function exportPDF({ filenameBase, headers, rows }: ExportConfig) {
+export function exportPDF({ filenameBase, headers, rows, title }: ExportConfig) {
   const doc = new jsPDF({ orientation: 'landscape' });
-  autoTable(doc, { head: [headers], body: rows.map(r=>r.map(c=> c==null ? '' : String(c))) });
+  let startY: number | undefined = undefined;
+  if (title) {
+    doc.setFontSize(14);
+    doc.text(title, 14, 16);
+    startY = 22;
+  }
+  autoTable(doc, { startY, head: [headers], body: rows.map(r=>r.map(c=> c==null ? '' : String(c))) });
   doc.save(filenameBase + '.pdf');
 }
 
