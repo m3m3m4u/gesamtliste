@@ -9,15 +9,18 @@ interface Option { value: string; label: string; }
 export default function KlassenListePage() {
   const [klasse, setKlasse] = useState('');
   const [availableKlassen, setAvailableKlassen] = useState<Option[]>([]);
-  const [selectedFields, setSelectedFields] = useState<string[]>(['Vorname','Familienname','Stufe 25/26','Benutzername','Passwort']);
+  const [selectedFields, setSelectedFields] = useState<string[]>(['Vorname','Familienname','Stufe 25/26','Geschlecht','Benutzername','Passwort']);
   const [data, setData] = useState<StudentDoc[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Felder die auswählbar sind (kann erweitert werden)
   const FIELD_OPTIONS: string[] = [
-    'Vorname','Familienname','Stufe 25/26','Benutzername','Geburtsdatum','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung'
+    'Vorname','Familienname','Stufe 25/26','Geschlecht','Benutzername','Geburtsdatum','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung'
   ];
+
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   // Klassen-Liste aus DB laden (einmal)
   useEffect(() => {
@@ -54,7 +57,54 @@ export default function KlassenListePage() {
   useEffect(() => { load(); }, [load, klasse, depsKey]);
 
   function toggleField(f: string) {
-    setSelectedFields(prev => prev.includes(f) ? prev.filter(x=>x!==f) : [...prev, f]);
+    setSelectedFields(prev => {
+      const next = prev.includes(f) ? prev.filter(x=>x!==f) : [...prev, f];
+      // Falls das aktuelle Sortierfeld entfernt wurde, Sortierung zurücksetzen
+      if (sortField && !next.includes(sortField)) {
+        setSortField(null);
+      }
+      return next;
+    });
+  }
+
+  function normalizeSortVal(val: unknown, field: string): string {
+    if (val == null) return '';
+    if (Array.isArray(val)) return val.join(', ').toLowerCase();
+    if (field === 'Geburtsdatum' && typeof val === 'string') {
+      // Versuche ISO oder DD.MM.YYYY in YYYYMMDD umzuwandeln für korrekte Reihenfolge
+      const iso = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (iso) return iso[1] + iso[2] + iso[3];
+      const de = val.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+      if (de) return de[3] + de[2] + de[1];
+    }
+    return String(val).toLowerCase();
+  }
+
+  const sortedData = useMemo(() => {
+    if (!sortField) return data;
+    const copy = [...data];
+    copy.sort((a,b)=>{
+      const av = normalizeSortVal(a[sortField], sortField);
+      const bv = normalizeSortVal(b[sortField], sortField);
+      if (av < bv) return sortDir === 'asc' ? -1 : 1;
+      if (av > bv) return sortDir === 'asc' ? 1 : -1;
+      // Fallback zusätzliche stabile Kriterien (Familienname, Vorname)
+      const famA = normalizeSortVal(a['Familienname'], 'Familienname');
+      const famB = normalizeSortVal(b['Familienname'], 'Familienname');
+      if (famA !== famB) return famA.localeCompare(famB, 'de');
+      const vorA = normalizeSortVal(a['Vorname'], 'Vorname');
+      const vorB = normalizeSortVal(b['Vorname'], 'Vorname');
+      return vorA.localeCompare(vorB, 'de');
+    });
+    return copy;
+  }, [data, sortField, sortDir]);
+
+  function toggleSort(field: string) {
+    if (sortField !== field) {
+      setSortField(field); setSortDir('asc');
+    } else {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    }
   }
 
   function fmtDate(v: unknown): string | unknown {
@@ -98,7 +148,7 @@ export default function KlassenListePage() {
         {klasse && data.length > 0 && (
           <div className="flex gap-2">
             <button onClick={() => {
-              const rows = data.map(d => selectedFields.map(f => {
+              const rows = sortedData.map(d => selectedFields.map(f => {
                 let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (Array.isArray(val)) return val.join(', ');
@@ -107,7 +157,7 @@ export default function KlassenListePage() {
               exportExcel({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}` });
             }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
             <button onClick={() => {
-              const rows = data.map(d => selectedFields.map(f => {
+              const rows = sortedData.map(d => selectedFields.map(f => {
                 let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (Array.isArray(val)) return val.join(', ');
@@ -116,7 +166,7 @@ export default function KlassenListePage() {
               exportPDF({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}` });
             }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
             <button onClick={() => {
-              const rows = data.map(d => selectedFields.map(f => {
+              const rows = sortedData.map(d => selectedFields.map(f => {
                 let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (Array.isArray(val)) return val.join(', ');
@@ -135,21 +185,39 @@ export default function KlassenListePage() {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100">
                 <tr>
-                  {selectedFields.map(f => <th key={f} className="text-left px-3 py-2 font-semibold">{f}</th>)}
+                  {selectedFields.map(f => {
+                    const active = sortField === f;
+                    const arrow = active ? (sortDir === 'asc' ? '▲' : '▼') : '';
+                    return (
+                      <th
+                        key={f}
+                        className="text-left px-3 py-2 font-semibold select-none cursor-pointer hover:bg-gray-200 transition"
+                        onClick={()=>toggleSort(f)}
+                        title={active ? `Sortierung: ${sortDir === 'asc' ? 'aufsteigend' : 'absteigend'} (klicken zum Umschalten)` : 'Klicken zum Sortieren'}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <span>{f}</span>
+                          {arrow && <span className="text-[10px] opacity-70">{arrow}</span>}
+                        </span>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {data.map((row,i) => (
-                  <tr key={row._id || i} className={i%2? 'bg-gray-50' : ''}>
-                    {selectedFields.map(f => {
-                      let v = row[f];
-                      if (f === 'Geburtsdatum') v = fmtDate(v);
-                      if (Array.isArray(v)) v = v.join(', ');
-                      if (v === null || v === undefined) v = '';
-                      return <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{String(v)}</td>;
-                    })}
-                  </tr>
-                ))}
+                {sortedData.map((row,i) => {
+                  return (
+                    <tr key={row._id || i} className={i%2? 'bg-gray-50' : ''}>
+                      {selectedFields.map(f => {
+                        let v = row[f];
+                        if (f === 'Geburtsdatum') v = fmtDate(v);
+                        if (Array.isArray(v)) v = v.join(', ');
+                        if (v === null || v === undefined) v = '';
+                        return <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{String(v)}</td>;
+                      })}
+                    </tr>
+                  );
+                })}
                 {data.length === 0 && (
                   <tr><td colSpan={selectedFields.length} className="px-3 py-4 text-center text-gray-500 text-xs">Keine Daten</td></tr>
                 )}
