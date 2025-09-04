@@ -152,7 +152,8 @@ export async function GET(request: Request) {
   // Bisherige Logik lieferte sonst nur Geschlecht und blendete den Rest aus -> "leere" Datensätze.
   let projection: Record<string, number> | undefined = undefined;
   if (fields) {
-    projection = { Geschlecht: 1 };
+  // Immer Geschlecht plus Legacy 'm/w' (für Fallback) projizieren
+  projection = { Geschlecht: 1, 'm/w': 1 };
     for (const f of fields.split(',').map(s=>s.trim()).filter(Boolean)) projection[f] = 1;
   }
   if (!includeDeleted) {
