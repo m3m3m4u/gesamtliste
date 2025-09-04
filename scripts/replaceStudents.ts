@@ -5,7 +5,6 @@ if (!process.env.MONGODB_URI) dotenv.config();
 import fs from 'fs';
 import path from 'path';
 import { MongoClient } from 'mongodb';
-import bcrypt from 'bcryptjs';
 
 /*
  * Dieses Skript ersetzt die komplette students-Collection durch neue Werte.
@@ -14,7 +13,7 @@ import bcrypt from 'bcryptjs';
  * 2. Validiert Format.
  * 3. Löscht Collection-Inhalte.
  * 4. Legt notwendige Indizes neu an.
- * 5. Transformiert (Passwort-Hash, Normalisierung) und inserted alle Dokumente.
+ * 5. Transformiert (Normalisierung) und inserted alle Dokumente (kein Hashing mehr).
  * Sicherung: Optional kann vor dem Löschen ein Dump (JSON) in backups/ geschrieben werden.
  */
 async function run(){
