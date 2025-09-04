@@ -102,7 +102,7 @@ export default function Schueler() {
 
   const current = results[index];
 
-  const HIDDEN = new Set(['_id','createdAt','updatedAt','deletedAt','_deleted','NormBenutzername','Stufe 24/25','Stufe 24/25_1','Klasse 24/25','Klasse 24/25_1','PasswortHash','Schwerpunkt 1','Klasse 22/23','Klasse 23/24','ImportStamp']);
+  const HIDDEN = new Set(['_id','createdAt','updatedAt','deletedAt','_deleted','NormBenutzername','Stufe 24/25','Stufe 24/25_1','Klasse 24/25','Klasse 24/25_1','Schwerpunkt 1','Klasse 22/23','Klasse 23/24','ImportStamp']);
   function orderedKeys(s: Student) {
     const keys = Object.keys(s || {}).filter(k => !HIDDEN.has(k));
     // Präferenzliste um Reihenfolge beizubehalten (erste Elemente werden oben/links gerendert)

@@ -49,7 +49,7 @@ export default function Seite2() {
 
   const current = results[index];
 
-  const HIDDEN = new Set(['_id','createdAt','updatedAt','deletedAt','_deleted','NormBenutzername','Stufe 24/25','Stufe 24/25_1','Klasse 24/25','Klasse 24/25_1','PasswortHash','Klasse 22/23','Klasse 23/24','ImportStamp']);
+  const HIDDEN = new Set(['_id','createdAt','updatedAt','deletedAt','_deleted','NormBenutzername','Stufe 24/25','Stufe 24/25_1','Klasse 24/25','Klasse 24/25_1','Klasse 22/23','Klasse 23/24','ImportStamp']);
   function orderedKeys(s: Student) {
     const keys = Object.keys(s || {}).filter(k => !HIDDEN.has(k));
     const pref = ['Vorname','Familienname','Nachname','Geburtsdatum','Klasse','Klasse 25/26','Klasse25','Klasse26','Status','Angebote','Benutzername','Passwort'];

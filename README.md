@@ -31,7 +31,6 @@ npm run import:data -- pfad/zur/datei.json
 ```
 Import-Skript erledigt:
 - Platzhalter `0`, `-`, `---` -> `null`
-- Passwort Hashing (`Passwort` -> `PasswortHash`)
 - Doppelte Benutzer werden über `NormBenutzername` (lowercase) bereinigt
 - Upsert (idempotent), Teilindex auf `NormBenutzername`
 - Angebote Normalisierung & Array
@@ -49,7 +48,6 @@ Dev-Server: http://localhost:3000
 2. In Vercel neues Projekt anlegen -> Repo auswählen.
 3. Environment Variables setzen:
 	- `MONGODB_URI`
-	- `BCRYPT_SALT_ROUNDS` (z.B. 10)
 4. Build Command (auto): `npm run build`
 5. Output: automatisch durch Next.js.
 6. Deploy.

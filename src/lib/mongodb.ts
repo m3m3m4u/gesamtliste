@@ -50,8 +50,7 @@ export interface StudentDoc {
   Nachname?: string;
   Benutzername?: string;
   Geburtsdatum?: string; // ISO oder DD.MM.YYYY
-  Passwort?: string;
-  PasswortHash?: string;
+  Passwort?: string; // nur Klartext (kein Hash)
   Angebote?: string[];
   Schwerpunkte?: string[] | string;
   Schwerpunkt?: string[] | string;

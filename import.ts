@@ -1,5 +1,4 @@
 import dotenv from 'dotenv';
-import bcrypt from 'bcryptjs';
 // Erst .env.local laden (Next.js Konvention), dann Fallback auf .env
 dotenv.config({ path: '.env.local' });
 if (!process.env.MONGODB_URI) {
@@ -48,7 +47,7 @@ async function run() {
     console.warn('Warnung: JSON enthält 0 Einträge – nichts zu importieren.');
     return;
   }
-  const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS || 10);
+  // Hashing entfernt – Passwörter bleiben (optional) im Klartext
   // Transformation / Bereinigung
   const PLACEHOLDERS = new Set(['0','-','---','']);
   docs = docs.map((d: any) => {
