@@ -23,12 +23,34 @@ except PermissionError as e:
         print('❌ Fallback ebenfalls fehlgeschlagen:', e2)
         raise
 
-def combine_offers(row):
-    offers = [row.get('Angebot1'), row.get('Angebot2'), row.get('Angebot3')]
-    return [o for o in offers if pd.notna(o) and str(o).strip()!='']
+""" Dynamische Erkennung von Angebot-Spalten.
+Akzeptiert Varianten wie Angebot1 / Angebot 1 / Angebot_1 (Groß/Kleinschreibung egal)."""
+offer_cols = []
+for c in df.columns:
+    low = str(c).lower().strip().replace(' ', '').replace('_','')
+    if low.startswith('angebot') and len(low) > len('angebot'):
+        # rest muss eine Zahl sein
+        rest = low[len('angebot'):]
+        if rest.isdigit():
+            offer_cols.append(c)
 
-df['Angebote'] = df.apply(combine_offers, axis=1)
-df = df.drop(columns=['Angebot1','Angebot2','Angebot3'])
+def collect_offers(row):
+    vals = []
+    for oc in offer_cols:
+        v = row.get(oc)
+        if pd.notna(v):
+            s = str(v).strip()
+            if s:
+                vals.append(s)
+    return vals
+
+if offer_cols:
+    df['Angebote'] = df.apply(collect_offers, axis=1)
+    # Entferne nur existierende Angebot-Spalten
+    df = df.drop(columns=[c for c in offer_cols if c in df.columns])
+else:
+    if 'Angebote' not in df.columns:
+        df['Angebote'] = [[] for _ in range(len(df))]
 
 json_data = df.to_dict(orient='records')
 json_file = filedialog.asksaveasfilename(title='JSON-Datei speichern unter', defaultextension='.json', filetypes=[('JSON-Dateien','*.json')])
