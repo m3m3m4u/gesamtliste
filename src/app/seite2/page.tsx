@@ -81,7 +81,7 @@ export default function Seite2() {
     <div className="max-w-2xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Schüler Suche & Bearbeitung</h1>
-  <Link href="/" className="text-sm text-blue-600 underline">Zur Übersicht</Link>
+  <Link href="/" className="text-sm text-blue-600 underline">Zurück</Link>
       </div>
       <form onSubmit={search} className="flex flex-wrap gap-3 items-center">
         <input className="border rounded px-3 py-2 flex-1 min-w-[240px]" placeholder="Suche (Vorname / Familienname)" value={q} onChange={e=>setQ(e.target.value)} />

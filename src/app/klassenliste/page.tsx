@@ -133,7 +133,7 @@ export default function KlassenListePage() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Klassenliste</h1>
-  <Link href="/" className="text-sm text-blue-600 underline">Startseite</Link>
+  <Link href="/" className="text-sm text-blue-600 underline">Zurück</Link>
       </div>
       <div className="flex flex-wrap gap-4 items-end">
         <div>

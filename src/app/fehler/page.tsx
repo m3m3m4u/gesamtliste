@@ -20,7 +20,7 @@ export default function FehlerMeldenPage(){
     <div className="max-w-xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Fehler melden</h1>
-        <Link href="/" className="text-sm text-blue-600 underline">Zur Übersicht</Link>
+  <Link href="/" className="text-sm text-blue-600 underline">Zurück</Link>
       </div>
       <p className="text-sm text-gray-600">Beschreibe kurz, was nicht funktioniert oder verbessert werden sollte.</p>
       <form onSubmit={submit} className="space-y-4">
