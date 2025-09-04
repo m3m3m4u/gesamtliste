@@ -130,5 +130,9 @@ export async function GET() {
   } else {
     klassen = klassen.sort((a,b)=>a.localeCompare(b,'de'));
   }
+  // Notfall: falls nach allem leer, nimm direkt rohe Werte aus "Klasse 25/26"
+  if(!klassen.length && Array.isArray(rawKlassenNeu)){
+    klassen = unique((rawKlassenNeu as unknown[]).map(v=>String(v??'').trim()).filter(s=>s.length>0)).sort((a,b)=>a.localeCompare(b,'de'));
+  }
   return NextResponse.json({ stufen, status, jahre, religionen, sprachen, angebote, schwerpunkte, fruehbetreuung, klassen });
 }
