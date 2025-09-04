@@ -157,6 +157,17 @@ export async function GET(request: Request) {
     .limit(limit)
     .sort({ Familienname: 1, Vorname: 1 })
   const docs = await cursor.toArray();
+  // Legacy Feld-Mapping (DB enthält evtl. alte Kurzformen)
+  for(const d of docs){
+    const anyDoc = d as Record<string, any>;
+    if(anyDoc['25/26'] && !anyDoc['Klasse 25/26']) anyDoc['Klasse 25/26'] = anyDoc['25/26'];
+    if(anyDoc['BJ'] && !anyDoc['Besuchsjahr']) anyDoc['Besuchsjahr'] = anyDoc['BJ'];
+    if(anyDoc['m/w'] && !anyDoc['Geschlecht']) {
+      const gRaw = String(anyDoc['m/w']).trim().toLowerCase();
+      anyDoc['Geschlecht'] = gRaw.startsWith('m') ? 'm' : gRaw.startsWith('w') ? 'w' : '';
+      if(!anyDoc['Geschlecht']) delete anyDoc['Geschlecht'];
+    }
+  }
   return NextResponse.json({ total, items: docs });
 }
 
