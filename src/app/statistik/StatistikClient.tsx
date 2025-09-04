@@ -47,8 +47,8 @@ export default function StatistikClient({ data }: { data: DataProp }) {
   <col style={{ width: '36px' }} />
   <col style={{ width: '24px' }} />
   <col style={{ width: '24px' }} />
-    {data.stufen.map((s, i) => (
-      <React.Fragment key={'col_' + s + '_' + i}>
+    {data.stufen.map((s) => (
+      <React.Fragment key={'col_' + s}>
     <col style={{ width: '22px' }} />
     <col style={{ width: '22px' }} />
       </React.Fragment>

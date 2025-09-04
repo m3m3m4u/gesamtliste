@@ -159,7 +159,7 @@ export async function GET(request: Request) {
   const docs = await cursor.toArray();
   // Legacy Feld-Mapping (DB enthält evtl. alte Kurzformen)
   for(const d of docs){
-    const anyDoc = d as Record<string, any>;
+    const anyDoc = d as Record<string, unknown>;
     if(anyDoc['25/26'] && !anyDoc['Klasse 25/26']) anyDoc['Klasse 25/26'] = anyDoc['25/26'];
     if(anyDoc['BJ'] && !anyDoc['Besuchsjahr']) anyDoc['Besuchsjahr'] = anyDoc['BJ'];
     if(anyDoc['m/w'] && !anyDoc['Geschlecht']) {
