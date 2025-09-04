@@ -26,7 +26,11 @@ export default async function Home() {
           <a href="/schueler" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-md shadow transition-colors">Suchen & Bearbeiten (mit Passwort)</a>
           <a href="/optionen" className="inline-block bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-8 py-3 rounded-md shadow transition-colors">Optionen (mit Passwort)</a>
           <a href="/fehler" className="inline-block bg-orange-600 hover:bg-orange-700 text-white px-8 py-3 rounded-md shadow transition-colors">Fehler melden</a>
-          {authed && <a href="/meldungen" className="inline-block bg-slate-600 hover:bg-slate-700 text-white px-8 py-3 rounded-md shadow transition-colors">Eingegangene Meldungen</a>}
+          {authed ? (
+            <a href="/meldungen" className="inline-block bg-slate-600 hover:bg-slate-700 text-white px-8 py-3 rounded-md shadow transition-colors">Eingegangene Meldungen</a>
+          ) : (
+            <a href="/meldungen" className="inline-block bg-slate-400 hover:bg-slate-500 text-white px-8 py-3 rounded-md shadow transition-colors" title="Mit Passwort zugänglich">Eingegangene Meldungen (mit Passwort)</a>
+          )}
           {authed && (
             <form action="/api/logout" method="post">
               <button type="submit" className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 px-8 py-3 rounded-md shadow transition-colors">Abmelden</button>
