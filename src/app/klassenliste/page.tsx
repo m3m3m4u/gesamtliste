@@ -117,6 +117,18 @@ export default function KlassenListePage() {
     return v;
   }
 
+  function cellValue(d: StudentDoc, f: string): string {
+    let val: unknown = d[f];
+    if (f === 'Stufe 25/26') {
+      // Wenn Stufe fehlt oder leer -> als '0' anzeigen
+      if (val == null || String(val).trim() === '' || val === '-' || val === '—') return '0';
+    }
+    if (f === 'Geburtsdatum') val = fmtDate(val);
+    if (Array.isArray(val)) return val.join(', ');
+    if (val == null) return '';
+    return String(val);
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -148,30 +160,15 @@ export default function KlassenListePage() {
         {klasse && data.length > 0 && (
           <div className="flex gap-2">
             <button onClick={() => {
-              const rows = sortedData.map(d => selectedFields.map(f => {
-                let val: unknown = d[f];
-                if (f === 'Geburtsdatum') val = fmtDate(val);
-                if (Array.isArray(val)) return val.join(', ');
-                return val == null ? '' : String(val);
-              }));
+              const rows = sortedData.map(d => selectedFields.map(f => cellValue(d,f)));
               exportExcel({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}` });
             }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
             <button onClick={() => {
-              const rows = sortedData.map(d => selectedFields.map(f => {
-                let val: unknown = d[f];
-                if (f === 'Geburtsdatum') val = fmtDate(val);
-                if (Array.isArray(val)) return val.join(', ');
-                return val == null ? '' : String(val);
-              }));
+              const rows = sortedData.map(d => selectedFields.map(f => cellValue(d,f)));
               exportPDF({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}` });
             }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
             <button onClick={() => {
-              const rows = sortedData.map(d => selectedFields.map(f => {
-                let val: unknown = d[f];
-                if (f === 'Geburtsdatum') val = fmtDate(val);
-                if (Array.isArray(val)) return val.join(', ');
-                return val == null ? '' : String(val);
-              }));
+              const rows = sortedData.map(d => selectedFields.map(f => cellValue(d,f)));
               exportWord({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}`, word: { zebra: true } });
             }} className="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Word</button>
           </div>
@@ -205,19 +202,13 @@ export default function KlassenListePage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedData.map((row,i) => {
-                  return (
-                    <tr key={row._id || i} className={i%2? 'bg-gray-50' : ''}>
-                      {selectedFields.map(f => {
-                        let v = row[f];
-                        if (f === 'Geburtsdatum') v = fmtDate(v);
-                        if (Array.isArray(v)) v = v.join(', ');
-                        if (v === null || v === undefined) v = '';
-                        return <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{String(v)}</td>;
-                      })}
-                    </tr>
-                  );
-                })}
+                {sortedData.map((row,i) => (
+                  <tr key={row._id || i} className={i%2? 'bg-gray-50' : ''}>
+                    {selectedFields.map(f => (
+                      <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{cellValue(row,f)}</td>
+                    ))}
+                  </tr>
+                ))}
                 {data.length === 0 && (
                   <tr><td colSpan={selectedFields.length} className="px-3 py-4 text-center text-gray-500 text-xs">Keine Daten</td></tr>
                 )}
