@@ -1,7 +1,8 @@
 import React from 'react';
 import LoginClient from '@/app/login/LoginClient';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
+// Redirect aktuell deaktiviert, weil Auth global aus ist
+// import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,6 @@ export default async function LoginPage({ searchParams }: { searchParams?: SP })
   const cookieStore = await cookies();
   const version = process.env.SITE_AUTH_VERSION || '1';
   const authed = cookieStore.get('site_auth')?.value === version;
-  if (authed) redirect('/');
+  // Auth deaktiviert -> kein Redirect bei vorhandenem Cookie
   return <LoginClient nextPath={typeof next === 'string' && next ? next : '/'} />;
 }
