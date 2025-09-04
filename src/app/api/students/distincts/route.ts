@@ -123,9 +123,12 @@ export async function GET() {
     if (!klassen.includes(k)) klassen.push(k);
   }
   if (cfg && Array.isArray(cfg.klassen) && cfg.klassen.length) {
-    klassen = unique(cfg.klassen.map(v=>String(v??''))).filter(s=>s.length>0);
+    klassen = unique([
+      ...klassen,
+      ...cfg.klassen.map(v=>String(v??'').trim()).filter(s=>s.length>0)
+    ]).filter(s=>s.length>0).sort((a,b)=>a.localeCompare(b,'de'));
   } else {
-    klassen = klassen.sort((a,b)=>a.localeCompare(b,'de')); 
+    klassen = klassen.sort((a,b)=>a.localeCompare(b,'de'));
   }
   return NextResponse.json({ stufen, status, jahre, religionen, sprachen, angebote, schwerpunkte, fruehbetreuung, klassen });
 }
