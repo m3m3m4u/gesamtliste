@@ -37,6 +37,17 @@ export default function StatistikClient({ data }: { data: DataProp }) {
   // No sorting: preserve server-provided class order
   const sorted = summarized;
 
+  // Gesamt-Summen berechnen
+  const totalRow = useMemo(()=>{
+    const agg: { klasse: string; total: number; w: number; m: number; stufen: StufenMap } = { klasse: 'Σ', total:0,w:0,m:0, stufen:{} };
+    data.stufen.forEach(s=>{ agg.stufen[s]={w:0,m:0}; });
+    sorted.forEach(r=>{
+      agg.total += r.total; agg.w += r.w; agg.m += r.m;
+      data.stufen.forEach(s=>{ const st=r.stufen[s]; if(st){ agg.stufen[s].w += st.w; agg.stufen[s].m += st.m; } });
+    });
+    return agg;
+  },[sorted,data.stufen]);
+
   return (
   <div className="w-full overflow-x-auto">
   {/* No client-side sorting controls — server order is used */}
@@ -108,6 +119,21 @@ export default function StatistikClient({ data }: { data: DataProp }) {
                   {/* no final trailing m & w cells */}
               </tr>
             ))}
+            <tr className="bg-yellow-50 font-semibold border-t-4">
+              <td className="border px-2 py-1">{totalRow.klasse}</td>
+              <td className="border px-2 py-1 text-right">{totalRow.total}</td>
+              <td className="border px-2 py-1 text-right text-red-600">{totalRow.w}</td>
+              <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{totalRow.m}</td>
+              {data.stufen.map((s, idx)=>{
+                const st = totalRow.stufen[s] || { w:0, m:0 };
+                return (
+                  <React.Fragment key={'Σ_'+s}>
+                    <td className="border px-2 py-1 text-right text-red-600">{st.w}</td>
+                    <td className="border px-2 py-1 text-right text-blue-600 border-r-2">{st.m}</td>
+                  </React.Fragment>
+                );
+              })}
+            </tr>
           </tbody>
         </table>
     </div>

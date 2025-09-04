@@ -69,7 +69,14 @@ export default async function StatistikPage() {
   }
   function canonKlasse(d: any): string {
     const order = ['Klasse 25/26','Klasse','25/26','Klasse25','Klasse26','Klasse 24/25','Klasse 24/25_1'];
-    for (const k of order) { const c = clean(d[k]); if (c) return c; }
+    for (const k of order) {
+      const c = clean(d[k]);
+      if (c) {
+        // Normalisieren: Trim, Mehrfachspaces reduzieren, Großbuchstaben für Präfix
+        const norm = c.replace(/\s+/g,'').toUpperCase();
+        return norm;
+      }
+    }
     return '—';
   }
   function canonStufe(d: any): string {
@@ -107,11 +114,11 @@ export default async function StatistikPage() {
     if (!map[klasse].years[jahr]) map[klasse].years[jahr] = { total: 0, m: 0, w: 0, stufen: {} };
     const y = map[klasse].years[jahr];
     y.total += 1;
-    if (gesch === 'm') y.m += 1; else if (gesch === 'w') y.w += 1;
+  if (gesch === 'm') y.m += 1; else if (gesch === 'w') y.w += 1; // '?' wird nur total gezählt
     if (!y.stufen[stufe]) y.stufen[stufe] = { m: 0, w: 0, total: 0 };
     const st = y.stufen[stufe];
     st.total += 1;
-    if (gesch === 'm') st.m += 1; else if (gesch === 'w') st.w += 1;
+  if (gesch === 'm') st.m += 1; else if (gesch === 'w') st.w += 1;
     stufenSet.add(stufe);
   }
 
@@ -124,9 +131,19 @@ export default async function StatistikPage() {
 
   // Ensure classes includes any found in map (and normalize keys)
   const allClasses = Array.from(new Set([
-    ...classes.map(c=>normalizeKey(c)),
+    ...classes.map(c=>normalizeKey(c).replace(/\s+/g,'').toUpperCase()),
     ...Object.keys(map)
-  ])).filter(Boolean).sort((a,b)=>String(a).localeCompare(String(b)));
+  ])).filter(Boolean).sort((a,b)=>{
+    // Muster: Buchstabe(n)+Zahl(en) -> zuerst Buchstaben, dann Zahl numerisch
+    const r=/^([A-ZÄÖÜ]+)(\d*)$/i; const ma=a.match(r); const mb=b.match(r);
+    if (ma && mb) {
+      const la = ma[1].localeCompare(mb[1]);
+      if (la!==0) return la;
+      const na = ma[2]? parseInt(ma[2],10): -1; const nb = mb[2]? parseInt(mb[2],10): -1;
+      return na-nb;
+    }
+    return a.localeCompare(b,'de');
+  });
 
   // Build aggregated map per class (across years) for stufen totals
   const aggregatedMap: Record<string, { total:number; m:number; w:number; stufen: Record<string, { m:number; w:number; total:number }> }> = {};
