@@ -159,8 +159,9 @@ export async function GET() {
       } catch {}
     }
   }
-  for (const k of klassenAusStufen) {
-    if (!klassen.includes(k)) klassen.push(k);
+  // Aus den Stufen ausgekoppelte Klassen ergänzen
+  for (const kVal of klassenAusStufen) {
+    if (!klassen.includes(kVal)) klassen.push(kVal);
   }
   if (cfg && Array.isArray(cfg.klassen) && cfg.klassen.length) {
     klassen = unique([

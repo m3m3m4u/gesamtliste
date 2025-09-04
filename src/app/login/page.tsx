@@ -14,7 +14,8 @@ export default async function LoginPage({ searchParams }: { searchParams?: SP })
   const next = Array.isArray(rawNext) ? rawNext[0] : rawNext;
   const cookieStore = await cookies();
   const version = process.env.SITE_AUTH_VERSION || '1';
-  const authed = cookieStore.get('site_auth')?.value === version;
+  // Hinweis: Auth derzeit deaktiviert; Variable nicht genutzt -> entfernt um Lint-Warnung zu vermeiden
+  // const authed = cookieStore.get('site_auth')?.value === version;
   // Auth deaktiviert -> kein Redirect bei vorhandenem Cookie
   return <LoginClient nextPath={typeof next === 'string' && next ? next : '/'} />;
 }

@@ -136,7 +136,9 @@ export default function Schueler() {
       clone.Angebote = toArr(clone.Angebote);
       clone.Schwerpunkte = toArr(clone.Schwerpunkte ?? clone.Schwerpunkt);
       clone['Frühbetreuung'] = toArr(clone['Frühbetreuung']);
-    clone.Status = toArr((clone as any).Status);
+  // Status robust extrahieren ohne any
+  const rawStatus: unknown = (clone as Record<string, unknown>)['Status'];
+  clone.Status = toArr(rawStatus);
       if (current._deleted) {
         CREATE_FIELDS.forEach(f => {
       if (!(f in clone)) (clone as PartialStudent)[f] = (f === 'Angebote' || f==='Schwerpunkte' || f==='Frühbetreuung' || f==='Status') ? [] : '';
@@ -174,9 +176,9 @@ export default function Schueler() {
           const empty = {} as PartialStudent;
           CREATE_FIELDS.forEach(f=>{ empty[f] = ''; });
           empty.Angebote = [];
-          (empty as any).Schwerpunkte = [];
-          (empty as any)['Frühbetreuung'] = [];
-          (empty as any).Status = [];
+          (empty as Record<string, unknown>).Schwerpunkte = [];
+          (empty as Record<string, unknown>)['Frühbetreuung'] = [];
+          (empty as Record<string, unknown>).Status = [];
           setDraft(empty as Student);
           setDirty(false);
           setMsg(null);

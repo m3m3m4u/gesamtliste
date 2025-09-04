@@ -32,8 +32,11 @@ export function exportExcel({ filenameBase, headers, rows, title }: ExportConfig
     const lastCol = String.fromCharCode('A'.charCodeAt(0) + headers.length - 1);
     (ws['!merges'] = ws['!merges'] || []).push({ s:{r:0,c:0}, e:{r:0,c:headers.length-1} });
     // Optionale leichte Formatierung (nicht alle Reader berücksichtigen Stil)
-    const cell = ws['A1'];
-    if (cell) (cell as any).s = { font: { bold: true } };
+    const cell = ws['A1'] as unknown as { v: string; t: string; s?: unknown } | undefined;
+    if (cell) {
+      // Style Zuweisung: XLSX Typ nicht exakt typisiert -> bewusst auf unknown gecastet statt any
+      (cell as { s?: { font?: { bold?: boolean } } }).s = { font: { bold: true } };
+    }
   }
   const wb: WorkBook = utils.book_new();
   utils.book_append_sheet(wb, ws, 'Daten');
