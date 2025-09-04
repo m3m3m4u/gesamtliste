@@ -171,6 +171,9 @@ export async function GET(request: Request) {
   if(anyDoc['Klasse'] && !anyDoc['Klasse 25/26']) anyDoc['Klasse 25/26'] = anyDoc['Klasse'];
   if(anyDoc['Klasse25'] && !anyDoc['Klasse 25/26']) anyDoc['Klasse 25/26'] = anyDoc['Klasse25'];
   if(anyDoc['Klasse26'] && !anyDoc['Klasse 25/26']) anyDoc['Klasse 25/26'] = anyDoc['Klasse26'];
+  // Stufe Fallbacks
+  if(anyDoc['Stufe 24/25'] && !anyDoc['Stufe 25/26']) anyDoc['Stufe 25/26'] = anyDoc['Stufe 24/25'];
+  if(anyDoc['Stufe 24/25_1'] && !anyDoc['Stufe 25/26']) anyDoc['Stufe 25/26'] = anyDoc['Stufe 24/25_1'];
     if(anyDoc['BJ'] && !anyDoc['Besuchsjahr']) anyDoc['Besuchsjahr'] = anyDoc['BJ'];
     if(anyDoc['m/w'] && !anyDoc['Geschlecht']) {
       const gRaw = String(anyDoc['m/w']).trim().toLowerCase();

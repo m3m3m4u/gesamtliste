@@ -9,14 +9,14 @@ interface Option { value: string; label: string; }
 export default function KlassenListePage() {
   const [klasse, setKlasse] = useState('');
   const [availableKlassen, setAvailableKlassen] = useState<Option[]>([]);
-  const [selectedFields, setSelectedFields] = useState<string[]>(['Vorname','Familienname','Benutzername','Passwort']);
+  const [selectedFields, setSelectedFields] = useState<string[]>(['Vorname','Familienname','Stufe 25/26','Benutzername','Passwort']);
   const [data, setData] = useState<StudentDoc[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Felder die auswählbar sind (kann erweitert werden)
   const FIELD_OPTIONS: string[] = [
-    'Vorname','Familienname','Benutzername','Geburtsdatum','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung'
+    'Vorname','Familienname','Stufe 25/26','Benutzername','Geburtsdatum','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung'
   ];
 
   // Klassen-Liste aus DB laden (einmal)
