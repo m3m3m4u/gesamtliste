@@ -23,7 +23,15 @@ export function middleware(req: NextRequest) {
 
   // TEMP: Auth deaktiviert
   const needsAuth = false;
-  if (!needsAuth) return NextResponse.next();
+  if (!needsAuth) {
+    if(pathname === '/login') {
+      const url = req.nextUrl.clone();
+      url.pathname = '/';
+      url.search = '';
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
 
   const authed = req.cookies.get(COOKIE_NAME)?.value === COOKIE_VALUE;
   if (authed) return NextResponse.next();
