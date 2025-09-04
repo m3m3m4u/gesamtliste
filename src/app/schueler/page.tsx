@@ -82,7 +82,8 @@ export default function Schueler() {
   async function loadByQuery(query: string) {
     setLoading(true); setMsg(null);
     try {
-      const params = new URLSearchParams({ q: query.trim(), limit: '200', onlyNames: '1' });
+  // Volle Dokumente laden (kein onlyNames), damit z.B. Geschlecht nicht leer bleibt
+  const params = new URLSearchParams({ q: query.trim(), limit: '200' });
       if (showDeleted) params.set('includeDeleted','1');
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
       if (!res.ok) throw new Error(await res.text());
