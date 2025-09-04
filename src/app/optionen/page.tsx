@@ -15,18 +15,37 @@ export default function OptionenPage(){
   useEffect(()=>{ (async()=>{ try {
     const d = await fetch('/api/students/distincts',{cache:'no-store'}); if(d.ok){ const dj = await d.json();
       setData(prev=>{ const next = { ...prev };
-        if(Array.isArray(dj.klassen) && prev.klassen.length===0) next.klassen = dj.klassen;
+        // Klassen immer vereinigen (nicht nur wenn leer)
+        if(Array.isArray(dj.klassen)) {
+          const setK = new Set(prev.klassen);
+          dj.klassen.forEach((k: string)=>{ if(k && !setK.has(k)) setK.add(k); });
+          next.klassen = Array.from(setK).sort((a,b)=>a.localeCompare(b,'de'));
+        }
+        // Religionen vereinigen
         if(Array.isArray(dj.religionen)) {
           const set = new Set(prev.religionen);
-            dj.religionen.forEach((r: string)=>{ if(r && !set.has(r)) { set.add(r); } });
-          next.religionen = Array.from(set);
+          dj.religionen.forEach((r: string)=>{ if(r && !set.has(r)) set.add(r); });
+          next.religionen = Array.from(set).sort((a,b)=>a.localeCompare(b,'de'));
         }
+        // Sprachen vereinigen
         if(Array.isArray(dj.sprachen)) {
           const setS = new Set(prev.sprachen);
           dj.sprachen.forEach((s: string)=>{ if(s && !setS.has(s)) setS.add(s); });
-          next.sprachen = Array.from(setS);
+          next.sprachen = Array.from(setS).sort((a,b)=>a.localeCompare(b,'de'));
         }
-  setRaw(r=>({ ...r, religionen: next.religionen.join('\n'), klassen: next.klassen.join('\n'), sprachen: next.sprachen.join('\n') }));
+        // Status vereinigen
+        if(Array.isArray(dj.status)) {
+          const setT = new Set(prev.status);
+          dj.status.forEach((s: string)=>{ if(s && !setT.has(s)) setT.add(s); });
+          next.status = Array.from(setT).sort((a,b)=>a.localeCompare(b,'de'));
+        }
+        setRaw(r=>({
+          ...r,
+          religionen: next.religionen.join('\n'),
+          klassen: next.klassen.join('\n'),
+          sprachen: next.sprachen.join('\n'),
+          status: next.status.join('\n')
+        }));
         return next;
       });
     }
