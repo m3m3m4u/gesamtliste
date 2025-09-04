@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import clientPromise from '@/lib/mongodb';
 import MeldungenClient from './MeldungenClient';
 import { cookies } from 'next/headers';
@@ -27,7 +28,7 @@ export default async function MeldungenPage(){
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Meldungen</h1>
-        <a href="/" className="text-sm text-blue-600 underline">Zurück</a>
+        <Link href="/" className="text-sm text-blue-600 underline">Zurück</Link>
       </div>
       <MeldungenClient initialItems={mapped} />
     </div>
