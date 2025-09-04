@@ -117,19 +117,48 @@ export async function GET() {
   }
   // Klassen (aus aktueller Klasse 25/26 oder historisch) aggregieren
   const rawKlassenNeu = await col.distinct('Klasse 25/26', baseFilter);
-  const rawKlassenAlt1 = await col.distinct('Klasse 24/25', baseFilter).catch(()=>[]);
-  const rawKlassePlain = await col.distinct('Klasse', baseFilter).catch(()=>[]);
-  const rawLegacy2526 = await col.distinct('25/26', baseFilter).catch(()=>[]);
-  const rawKlasse25 = await col.distinct('Klasse25', baseFilter).catch(()=>[]);
-  const rawKlasse26 = await col.distinct('Klasse26', baseFilter).catch(()=>[]);
-  let klassen = unique([
-    ...(rawKlassenNeu as unknown[]),
-    ...(rawKlassenAlt1 as unknown[]),
-    ...(rawKlassePlain as unknown[]),
-    ...(rawLegacy2526 as unknown[]),
-    ...(rawKlasse25 as unknown[]),
-    ...(rawKlasse26 as unknown[])
-  ].map(v=>String(v??'').trim()).filter(s=>s!==''));
+  let klassen = unique((rawKlassenNeu as unknown[]).map(v=>String(v??'').trim()).filter(s=>s!==''));
+  // Fallback: Wenn zu wenige Klassen (<=1), ergänze aus Legacy-/Alternativfeldern
+  if (klassen.length <= 1) {
+    const altFields = [
+      'Klasse', '25/26', 'Klasse25', 'Klasse26', 'Klasse 24/25', 'Klasse 24/25_1'
+    ];
+    const extra: string[] = [];
+    for (const f of altFields) {
+      try {
+        const vals = await col.distinct(f, baseFilter);
+        for (const v of vals as unknown[]) {
+          const s = String(v ?? '').trim();
+            if (s) extra.push(s);
+        }
+      } catch {}
+    }
+    klassen = unique([...klassen, ...extra]);
+    // Zusätzlicher Heuristik-Scan: Falls weiterhin sehr wenige Klassen (<=3), alle Dokumente parsen
+    if (klassen.length <= 3) {
+      try {
+        const docs = await col.find(baseFilter, { projection: { _id: 0 } }).limit(5000).toArray();
+        const pattern = /^[ABC][0-9]{2}$/i; // A01, B22, C13 usw.
+        for (const d of docs) {
+          for (const [k, v] of Object.entries(d)) {
+            if (v == null) continue;
+            if (typeof v === 'string') {
+              const s = v.trim();
+              if (pattern.test(s)) klassen.push(s);
+            } else if (Array.isArray(v)) {
+              for (const el of v) {
+                if (typeof el === 'string') {
+                  const s2 = el.trim();
+                  if (pattern.test(s2)) klassen.push(s2);
+                }
+              }
+            }
+          }
+        }
+        klassen = unique(klassen);
+      } catch {}
+    }
+  }
   for (const k of klassenAusStufen) {
     if (!klassen.includes(k)) klassen.push(k);
   }
@@ -143,7 +172,8 @@ export async function GET() {
   }
   // Notfall: falls nach allem leer, nimm direkt rohe Werte aus "Klasse 25/26"
   if(!klassen.length && Array.isArray(rawKlassenNeu)){
-    klassen = unique((rawKlassenNeu as unknown[]).map(v=>String(v??'').trim()).filter(s=>s.length>0)).sort((a,b)=>a.localeCompare(b,'de'));
+    klassen = unique((rawKlassenNeu as unknown[]).map(v=>String(v??'').trim()).filter(s=>s.length>0));
   }
+  klassen = klassen.sort((a,b)=>a.localeCompare(b,'de'));
   return NextResponse.json({ stufen, status, jahre, religionen, sprachen, angebote, schwerpunkte, fruehbetreuung, klassen });
 }

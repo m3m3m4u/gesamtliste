@@ -85,12 +85,18 @@ export async function GET(request: Request) {
   }
   if (klasseParams.length) {
     const orList: Record<string, unknown>[] = [];
-    for (const k of klasseParams) {
+  for (const k of klasseParams) {
+      const escaped = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Regex erlaubt optionale Whitespaces zwischen Zeichen, case-insensitive
+      const spacedPattern = escaped.split('').map(ch=> ch + '\\s*').join('');
+      const rx = { $regex: `^${spacedPattern}$`, $options: 'i' };
       orList.push(
-        { Klasse: k },
-        { 'Klasse 25/26': k },
-        { Klasse25: k },
-        { Klasse26: k }
+        { Klasse: rx },
+        { 'Klasse 25/26': rx },
+    { '25/26': rx },
+    { 'Klasse 24/25': rx },
+        { Klasse25: rx },
+        { Klasse26: rx }
       );
     }
     const klasseFilter = { $or: orList };
@@ -162,6 +168,9 @@ export async function GET(request: Request) {
   for(const d of docs){
     const anyDoc = d as Record<string, unknown>;
     if(anyDoc['25/26'] && !anyDoc['Klasse 25/26']) anyDoc['Klasse 25/26'] = anyDoc['25/26'];
+  if(anyDoc['Klasse'] && !anyDoc['Klasse 25/26']) anyDoc['Klasse 25/26'] = anyDoc['Klasse'];
+  if(anyDoc['Klasse25'] && !anyDoc['Klasse 25/26']) anyDoc['Klasse 25/26'] = anyDoc['Klasse25'];
+  if(anyDoc['Klasse26'] && !anyDoc['Klasse 25/26']) anyDoc['Klasse 25/26'] = anyDoc['Klasse26'];
     if(anyDoc['BJ'] && !anyDoc['Besuchsjahr']) anyDoc['Besuchsjahr'] = anyDoc['BJ'];
     if(anyDoc['m/w'] && !anyDoc['Geschlecht']) {
       const gRaw = String(anyDoc['m/w']).trim().toLowerCase();

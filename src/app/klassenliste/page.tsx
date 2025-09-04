@@ -16,31 +16,31 @@ export default function KlassenListePage() {
 
   // Felder die auswählbar sind (kann erweitert werden)
   const FIELD_OPTIONS: string[] = [
-    'Vorname','Familienname','Benutzername','Geburtsdatum','Klasse 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung'
+    'Vorname','Familienname','Benutzername','Geburtsdatum','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung'
   ];
 
   // Klassen-Liste aus DB laden (einmal)
   useEffect(() => {
     (async () => {
       try {
-        // Wir holen nur die Felder Klasse / Klasse 25/26 etc. begrenzt
-  // Wir nutzen als maßgebliche Kategorie nur 'Klasse 25/26'
-  const res = await fetch('/api/students?limit=2000&fields=Klasse 25/26');
+        const res = await fetch('/api/students/distincts',{ cache:'no-store' });
+        if(!res.ok) return;
         const json = await res.json();
-        const setK = new Set<string>();
-  for (const s of json.items || []) if (s['Klasse 25/26']) setK.add(String(s['Klasse 25/26']));
-        const opts = Array.from(setK).sort().map(v => ({ value: v, label: v }));
+  let arr: string[] = Array.isArray(json.klassen) ? json.klassen : [];
+  // Feldbezeichner selbst nicht als Klasse anzeigen
+  arr = arr.filter(v => v !== 'Klasse 25/26');
+  const opts = arr.sort((a,b)=>a.localeCompare(b,'de')).map(v=>({ value: v, label: v }));
         setAvailableKlassen(opts);
-      } catch (e) {
-        console.error(e);
-      }
+      } catch(e){ console.error(e); }
     })();
   }, []);
   const load = useCallback(async () => {
     if (!klasse) { setData([]); return; }
     setLoading(true); setError(null);
     try {
-  const params = new URLSearchParams({ klasse, limit: '2000', fields: selectedFields.join(',') });
+  const params = new URLSearchParams({ klasse, limit: '2000' });
+  // Nur Felder anhängen, wenn explizit gewählt (ansonsten volle Docs für mehr Datenbasis)
+  if (selectedFields.length) params.set('fields', selectedFields.join(','));
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
       if (!res.ok) throw new Error(await res.text());
       const json: { items?: StudentDoc[] } = await res.json();

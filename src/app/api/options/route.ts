@@ -30,14 +30,37 @@ export async function GET(){
   if(!out.klassen || out.klassen.length===0){
     const client = await clientPromise; const db = client.db(); const students = db.collection('students');
     const baseFilter = { _deleted: { $ne: true } };
-    const f1 = await students.distinct('Klasse 25/26', baseFilter).catch(()=>[]);
-    const f2 = await students.distinct('Klasse 24/25', baseFilter).catch(()=>[]);
-    const f3 = await students.distinct('Klasse', baseFilter).catch(()=>[]);
-    const f4 = await students.distinct('25/26', baseFilter).catch(()=>[]);
-    const f5 = await students.distinct('Klasse25', baseFilter).catch(()=>[]);
-    const f6 = await students.distinct('Klasse26', baseFilter).catch(()=>[]);
-    const all = [...(f1 as unknown[]),...(f2 as unknown[]),...(f3 as unknown[]),...(f4 as unknown[]),...(f5 as unknown[]),...(f6 as unknown[])] as unknown[];
-    out.klassen = Array.from(new Set(all.map(v=>String(v??'').trim()).filter(s=>s.length>0))).sort((a,b)=>a.localeCompare(b,'de'));
+    const primary = await students.distinct('Klasse 25/26', baseFilter).catch(()=>[]);
+    let list = Array.from(new Set((primary as unknown[]).map(v=>String(v??'').trim()).filter(s=>s.length>0)));
+    if (list.length <= 1) {
+      const altFields = ['Klasse','25/26','Klasse25','Klasse26','Klasse 24/25','Klasse 24/25_1'];
+      for (const f of altFields) {
+        try {
+          const vals = await students.distinct(f, baseFilter);
+          for (const v of vals as unknown[]) {
+            const s = String(v??'').trim(); if(s) list.push(s);
+          }
+        } catch {}
+      }
+      list = Array.from(new Set(list));
+      if (list.length <= 3) {
+        try {
+          const docs = await students.find(baseFilter, { projection: { _id: 0 } }).limit(5000).toArray();
+          const pattern = /^[ABC][0-9]{2}$/i;
+          for (const d of docs) {
+            for (const v of Object.values(d)) {
+              if (typeof v === 'string') {
+                const s = v.trim(); if (pattern.test(s)) list.push(s);
+              } else if (Array.isArray(v)) {
+                for (const el of v) if (typeof el === 'string') { const s2 = el.trim(); if (pattern.test(s2)) list.push(s2); }
+              }
+            }
+          }
+          list = Array.from(new Set(list));
+        } catch {}
+      }
+    }
+    out.klassen = list.sort((a,b)=>a.localeCompare(b,'de'));
   }
   return NextResponse.json(out);
 }
