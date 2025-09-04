@@ -9,7 +9,19 @@ if not excel_file:
     print('❌ Keine Datei ausgewählt – Abbruch.')
     raise SystemExit
 
-df = pd.read_excel(excel_file, dtype=str)
+try:
+    df = pd.read_excel(excel_file, dtype=str)
+except PermissionError as e:
+    print('⚠️  PermissionError – versuche Kopie anzulegen (Datei vielleicht in Excel geöffnet oder von OneDrive blockiert):')
+    import shutil, tempfile, os
+    tmpfile = os.path.join(tempfile.gettempdir(), 'gesamtliste_excel_tmp.xlsx')
+    try:
+        shutil.copyfile(excel_file, tmpfile)
+        print('→ Kopie erstellt:', tmpfile)
+        df = pd.read_excel(tmpfile, dtype=str)
+    except Exception as e2:
+        print('❌ Fallback ebenfalls fehlgeschlagen:', e2)
+        raise
 
 def combine_offers(row):
     offers = [row.get('Angebot1'), row.get('Angebot2'), row.get('Angebot3')]
