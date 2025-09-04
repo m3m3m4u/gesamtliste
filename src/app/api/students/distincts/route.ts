@@ -140,13 +140,13 @@ export async function GET() {
         const docs = await col.find(baseFilter, { projection: { _id: 0 } }).limit(5000).toArray();
         const pattern = /^[ABC][0-9]{2}$/i; // A01, B22, C13 usw.
         for (const d of docs) {
-    for (const [_, v] of Object.entries(d)) {
-            if (v == null) continue;
-            if (typeof v === 'string') {
-              const s = v.trim();
+        for (const value of Object.values(d)) {
+            if (value == null) continue;
+            if (typeof value === 'string') {
+              const s = value.trim();
               if (pattern.test(s)) klassen.push(s);
-            } else if (Array.isArray(v)) {
-              for (const el of v) {
+            } else if (Array.isArray(value)) {
+              for (const el of value) {
                 if (typeof el === 'string') {
                   const s2 = el.trim();
                   if (pattern.test(s2)) klassen.push(s2);
