@@ -11,45 +11,42 @@ export default function OptionenPage(){
   const [saving,setSaving] = useState(false);
   const [msg,setMsg] = useState<string|null>(null);
 
-  useEffect(()=>{ (async()=>{ try { const r = await fetch('/api/options',{cache:'no-store'}); if(r.ok){ const j = await r.json(); const lists: Lists = { angebote:j.angebote||[], schwerpunkte:j.schwerpunkte||[], fruehbetreuung:j.fruehbetreuung||[], status:j.status||[], religionen:j.religionen||[], klassen:j.klassen||[], sprachen:j.sprachen||[] }; setData(lists); setRaw({ angebote: lists.angebote.join('\n'), schwerpunkte: lists.schwerpunkte.join('\n'), fruehbetreuung: lists.fruehbetreuung.join('\n'), status: lists.status.join('\n'), religionen: lists.religionen.join('\n'), klassen: lists.klassen.join('\n'), sprachen: lists.sprachen.join('\n') }); } } catch{} })(); },[]);
-  useEffect(()=>{ (async()=>{ try {
-    const d = await fetch('/api/students/distincts',{cache:'no-store'}); if(d.ok){ const dj = await d.json();
-      setData(prev=>{ const next = { ...prev };
-        // Klassen immer vereinigen (nicht nur wenn leer)
-        if(Array.isArray(dj.klassen)) {
-          const setK = new Set(prev.klassen);
-          dj.klassen.forEach((k: string)=>{ if(k && !setK.has(k)) setK.add(k); });
-          next.klassen = Array.from(setK).sort((a,b)=>a.localeCompare(b,'de'));
-        }
-        // Religionen vereinigen
-        if(Array.isArray(dj.religionen)) {
-          const set = new Set(prev.religionen);
-          dj.religionen.forEach((r: string)=>{ if(r && !set.has(r)) set.add(r); });
-          next.religionen = Array.from(set).sort((a,b)=>a.localeCompare(b,'de'));
-        }
-        // Sprachen vereinigen
-        if(Array.isArray(dj.sprachen)) {
-          const setS = new Set(prev.sprachen);
-          dj.sprachen.forEach((s: string)=>{ if(s && !setS.has(s)) setS.add(s); });
-          next.sprachen = Array.from(setS).sort((a,b)=>a.localeCompare(b,'de'));
-        }
-        // Status vereinigen
-        if(Array.isArray(dj.status)) {
-          const setT = new Set(prev.status);
-          dj.status.forEach((s: string)=>{ if(s && !setT.has(s)) setT.add(s); });
-          next.status = Array.from(setT).sort((a,b)=>a.localeCompare(b,'de'));
-        }
-        setRaw(r=>({
-          ...r,
-          religionen: next.religionen.join('\n'),
-          klassen: next.klassen.join('\n'),
-          sprachen: next.sprachen.join('\n'),
-          status: next.status.join('\n')
-        }));
-        return next;
+  useEffect(()=>{ (async()=>{
+    try {
+      // Beides parallel laden und danach deterministisch vereinigen -> vermeidet Race Condition
+      const [optRes, distRes] = await Promise.all([
+        fetch('/api/options',{cache:'no-store'}),
+        fetch('/api/students/distincts',{cache:'no-store'})
+      ]);
+      const opt = optRes.ok ? await optRes.json() : {};
+      const dist = distRes.ok ? await distRes.json() : {};
+      const base: Lists = {
+        angebote: opt.angebote||[],
+        schwerpunkte: opt.schwerpunkte||[],
+        fruehbetreuung: opt.fruehbetreuung||[],
+        status: opt.status||[],
+        religionen: opt.religionen||[],
+        klassen: opt.klassen||[],
+        sprachen: opt.sprachen||[]
+      };
+      // Union Felder
+      function union(a: string[], b: string[]){ const s = new Set<string>(); [...a,...b].forEach(x=>{ const t=(x||'').trim(); if(t) s.add(t); }); return Array.from(s); }
+      base.klassen = union(base.klassen, dist.klassen||[]).sort((a,b)=>a.localeCompare(b,'de'));
+      base.religionen = union(base.religionen, dist.religionen||[]).sort((a,b)=>a.localeCompare(b,'de'));
+      base.sprachen = union(base.sprachen, dist.sprachen||[]).sort((a,b)=>a.localeCompare(b,'de'));
+      base.status = union(base.status, dist.status||[]).sort((a,b)=>a.localeCompare(b,'de'));
+      setData(base);
+      setRaw({
+        angebote: base.angebote.join('\n'),
+        schwerpunkte: base.schwerpunkte.join('\n'),
+        fruehbetreuung: base.fruehbetreuung.join('\n'),
+        status: base.status.join('\n'),
+        religionen: base.religionen.join('\n'),
+        klassen: base.klassen.join('\n'),
+        sprachen: base.sprachen.join('\n')
       });
-    }
-  } catch{} })(); }, []);
+    } catch {}
+  })(); },[]);
 
   function upd(key: keyof Lists, text: string){
     // Leere Zeilen im Raw erhalten, aber nicht als Eintrag speichern
@@ -64,8 +61,38 @@ export default function OptionenPage(){
     try {
       const res = await fetch('/api/options',{ method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
       if(!res.ok) throw new Error(await res.text());
-  const j = await res.json(); const lists: Lists = { angebote:j.angebote||[], schwerpunkte:j.schwerpunkte||[], fruehbetreuung:j.fruehbetreuung||[], status:j.status||[], religionen:j.religionen||[], klassen:j.klassen||[], sprachen:j.sprachen||[] }; setData(lists); setRaw({ angebote: lists.angebote.join('\n'), schwerpunkte: lists.schwerpunkte.join('\n'), fruehbetreuung: lists.fruehbetreuung.join('\n'), status: lists.status.join('\n'), religionen: lists.religionen.join('\n'), klassen: lists.klassen.join('\n'), sprachen: lists.sprachen.join('\n') });
-  setDirty(false); setMsg('Gespeichert');
+      const j = await res.json();
+      // Nach dem Speichern nochmal Distincts holen, damit neue DB-Werte sofort wieder auftauchen
+      try {
+        const distRes = await fetch('/api/students/distincts',{cache:'no-store'});
+        const dist = distRes.ok ? await distRes.json() : {};
+        function union(a: string[], b: string[]){ const s = new Set<string>(); [...a,...b].forEach(x=>{ const t=(x||'').trim(); if(t) s.add(t); }); return Array.from(s); }
+        const lists: Lists = {
+          angebote: j.angebote||[],
+          schwerpunkte: j.schwerpunkte||[],
+          fruehbetreuung: j.fruehbetreuung||[],
+            status: union(j.status||[], dist.status||[]).sort((a,b)=>a.localeCompare(b,'de')),
+            religionen: union(j.religionen||[], dist.religionen||[]).sort((a,b)=>a.localeCompare(b,'de')),
+            klassen: union(j.klassen||[], dist.klassen||[]).sort((a,b)=>a.localeCompare(b,'de')),
+            sprachen: union(j.sprachen||[], dist.sprachen||[]).sort((a,b)=>a.localeCompare(b,'de'))
+        };
+        setData(lists);
+        setRaw({
+          angebote: lists.angebote.join('\n'),
+          schwerpunkte: lists.schwerpunkte.join('\n'),
+          fruehbetreuung: lists.fruehbetreuung.join('\n'),
+          status: lists.status.join('\n'),
+          religionen: lists.religionen.join('\n'),
+          klassen: lists.klassen.join('\n'),
+          sprachen: lists.sprachen.join('\n')
+        });
+      } catch {
+        // Fallback: nur gespeicherten Zustand anzeigen
+        const lists: Lists = { angebote:j.angebote||[], schwerpunkte:j.schwerpunkte||[], fruehbetreuung:j.fruehbetreuung||[], status:j.status||[], religionen:j.religionen||[], klassen:j.klassen||[], sprachen:j.sprachen||[] };
+        setData(lists);
+        setRaw({ angebote: lists.angebote.join('\n'), schwerpunkte: lists.schwerpunkte.join('\n'), fruehbetreuung: lists.fruehbetreuung.join('\n'), status: lists.status.join('\n'), religionen: lists.religionen.join('\n'), klassen: lists.klassen.join('\n'), sprachen: lists.sprachen.join('\n') });
+      }
+      setDirty(false); setMsg('Gespeichert');
     } catch(e){ setMsg('Fehler: '+((e as Error).message||'')); }
     finally { setSaving(false); }
   }
