@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const res = NextResponse.redirect(url, 303); // 303 damit ein GET auf / folgt und Server neu rendert
   res.cookies.set(COOKIE_NAME, '', {
     httpOnly: true,
-    sameSite: 'none',
+    sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
     maxAge: 0,

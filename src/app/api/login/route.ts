@@ -13,11 +13,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'Falsches Passwort' }, { status: 401 });
     }
     const res = NextResponse.json({ ok: true });
-    // Always set SameSite=None to ensure cookie works inside cross-site iframe without needing FORCE_IFRAME env.
-    // Security: Middleware already restricts top-level usage / embedding host.
+    // SameSite auf 'lax' (vorher 'none'): vermeidet Blockierung in lokalen / unsicheren Dev-Umgebungen,
+    // da Browser SameSite=None ohne Secure ablehnen. Für Iframe-Cross-Site-Einsatz könnte wieder 'none'
+    // genutzt werden, dann aber stets mit HTTPS.
     res.cookies.set(COOKIE_NAME, COOKIE_VALUE, {
       httpOnly: true,
-      sameSite: 'none',
+      sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
       maxAge: 60 * 60 * 12,
