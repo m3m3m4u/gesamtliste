@@ -29,10 +29,12 @@ export default function KlassenListePage() {
         const res = await fetch('/api/students/distincts',{ cache:'no-store' });
         if(!res.ok) return;
         const json = await res.json();
-  let arr: string[] = Array.isArray(json.klassen) ? json.klassen : [];
-  // Feldbezeichner selbst nicht als Klasse anzeigen
-  arr = arr.filter(v => v !== 'Klasse 25/26');
-  const opts = arr.sort((a,b)=>a.localeCompare(b,'de')).map(v=>({ value: v, label: v }));
+        // Nur Klasse 25/26 als Auswahl
+        let arr: string[] = Array.isArray(json.klassen) ? json.klassen : [];
+        arr = arr.filter(v => v !== 'Klasse 25/26');
+        // Filter: Nur Klassen, die im Namen "25/26" enthalten
+        arr = arr.filter(v => v.includes('25/26'));
+        const opts = arr.sort((a,b)=>a.localeCompare(b,'de')).map(v=>({ value: v, label: v }));
         setAvailableKlassen(opts);
       } catch(e){ console.error(e); }
     })();
@@ -41,13 +43,14 @@ export default function KlassenListePage() {
     if (!klasse) { setData([]); return; }
     setLoading(true); setError(null);
     try {
-  const params = new URLSearchParams({ klasse, limit: '2000' });
-  // Nur Felder anhängen, wenn explizit gewählt (ansonsten volle Docs für mehr Datenbasis)
-  if (selectedFields.length) params.set('fields', selectedFields.join(','));
+      const params = new URLSearchParams({ klasse, limit: '2000' });
+      if (selectedFields.length) params.set('fields', selectedFields.join(','));
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
       if (!res.ok) throw new Error(await res.text());
       const json: { items?: StudentDoc[] } = await res.json();
-      setData(json.items || []);
+      // Nur Schüler mit Wert in Klasse 25/26 anzeigen
+      const filtered = (json.items || []).filter(d => typeof d['Klasse 25/26'] === 'string' && d['Klasse 25/26'].includes('25/26'));
+      setData(filtered);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Fehler');
       setData([]);
