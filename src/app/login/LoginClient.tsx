@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginClient({ nextPath }: { nextPath: string }) {
@@ -18,6 +18,17 @@ export default function LoginClient({ nextPath }: { nextPath: string }) {
       setError(err instanceof Error ? err.message : 'Login fehlgeschlagen');
     } finally { setLoading(false); }
   }
+
+  // Auto-Login via auth Query (clientseitig), wenn Cookie geblockt
+  useEffect(()=>{
+    const usp = new URLSearchParams(window.location.search);
+    const qpw = usp.get('auth') || usp.get('pw') || usp.get('password');
+    if(qpw === '872020'){
+      // Token im localStorage setzen
+      localStorage.setItem('site_auth_local','1');
+      router.push(nextPath || '/');
+    }
+  },[nextPath, router]);
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-gray-50 p-4">

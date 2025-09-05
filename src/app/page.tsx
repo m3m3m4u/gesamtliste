@@ -8,8 +8,17 @@ export default async function Home() {
   const cookieStore = await cookies();
   const version = process.env.SITE_AUTH_VERSION || '1';
   const authed = cookieStore.get('site_auth')?.value === version;
-  // ehemals Embed-Variablen entfernt
-  // Übersicht ist immer öffentlich sichtbar
+  return <HomeClient serverAuthed={authed} version={version} />;
+}
+
+function HomeClient({ serverAuthed, version }: { serverAuthed: boolean; version: string }) {
+  const [authed, setAuthed] = React.useState(serverAuthed);
+  React.useEffect(() => {
+    if (!serverAuthed) {
+      const ls = localStorage.getItem('site_auth_local');
+      if (ls === '1') setAuthed(true);
+    }
+  }, [serverAuthed]);
   return (
     <main className="w-full flex justify-center p-8">
       <div className="text-center space-y-8 max-w-md mt-8">
@@ -35,6 +44,9 @@ export default async function Home() {
             <form action="/api/logout" method="post">
               <button type="submit" className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 px-8 py-3 rounded-md shadow transition-colors">Abmelden</button>
             </form>
+          )}
+          {!authed && (
+            <div className="text-[10px] text-gray-400 leading-snug">Einbettung: ?auth=872020 anhängen. Lokaler Fallback aktiv, falls Cookies blockiert.</div>
           )}
         </div>
       </div>
