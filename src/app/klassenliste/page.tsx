@@ -29,9 +29,9 @@ export default function KlassenListePage() {
         const res = await fetch('/api/students/distincts',{ cache:'no-store' });
         if(!res.ok) return;
         const json = await res.json();
-  // Nur Klasse 25/26 als Auswahl, keine leeren Werte
+  // Nur echte Werte aus 'Klasse 25/26' als Auswahl
   let arr: string[] = Array.isArray(json.klassen) ? json.klassen : [];
-  arr = arr.filter(v => v && v !== 'Klasse 25/26' && v.includes('25/26'));
+  arr = arr.filter(v => v && v !== 'Klasse 25/26');
   const opts = arr.sort((a,b)=>a.localeCompare(b,'de')).map(v=>({ value: v, label: v }));
   setAvailableKlassen(opts);
       } catch(e){ console.error(e); }
@@ -46,7 +46,7 @@ export default function KlassenListePage() {
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
       if (!res.ok) throw new Error(await res.text());
       const json: { items?: StudentDoc[] } = await res.json();
-  // Nur Schüler mit exakt passender Klasse anzeigen
+  // Nur Schüler mit exakt passender Klasse in 'Klasse 25/26' anzeigen
   const filtered = (json.items || []).filter(d => typeof d['Klasse 25/26'] === 'string' && d['Klasse 25/26'] === klasse);
   setData(filtered);
     } catch (e) {

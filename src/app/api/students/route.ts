@@ -165,16 +165,12 @@ export async function GET(request: Request) {
     .limit(limit)
     .sort({ Familienname: 1, Vorname: 1 })
   const docs = await cursor.toArray();
-  // Legacy Feld-Mapping (DB enthält evtl. alte Kurzformen)
+  // Nur noch 'Klasse 25/26' verwenden, keine Legacy-Mappings
   for(const d of docs){
     const anyDoc = d as Record<string, unknown>;
-    if(anyDoc['25/26'] && !anyDoc['Klasse 25/26']) anyDoc['Klasse 25/26'] = anyDoc['25/26'];
-  if(anyDoc['Klasse'] && !anyDoc['Klasse 25/26']) anyDoc['Klasse 25/26'] = anyDoc['Klasse'];
-  if(anyDoc['Klasse25'] && !anyDoc['Klasse 25/26']) anyDoc['Klasse 25/26'] = anyDoc['Klasse25'];
-  if(anyDoc['Klasse26'] && !anyDoc['Klasse 25/26']) anyDoc['Klasse 25/26'] = anyDoc['Klasse26'];
-  // Stufe Fallbacks
-  if(anyDoc['Stufe 24/25'] && !anyDoc['Stufe 25/26']) anyDoc['Stufe 25/26'] = anyDoc['Stufe 24/25'];
-  if(anyDoc['Stufe 24/25_1'] && !anyDoc['Stufe 25/26']) anyDoc['Stufe 25/26'] = anyDoc['Stufe 24/25_1'];
+    // Stufe Fallbacks und Geschlecht bleiben erhalten
+    if(anyDoc['Stufe 24/25'] && !anyDoc['Stufe 25/26']) anyDoc['Stufe 25/26'] = anyDoc['Stufe 24/25'];
+    if(anyDoc['Stufe 24/25_1'] && !anyDoc['Stufe 25/26']) anyDoc['Stufe 25/26'] = anyDoc['Stufe 24/25_1'];
     if(anyDoc['BJ'] && !anyDoc['Besuchsjahr']) anyDoc['Besuchsjahr'] = anyDoc['BJ'];
     if(anyDoc['m/w'] && !anyDoc['Geschlecht']) {
       const gRaw = String(anyDoc['m/w']).trim().toLowerCase();
