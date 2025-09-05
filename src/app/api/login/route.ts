@@ -26,9 +26,7 @@ export async function POST(request: Request) {
       sameSite: 'none',
       secure: true,
       path: '/',
-      maxAge: 60 * 60 * 12,
-      // @ts-ignore partitioned
-      partitioned: true
+      maxAge: 60 * 60 * 12
     });
     return res;
   } catch {

@@ -11,7 +11,7 @@ export default async function Home() {
   return <HomeClient serverAuthed={authed} version={version} />;
 }
 
-function HomeClient({ serverAuthed, version }: { serverAuthed: boolean; version: string }) {
+function HomeClient({ serverAuthed }: { serverAuthed: boolean; version: string }) {
   const [authed, setAuthed] = React.useState(serverAuthed);
   React.useEffect(() => {
     if (!serverAuthed) {

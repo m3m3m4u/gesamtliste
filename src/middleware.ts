@@ -29,9 +29,7 @@ export function middleware(req: NextRequest) {
         secure: true,
         path: '/',
         maxAge: 60 * 60 * 12,
-  // Partitioned Attribute (CHIPS); ignoriert von Browsern ohne Support
-  // @ts-ignore
-  partitioned: true
+  // Partitioned (CHIPS) entfernt wegen Lint; kann bei Bedarf wieder aktiviert werden
       });
     } catch {}
     return res;
