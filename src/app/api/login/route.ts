@@ -16,10 +16,11 @@ export async function POST(request: Request) {
     // SameSite auf 'lax' (vorher 'none'): vermeidet Blockierung in lokalen / unsicheren Dev-Umgebungen,
     // da Browser SameSite=None ohne Secure ablehnen. Für Iframe-Cross-Site-Einsatz könnte wieder 'none'
     // genutzt werden, dann aber stets mit HTTPS.
+    // Für eingebettete Nutzung (Iframe): SameSite=None und Secure=true erforderlich
     res.cookies.set(COOKIE_NAME, COOKIE_VALUE, {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'none',
+      secure: true,
       path: '/',
       maxAge: 60 * 60 * 12,
     });

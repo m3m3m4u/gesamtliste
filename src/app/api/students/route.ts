@@ -84,20 +84,13 @@ export async function GET(request: Request) {
     };
   }
   if (klasseParams.length) {
+    // Ausschließlich Feld '25/26' als Klassenfilter
     const orList: Record<string, unknown>[] = [];
-  for (const k of klasseParams) {
+    for (const k of klasseParams) {
       const escaped = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      // Regex erlaubt optionale Whitespaces zwischen Zeichen, case-insensitive
       const spacedPattern = escaped.split('').map(ch=> ch + '\\s*').join('');
       const rx = { $regex: `^${spacedPattern}$`, $options: 'i' };
-      orList.push(
-        { Klasse: rx },
-        { 'Klasse 25/26': rx },
-    { '25/26': rx },
-    { 'Klasse 24/25': rx },
-        { Klasse25: rx },
-        { Klasse26: rx }
-      );
+      orList.push({ '25/26': rx });
     }
     const klasseFilter = { $or: orList };
     filter = Object.keys(filter).length ? { $and: [filter, klasseFilter] } : klasseFilter;
@@ -152,8 +145,8 @@ export async function GET(request: Request) {
   // Bisherige Logik lieferte sonst nur Geschlecht und blendete den Rest aus -> "leere" Datensätze.
   let projection: Record<string, number> | undefined = undefined;
   if (fields) {
-  // Immer Geschlecht plus Legacy 'm/w' (für Fallback) projizieren
-  projection = { Geschlecht: 1, 'm/w': 1 };
+  // Immer Geschlecht, Legacy 'm/w', '25/26' und 'Klasse 25/26' projizieren
+  projection = { Geschlecht: 1, 'm/w': 1, '25/26': 1, 'Klasse 25/26': 1 };
     for (const f of fields.split(',').map(s=>s.trim()).filter(Boolean)) projection[f] = 1;
   }
   if (!includeDeleted) {
@@ -168,6 +161,12 @@ export async function GET(request: Request) {
   // Nur noch 'Klasse 25/26' verwenden, keine Legacy-Mappings
   for(const d of docs){
     const anyDoc = d as Record<string, unknown>;
+    // Fülle '25/26' aus dem Original-Dokument, falls nicht vorhanden
+    if(!('25/26' in anyDoc) && d && d._doc && d._doc['25/26']) {
+      anyDoc['25/26'] = d._doc['25/26'];
+    }
+    // Fülle 'Klasse 25/26' aus '25/26', falls leer
+    if(!anyDoc['Klasse 25/26'] && anyDoc['25/26']) anyDoc['Klasse 25/26'] = anyDoc['25/26'];
     // Stufe Fallbacks und Geschlecht bleiben erhalten
     if(anyDoc['Stufe 24/25'] && !anyDoc['Stufe 25/26']) anyDoc['Stufe 25/26'] = anyDoc['Stufe 24/25'];
     if(anyDoc['Stufe 24/25_1'] && !anyDoc['Stufe 25/26']) anyDoc['Stufe 25/26'] = anyDoc['Stufe 24/25_1'];

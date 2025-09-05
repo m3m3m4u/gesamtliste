@@ -8,10 +8,11 @@ const COOKIE_NAME = 'site_auth';
 export async function POST(request: Request) {
   const url = new URL('/', request.url);
   const res = NextResponse.redirect(url, 303); // 303 damit ein GET auf / folgt und Server neu rendert
+  // Für eingebettete Nutzung (Iframe): SameSite=None und Secure=true erforderlich
   res.cookies.set(COOKIE_NAME, '', {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'none',
+    secure: true,
     path: '/',
     maxAge: 0,
   });

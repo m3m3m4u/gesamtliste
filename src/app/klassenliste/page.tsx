@@ -26,14 +26,13 @@ export default function KlassenListePage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/students/distincts',{ cache:'no-store' });
+        // Hole alle unterschiedlichen Werte aus Klasse 25/26 wie bei Listen (Filter)
+        const res = await fetch('/api/students/distincts', { cache: 'no-store' });
         if(!res.ok) return;
         const json = await res.json();
-  // Nur echte Werte aus 'Klasse 25/26' als Auswahl
-  let arr: string[] = Array.isArray(json.klassen) ? json.klassen : [];
-  arr = arr.filter(v => v && v !== 'Klasse 25/26');
-  const opts = arr.sort((a,b)=>a.localeCompare(b,'de')).map(v=>({ value: v, label: v }));
-  setAvailableKlassen(opts);
+        const arr = Array.isArray(json.klassen) ? json.klassen.map((v:string)=>v.trim()).filter((v:string)=>v.length>0) : [];
+  const opts: Option[] = (arr as string[]).sort((a:string,b:string)=>a.localeCompare(b,'de')).map((v:string)=>({ value: v, label: v }));
+        setAvailableKlassen(opts);
       } catch(e){ console.error(e); }
     })();
   }, []);
@@ -42,13 +41,27 @@ export default function KlassenListePage() {
     setLoading(true); setError(null);
     try {
       const params = new URLSearchParams({ klasse, limit: '2000' });
-      if (selectedFields.length) params.set('fields', selectedFields.join(','));
+      if (selectedFields.length) {
+        // '25/26' immer mit abfragen, damit Filterung funktioniert
+        const fields = [...selectedFields, '25/26'];
+        params.set('fields', Array.from(new Set(fields)).join(','));
+      }
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
       if (!res.ok) throw new Error(await res.text());
       const json: { items?: StudentDoc[] } = await res.json();
-  // Nur Schüler mit exakt passender Klasse in 'Klasse 25/26' anzeigen
-  const filtered = (json.items || []).filter(d => typeof d['Klasse 25/26'] === 'string' && d['Klasse 25/26'] === klasse);
-  setData(filtered);
+      // Debug-Ausgabe: Anzahl der geladenen Schüler und deren '25/26'-Werte
+      console.log('API-Schüler geladen:', json.items?.length ?? 0, 'für Klasse', klasse);
+      if (json.items) {
+        console.log('Werte 25/26:', json.items.map(d => d['25/26']));
+      }
+      // Unscharfer Vergleich: case-insensitive, getrimmt
+      const kNorm = klasse.trim().toLowerCase();
+      const filtered = (json.items || []).filter(d => {
+  // Ausschließlich das Feld '25/26' ist entscheidend
+  // Vergleiche direkt, ohne zusätzliche Umwandlung
+  return String(d['25/26']||'').trim() === klasse.trim();
+      });
+      setData(filtered);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Fehler');
       setData([]);
