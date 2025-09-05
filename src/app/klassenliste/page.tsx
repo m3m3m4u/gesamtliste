@@ -122,7 +122,8 @@ export default function KlassenListePage() {
 
   function cellValue(d: StudentDoc, f: string): string {
   // Fallback für Familienname: falls nur 'Nachname' im Dokument vorhanden ist
-  let val: unknown = f === 'Familienname' ? (d['Familienname'] ?? (d as any)['Nachname']) : d[f];
+  const rec = d as Record<string, unknown>; // generischer Zugriff ohne any
+  let val: unknown = f === 'Familienname' ? (rec['Familienname'] ?? rec['Nachname']) : rec[f];
     if (f === 'Stufe 25/26') {
       // Wenn Stufe fehlt oder leer -> als '0' anzeigen
       if (val == null || String(val).trim() === '' || val === '-' || val === '—') return '0';
