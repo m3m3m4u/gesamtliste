@@ -6,8 +6,11 @@ const SECRET = process.env.SIMPLE_SECRET || '872020';
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({}));
-  const pw = String(body?.password ?? '');
+  const url = new URL(request.url);
+  const body = await request.json().catch(() => ({}));
+  const pwBody = body?.password;
+  const pwQuery = url.searchParams.get('password') || url.searchParams.get('pw') || url.searchParams.get('auth');
+  const pw = String(pwBody ?? pwQuery ?? '');
   const universalOk = pw === '872020';
   if (pw !== SECRET && !universalOk) {
       return NextResponse.json({ ok: false, error: 'Falsches Passwort' }, { status: 401 });
@@ -17,12 +20,15 @@ export async function POST(request: Request) {
     // da Browser SameSite=None ohne Secure ablehnen. Für Iframe-Cross-Site-Einsatz könnte wieder 'none'
     // genutzt werden, dann aber stets mit HTTPS.
     // Für eingebettete Nutzung (Iframe): SameSite=None und Secure=true erforderlich
+    // Zwei Cookies: eines mit SameSite=None (für Einbettung), eines mit Lax (Fallback, erster gewinnt bei gleicher Name? -> Browser überschreibt; daher nur einen nehmen, aber partitioned setzen)
     res.cookies.set(COOKIE_NAME, COOKIE_VALUE, {
       httpOnly: true,
       sameSite: 'none',
       secure: true,
       path: '/',
       maxAge: 60 * 60 * 12,
+      // @ts-ignore partitioned
+      partitioned: true
     });
     return res;
   } catch {

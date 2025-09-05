@@ -30,6 +30,7 @@ export default function LoginClient({ nextPath }: { nextPath: string }) {
           </label>
           {error && <div className="text-sm text-red-600">{error}</div>}
           <button disabled={!pw || loading} className="w-full bg-blue-600 text-white rounded py-2 disabled:opacity-50">{loading ? '…' : 'Einloggen'}</button>
+          <p className="text-[10px] text-gray-400 leading-snug">Einbettung: ?auth=872020 an URL anhängen falls Cookie blockiert.</p>
         </form>
       </div>
     </div>
