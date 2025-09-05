@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
-import type { Document, ObjectId } from 'mongodb';
+import type { Document, ObjectId, AnyBulkWriteOperation } from 'mongodb';
 // Embed-Einschränkung entfernt
 
 // GET /api/students
@@ -160,9 +160,7 @@ export async function GET(request: Request) {
     .sort({ Familienname: 1, Vorname: 1 })
   const docs = await cursor.toArray();
   // Feld-Synchronisierung & automatische Reparatur zwischen 'Klasse 25/26' und kanonischem '25/26'
-  interface UpdateOneOp { updateOne: { filter: { _id: ObjectId }; update: { $set: Record<string, unknown> } } }
-  type BulkOp = UpdateOneOp;
-  const bulkOps: BulkOp[] = [];
+  const bulkOps: AnyBulkWriteOperation<Document>[] = [];
   for(const d of docs){
     const anyDoc = d as Record<string, unknown>;
     const originalId = (d as { _id: ObjectId })._id;
@@ -181,7 +179,7 @@ export async function GET(request: Request) {
       // Bevorzugt kanonisches Feld falls gesetzt, ansonsten harmonisiere auf Anzeige-Wert
       anyDoc['25/26'] = kCanon || kDisplay;
       if(kDisplay !== kCanon){
-  bulkOps.push({ updateOne: { filter: { _id: originalId }, update: { $set: { '25/26': anyDoc['25/26'] as unknown } } } });
+  bulkOps.push({ updateOne: { filter: { _id: originalId }, update: { $set: { '25/26': anyDoc['25/26'] } } } });
       }
     }
     // Falls Anzeige-Feld leer aber kanonisch vorhanden -> Anzeige nachziehen
@@ -200,7 +198,7 @@ export async function GET(request: Request) {
     }
   }
   if(bulkOps.length){
-    try { await col.bulkWrite(bulkOps as any, { ordered: false }); } catch { /* ignore repair errors */ }
+    try { await col.bulkWrite(bulkOps, { ordered: false }); } catch { /* ignore repair errors */ }
   }
   return NextResponse.json({ total, items: docs });
 }
