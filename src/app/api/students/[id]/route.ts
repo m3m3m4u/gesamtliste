@@ -12,6 +12,19 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const body: Record<string, unknown> = await request.json();
   delete body._id;
   delete body.createdAt;
+  // Klasse-Feld-Synchronisierung: wenn 'Klasse 25/26' geändert wird, auch kanonisches Feld '25/26' setzen
+  if (Object.prototype.hasOwnProperty.call(body, 'Klasse 25/26')) {
+    const rawK = body['Klasse 25/26'];
+    const normK = typeof rawK === 'string' ? rawK.trim() : (rawK == null ? '' : String(rawK));
+    if (normK) {
+      body['Klasse 25/26'] = normK;
+      body['25/26'] = normK; // Kanonisch
+    } else {
+      // Leeren: beide Felder leeren
+      body['Klasse 25/26'] = '';
+      body['25/26'] = '';
+    }
+  }
   // updatedAt setzen
   body.updatedAt = new Date().toISOString();
   // Passwort jetzt nur im Klartext speichern; kein Hash mehr

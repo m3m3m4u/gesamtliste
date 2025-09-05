@@ -49,19 +49,8 @@ export default function KlassenListePage() {
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
       if (!res.ok) throw new Error(await res.text());
       const json: { items?: StudentDoc[] } = await res.json();
-      // Debug-Ausgabe: Anzahl der geladenen Schüler und deren '25/26'-Werte
-      console.log('API-Schüler geladen:', json.items?.length ?? 0, 'für Klasse', klasse);
-      if (json.items) {
-        console.log('Werte 25/26:', json.items.map(d => d['25/26']));
-      }
-      // Unscharfer Vergleich: case-insensitive, getrimmt
-      const kNorm = klasse.trim().toLowerCase();
-      const filtered = (json.items || []).filter(d => {
-  // Ausschließlich das Feld '25/26' ist entscheidend
-  // Vergleiche direkt, ohne zusätzliche Umwandlung
-  return String(d['25/26']||'').trim() === klasse.trim();
-      });
-      setData(filtered);
+  // Server liefert bereits nach Klasse gefilterte Ergebnisse -> kein zusätzliches clientseitiges Re-Filtering
+  setData(json.items || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Fehler');
       setData([]);
@@ -132,7 +121,8 @@ export default function KlassenListePage() {
   }
 
   function cellValue(d: StudentDoc, f: string): string {
-    let val: unknown = d[f];
+  // Fallback für Familienname: falls nur 'Nachname' im Dokument vorhanden ist
+  let val: unknown = f === 'Familienname' ? (d['Familienname'] ?? (d as any)['Nachname']) : d[f];
     if (f === 'Stufe 25/26') {
       // Wenn Stufe fehlt oder leer -> als '0' anzeigen
       if (val == null || String(val).trim() === '' || val === '-' || val === '—') return '0';

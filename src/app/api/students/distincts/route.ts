@@ -115,9 +115,13 @@ export async function GET() {
       ...cfg.sprachen.map(v=>String(v??'').trim()).filter(s=>s.length>0)
     ]).sort((a,b)=>a.localeCompare(b,'de'));
   }
-  // Klassen (aus aktueller Klasse 25/26 oder historisch) aggregieren
-  const rawKlassenNeu = await col.distinct('Klasse 25/26', baseFilter);
-  let klassen = unique((rawKlassenNeu as unknown[]).map(v=>String(v??'').trim()).filter(s=>s!==''));
+  // Klassen (primär aus kanonischem Feld '25/26', danach aus 'Klasse 25/26') aggregieren
+  const rawKlassenPrim = await col.distinct('25/26', baseFilter);
+  const rawKlassenSek = await col.distinct('Klasse 25/26', baseFilter);
+  let klassen = unique([
+    ...(rawKlassenPrim as unknown[]).map(v=>String(v??'').trim()),
+    ...(rawKlassenSek as unknown[]).map(v=>String(v??'').trim())
+  ].filter(s=>s!==''));
   // Fallback: Wenn zu wenige Klassen (<=1), ergänze aus Legacy-/Alternativfeldern
   if (klassen.length <= 1) {
     const altFields = [
@@ -171,9 +175,14 @@ export async function GET() {
   } else {
     klassen = klassen.sort((a,b)=>a.localeCompare(b,'de'));
   }
-  // Notfall: falls nach allem leer, nimm direkt rohe Werte aus "Klasse 25/26"
-  if(!klassen.length && Array.isArray(rawKlassenNeu)){
-    klassen = unique((rawKlassenNeu as unknown[]).map(v=>String(v??'').trim()).filter(s=>s.length>0));
+  // Notfall: falls nach allem leer, nimm direkt rohe Werte (erst Primär-, dann Sek-Feld)
+  if(!klassen.length){
+    if (Array.isArray(rawKlassenPrim)) {
+      klassen = unique((rawKlassenPrim as unknown[]).map(v=>String(v??'').trim()).filter(s=>s.length>0));
+    }
+    if(!klassen.length && Array.isArray(rawKlassenSek)){
+      klassen = unique((rawKlassenSek as unknown[]).map(v=>String(v??'').trim()).filter(s=>s.length>0));
+    }
   }
   klassen = klassen.sort((a,b)=>a.localeCompare(b,'de'));
   return NextResponse.json({ stufen, status, jahre, religionen, sprachen, angebote, schwerpunkte, fruehbetreuung, klassen });

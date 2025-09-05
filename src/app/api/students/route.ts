@@ -190,6 +190,17 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     body.createdAt = now;
     body.updatedAt = now;
+    // Klasse-Feld-Synchronisierung bei Neuanlage
+    if (Object.prototype.hasOwnProperty.call(body, 'Klasse 25/26')) {
+      const rawK = body['Klasse 25/26'];
+      const normK = typeof rawK === 'string' ? rawK.trim() : (rawK == null ? '' : String(rawK));
+      if (normK) {
+        body['Klasse 25/26'] = normK;
+        body['25/26'] = normK; // Kanonisches Feld
+      } else {
+        body['25/26'] = '';
+      }
+    }
     // NormBenutzername nur setzen, wenn Benutzername nach Trim nicht leer
     if (typeof body.Benutzername === 'string') {
       const trimmed = body.Benutzername.trim();
