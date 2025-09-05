@@ -176,11 +176,9 @@ export async function GET(request: Request) {
       anyDoc['25/26'] = kDisplay;
   bulkOps.push({ updateOne: { filter: { _id: originalId }, update: { $set: { '25/26': kDisplay } } } });
     } else if(kDisplay && kCanon && kDisplay !== kCanon){
-      // Bevorzugt kanonisches Feld falls gesetzt, ansonsten harmonisiere auf Anzeige-Wert
-      anyDoc['25/26'] = kCanon || kDisplay;
-      if(kDisplay !== kCanon){
-  bulkOps.push({ updateOne: { filter: { _id: originalId }, update: { $set: { '25/26': anyDoc['25/26'] } } } });
-      }
+      // Konflikt: beide gesetzt, aber verschieden -> Anzeige-Feld ist Quelle der Wahrheit
+      anyDoc['25/26'] = kDisplay;
+      bulkOps.push({ updateOne: { filter: { _id: originalId }, update: { $set: { '25/26': kDisplay } } } });
     }
     // Falls Anzeige-Feld leer aber kanonisch vorhanden -> Anzeige nachziehen
     if(!kDisplay && kCanon){
