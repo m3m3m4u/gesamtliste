@@ -158,15 +158,34 @@ export async function GET(request: Request) {
     .limit(limit)
     .sort({ Familienname: 1, Vorname: 1 })
   const docs = await cursor.toArray();
-  // Nur noch 'Klasse 25/26' verwenden, keine Legacy-Mappings
+  // Feld-Synchronisierung & automatische Reparatur zwischen 'Klasse 25/26' und kanonischem '25/26'
+  type BulkOp = { updateOne: { filter: Record<string, unknown>; update: Record<string, unknown> } };
+  const bulkOps: BulkOp[] = [];
   for(const d of docs){
     const anyDoc = d as Record<string, unknown>;
+    const originalId = (d as any)._id;
     // Fülle '25/26' aus dem Original-Dokument, falls nicht vorhanden
-    if(!('25/26' in anyDoc) && d && d._doc && d._doc['25/26']) {
-      anyDoc['25/26'] = d._doc['25/26'];
+    if(!('25/26' in anyDoc) && (d as any)?._doc && (d as any)._doc['25/26']) {
+      anyDoc['25/26'] = (d as any)._doc['25/26'];
     }
-    // Fülle 'Klasse 25/26' aus '25/26', falls leer
-    if(!anyDoc['Klasse 25/26'] && anyDoc['25/26']) anyDoc['Klasse 25/26'] = anyDoc['25/26'];
+    // Wenn nur 'Klasse 25/26' existiert oder abweicht -> angleichen
+    const kDisplay = (anyDoc['Klasse 25/26'] ?? '').toString().trim();
+    const kCanon = (anyDoc['25/26'] ?? '').toString().trim();
+    if(kDisplay && !kCanon){
+      anyDoc['25/26'] = kDisplay;
+      bulkOps.push({ updateOne: { filter: { _id: originalId }, update: { $set: { '25/26': kDisplay } } } });
+    } else if(kDisplay && kCanon && kDisplay !== kCanon){
+      // Bevorzugt kanonisches Feld falls gesetzt, ansonsten harmonisiere auf Anzeige-Wert
+      anyDoc['25/26'] = kCanon || kDisplay;
+      if(kDisplay !== kCanon){
+        bulkOps.push({ updateOne: { filter: { _id: originalId }, update: { $set: { '25/26': anyDoc['25/26'] } } } });
+      }
+    }
+    // Falls Anzeige-Feld leer aber kanonisch vorhanden -> Anzeige nachziehen
+    if(!kDisplay && kCanon){
+      anyDoc['Klasse 25/26'] = kCanon;
+      bulkOps.push({ updateOne: { filter: { _id: originalId }, update: { $set: { 'Klasse 25/26': kCanon } } } });
+    }
     // Stufe Fallbacks und Geschlecht bleiben erhalten
     if(anyDoc['Stufe 24/25'] && !anyDoc['Stufe 25/26']) anyDoc['Stufe 25/26'] = anyDoc['Stufe 24/25'];
     if(anyDoc['Stufe 24/25_1'] && !anyDoc['Stufe 25/26']) anyDoc['Stufe 25/26'] = anyDoc['Stufe 24/25_1'];
@@ -176,6 +195,9 @@ export async function GET(request: Request) {
       anyDoc['Geschlecht'] = gRaw.startsWith('m') ? 'm' : gRaw.startsWith('w') ? 'w' : '';
       if(!anyDoc['Geschlecht']) delete anyDoc['Geschlecht'];
     }
+  }
+  if(bulkOps.length){
+    try { await (col as any).bulkWrite(bulkOps, { ordered: false }); } catch { /* ignore repair errors */ }
   }
   return NextResponse.json({ total, items: docs });
 }
