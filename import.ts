@@ -88,6 +88,33 @@ async function run() {
         if (PLACEHOLDERS.has(d[k])) d[k] = null;
       }
     }
+    // Klassenfelder spiegeln/vereinheitlichen: bevorzugt Anzeige-Feld "Klasse 25/26"
+    const displayClassKey = 'Klasse 25/26';
+    const canonicalClassKey = '25/26';
+    const altDisplayClassKey = 'Klasse 25/26_1'; // falls vorherige Sanitisierung Punkte ersetzte (Sicherheitsnetz)
+    // Mögliche Quellen lesen
+    const rawDisplay = d[displayClassKey] ?? d[altDisplayClassKey];
+    const rawCanonical = d[canonicalClassKey];
+    const norm = (v: any) => (typeof v === 'string' ? v.trim() : v);
+    const disp = norm(rawDisplay);
+    const canon = norm(rawCanonical);
+    const isEmpty = (v: any) => v == null || (typeof v === 'string' && (v === '' || PLACEHOLDERS.has(v)));
+    // Konfliktlogik: wenn beide vorhanden und verschieden -> Anzeige-Feld gewinnt
+    if (!isEmpty(disp) && (isEmpty(canon) || disp !== canon)) {
+      d[canonicalClassKey] = disp;
+      d[displayClassKey] = disp;
+    } else if (!isEmpty(canon) && isEmpty(disp)) {
+      // Nur kanonisch befüllt -> Anzeige-Feld nachziehen
+      d[displayClassKey] = canon;
+    }
+
+    // Stufe-Felder: nur trimmen, keine Logikänderung, aber Leerwerte entfernen
+    for (const key of Object.keys(d)) {
+      if (/^Stufe\s*\d{2}\/\d{2}$/.test(key) && typeof d[key] === 'string') {
+        d[key] = d[key].trim();
+        if (PLACEHOLDERS.has(d[key])) d[key] = null;
+      }
+    }
     // Arrays von Platzhaltern bereinigen (z.B. Angebote)
     if (Array.isArray(d.Angebote)) {
       d.Angebote = d.Angebote.filter((x: any) => !(typeof x === 'string' && PLACEHOLDERS.has(x.trim())));
@@ -125,6 +152,11 @@ async function run() {
     { unique: true, partialFilterExpression: { NormBenutzername: { $type: 'string' } } }
   ).catch(()=>{});
   await col.createIndex({ Benutzername: 1 }).catch(()=>{});
+  // dedupKey: für Datensätze ohne Benutzername (Name+Geburtsdatum, sonst Name+Klasse, sonst Name-only)
+  await col.createIndex(
+    { dedupKey: 1 },
+    { unique: true, partialFilterExpression: { dedupKey: { $type: 'string' } } }
+  ).catch(()=>{});
 
   // Aufteilen in Bulk-Upserts damit Skript idempotent ist.
   const ops: any[] = [];
@@ -134,6 +166,19 @@ async function run() {
       delete d.NormBenutzername; // Kein Feld schreiben wenn null/undefined
     }
     const norm = d.NormBenutzername || (d.Benutzername ? String(d.Benutzername).trim().toLowerCase() : undefined);
+    // dedupKey nur setzen, wenn kein Benutzername vorhanden ist
+    const vn = typeof d.Vorname === 'string' ? d.Vorname.trim().toLowerCase() : '';
+    const fn = typeof d.Familienname === 'string' ? d.Familienname.trim().toLowerCase() : '';
+    const bd = typeof d.Geburtsdatum === 'string' ? d.Geburtsdatum.trim().slice(0,10) : '';
+    const cls = typeof d['25/26'] === 'string' ? d['25/26'].trim().toLowerCase() : (typeof d['Klasse 25/26'] === 'string' ? d['Klasse 25/26'].trim().toLowerCase() : '');
+    let dedupKey: string | undefined;
+    if (!norm) {
+      if (vn && fn) {
+        if (bd) dedupKey = `dob|${fn}|${vn}|${bd}`;
+        else if (cls) dedupKey = `cls|${fn}|${vn}|${cls}`;
+        else dedupKey = `name|${fn}|${vn}`;
+      }
+    }
     if (norm) {
       ops.push({
         updateOne: {
@@ -142,6 +187,7 @@ async function run() {
               $set: {
                 ...d,
                 NormBenutzername: norm,
+                ...(dedupKey ? { dedupKey } : {}),
                 updatedAt: new Date()
               },
               $setOnInsert: { createdAt: new Date() }
@@ -152,7 +198,7 @@ async function run() {
     } else {
       // Kein Benutzername -> optionaler Insert (kann Duplikate erzeugen, wir taggen ImportStamp)
   // ImportStamp removed: we no longer tag anonymous inserts with an import timestamp
-      ops.push({ insertOne: { document: { ...d, createdAt: new Date(), updatedAt: new Date() } } });
+      ops.push({ insertOne: { document: { ...d, ...(dedupKey ? { dedupKey } : {}), createdAt: new Date(), updatedAt: new Date() } } });
       withoutUser++;
     }
   }
