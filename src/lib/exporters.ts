@@ -249,8 +249,11 @@ export async function exportAccountsPDF(students: AccountCardStudent[], opts?: {
     doc.setDrawColor(50);
     doc.setLineWidth(0.2);
     doc.roundedRect(x, y, cardW, cardHeight, 2, 2);
-    // Inhalt
-    let cy = y + 6;
+    // Inhalt vertikal zentrieren
+    const lineH = 6;
+    const contentHeight = lines.length * lineH;
+    // Mindestens etwas oberen Rand lassen (4px) – Berechnung der Start-Baseline
+    let cy = y + Math.max(4, (cardHeight - contentHeight) / 2 + lineH * 0.75);
     lines.forEach(l => {
       const value = sanitize(l.value);
       if (l.bold) {
@@ -268,7 +271,7 @@ export async function exportAccountsPDF(students: AccountCardStudent[], opts?: {
         const text = l.label ? `${l.label}: ${sanitize(l.value)}` : value;
         doc.text(text, x + 4, cy);
       }
-      cy += 6;
+      cy += lineH;
     });
     // Nächste Spalte
     const colIndex = (idx % cols);
