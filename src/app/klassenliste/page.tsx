@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { exportExcel, exportPDF, exportWord } from '@/lib/exporters';
+import { exportExcel, exportPDF, exportWord, exportAccountsPDF } from '@/lib/exporters';
 import type { StudentDoc } from '@/lib/mongodb';
 
 interface Option { value: string; label: string; }
@@ -163,7 +163,7 @@ export default function KlassenListePage() {
       <div className="flex flex-wrap gap-3 items-center">
         <div className="text-xs text-gray-500">{klasse && data.length ? `${data.length} Einträge` : ''}</div>
         {klasse && data.length > 0 && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button onClick={() => {
               const rows = sortedData.map(d => selectedFields.map(f => cellValue(d,f)));
               exportExcel({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}` });
@@ -176,6 +176,17 @@ export default function KlassenListePage() {
               const rows = sortedData.map(d => selectedFields.map(f => cellValue(d,f)));
               exportWord({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}`, word: { zebra: true } });
             }} className="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Word</button>
+            <button onClick={() => {
+              // Account-Karten PDF
+              const students = sortedData.map(d => ({
+                Vorname: d.Vorname as string,
+                Familienname: (d as any)['Familienname'] ?? (d as any)['Nachname'],
+                Benutzername: (d as any)['Benutzername'],
+                Passwort: (d as any)['Passwort'],
+                Anton: (d as any)['Anton']
+              }));
+              exportAccountsPDF(students, { filenameBase: `accounts-${klasse}`, title: `Zugangsdaten ${klasse}`, columns: 3 });
+            }} className="px-3 py-1 rounded bg-fuchsia-600 text-white text-xs" title="PDF Karten mit Zugangsdaten">Accounts PDF</button>
           </div>
         )}
       </div>
