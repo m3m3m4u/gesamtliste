@@ -174,7 +174,7 @@ function FilterForm() {
     const cfg = { filenameBase: 'liste', headers, rows };
     try {
       if (kind === 'excel') exportExcel(cfg);
-      else if (kind === 'pdf') exportPDF(cfg);
+  else if (kind === 'pdf') (async()=>{ await exportPDF(cfg); })();
       else exportWord({ ...cfg, title: 'Liste', word: { zebra: true } });
     } finally {
       setTimeout(() => { setExporting(null); setExportDone(kind); setTimeout(()=>setExportDone(null), 1200); }, 200);

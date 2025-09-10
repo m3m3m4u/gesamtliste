@@ -169,9 +169,9 @@ export default function KlassenListePage() {
               const rows = sortedData.map(d => selectedFields.map(f => cellValue(d,f)));
               exportExcel({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}` });
             }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
-            <button onClick={() => {
+            <button onClick={async () => {
               const rows = sortedData.map(d => selectedFields.map(f => cellValue(d,f)));
-              exportPDF({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}` });
+              await exportPDF({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}` });
             }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
             <button onClick={() => {
               const rows = sortedData.map(d => selectedFields.map(f => cellValue(d,f)));

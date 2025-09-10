@@ -41,15 +41,25 @@ export function exportExcel({ filenameBase, headers, rows, title }: ExportConfig
   writeXlsxFile(wb, filenameBase + '.xlsx');
 }
 
-export function exportPDF({ filenameBase, headers, rows, title }: ExportConfig) {
+export async function exportPDF({ filenameBase, headers, rows, title }: ExportConfig) {
   const doc = new jsPDF({ orientation: 'landscape' });
+  // Versuche Unicode Font zu laden (still optional falls fetch fehlschlägt)
+  await ensureUnicodeFont(doc, true);
+  const sanitize = (v: unknown) => {
+    if (v == null) return '';
+    let s = String(v);
+    try { s = s.normalize('NFC'); } catch {}
+    s = s.replace(/[\x00-\x1F\x7F]/g,'');
+    s = s.replace(/\s+/g,' ').trim();
+    return s;
+  };
   let startY: number | undefined = undefined;
   if (title) {
     doc.setFontSize(14);
-    doc.text(title, 14, 16);
+    doc.text(sanitize(title), 14, 16);
     startY = 22;
   }
-  autoTable(doc, { startY, head: [headers], body: rows.map(r=>r.map(c=> c==null ? '' : String(c))) });
+  autoTable(doc, { startY, head: [headers.map(h=>sanitize(h))], body: rows.map(r=>r.map(c=> sanitize(c))) });
   doc.save(filenameBase + '.pdf');
 }
 

@@ -94,14 +94,14 @@ export default function AngebotePage() {
               }));
               exportExcel({ filenameBase: `angebot-${angebot}`, headers: selectedFields, rows });
             }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
-            <button onClick={() => {
+            <button onClick={async () => {
               const rows = data.map(d => selectedFields.map(f => {
                 let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (Array.isArray(val)) return val.join(', ');
                 return (val == null ? '' : String(val));
               }));
-              exportPDF({ filenameBase: `angebot-${angebot}`, headers: selectedFields, rows });
+              await exportPDF({ filenameBase: `angebot-${angebot}`, headers: selectedFields, rows });
             }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
             <button onClick={() => {
               const rows = data.map(d => selectedFields.map(f => {
