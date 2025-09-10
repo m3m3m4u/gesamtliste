@@ -19,20 +19,35 @@ export default function FrageClient({ nextPath }: { nextPath: string }) {
   }
 
   const target = normalizeTarget(nextPath);
-  // Debug Ausgabe einmalig
+  const protectedTargets = new Set<string>(['/schueler','/optionen','/meldungen']);
+  const needsCode = protectedTargets.has(target);
+  // Debug & optional sofortige Weiterleitung für ungeschützte Ziele
   if (typeof window !== 'undefined') {
-    console.debug('[Frage] nextPath raw=', nextPath, 'normalized=', target);
-    // Teste ob Ziel erreichbar ist (HEAD Request)
-    try {
-      fetch(target, { method:'HEAD' })
-        .then(r=>console.debug('[Frage] Vorab-Check', target, 'Status', r.status))
-        .catch(err=>console.debug('[Frage] Vorab-Check Fehler', err));
-    } catch(e) { console.debug('[Frage] Vorab-Check sync Fehler', e); }
+    console.debug('[Frage] nextPath raw=', nextPath, 'normalized=', target, 'needsCode=', needsCode);
+    if (!needsCode) {
+      // Direkt weiter – kein Code erforderlich
+      setTimeout(()=>{
+        if (window.location.pathname.startsWith('/frage')) {
+          try { window.location.replace(target); } catch { window.location.href = target; }
+        }
+      }, 20);
+    } else {
+      try {
+        fetch(target, { method:'HEAD' })
+          .then(r=>console.debug('[Frage] Vorab-Check', target, 'Status', r.status))
+          .catch(err=>console.debug('[Frage] Vorab-Check Fehler', err));
+      } catch(e) { console.debug('[Frage] Vorab-Check sync Fehler', e); }
+    }
   }
 
   const [attempted, setAttempted] = useState(false);
   function submit(e: React.FormEvent){
     e.preventDefault();
+    if (!needsCode) {
+      // Sollte eigentlich schon umgeleitet haben; Fallback
+      try { window.location.replace(target); } catch { window.location.href = target; }
+      return;
+    }
     if (val.trim() === '872020') {
       console.debug('[Frage] Code korrekt →', target);
       setAttempted(true);
@@ -60,12 +75,18 @@ export default function FrageClient({ nextPath }: { nextPath: string }) {
             className="text-xs text-gray-500 hover:text-gray-700 underline mt-1"
           >Zurück</button>
         </div>
-        <p className="text-sm text-gray-600">Bitte gib den bekannten Code ein.</p>
-        <input type="password" value={val} onChange={e=>{ setVal(e.target.value); setError(null); }} className="w-full border rounded px-3 py-2" placeholder="Code" autoFocus />
+        {needsCode ? (
+          <p className="text-sm text-gray-600">Bitte gib den bekannten Code ein.</p>
+        ) : (
+          <p className="text-sm text-gray-600">Dieser Bereich benötigt keinen Code – Weiterleitung…</p>
+        )}
+        {needsCode && (
+          <input type="password" value={val} onChange={e=>{ setVal(e.target.value); setError(null); }} className="w-full border rounded px-3 py-2" placeholder="Code" autoFocus />
+        )}
   {error && <div className="text-xs text-red-600">{error}</div>}
-  {attempted && <div className="text-[11px] text-amber-700">Falls nichts passiert: <a className="underline" href={target}>Hier klicken</a></div>}
-        <button disabled={!val} className="w-full bg-blue-600 text-white rounded py-2 disabled:opacity-40">Weiter</button>
-        <p className="text-[10px] text-gray-400 leading-snug">Hinweis: Das ist kein echtes Login, nur eine einfache Abfrage.</p>
+  {attempted && needsCode && <div className="text-[11px] text-amber-700">Falls nichts passiert: <a className="underline" href={target}>Hier klicken</a></div>}
+        {needsCode && <button disabled={!val} className="w-full bg-blue-600 text-white rounded py-2 disabled:opacity-40">Weiter</button>}
+        {needsCode && <p className="text-[10px] text-gray-400 leading-snug">Hinweis: Das ist kein echtes Login, nur eine einfache Abfrage.</p>}
       </form>
     </div>
   );
