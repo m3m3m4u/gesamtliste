@@ -2,17 +2,10 @@ import React from 'react';
 import Link from 'next/link';
 import clientPromise from '@/lib/mongodb';
 import MeldungenClient from './MeldungenClient';
-import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
 export default async function MeldungenPage(){
-  const cookieStore = await cookies();
-  const version = process.env.SITE_AUTH_VERSION || '1';
-  const authed = cookieStore.get('site_auth')?.value === version;
-  if(!authed){
-    return <div className="p-8 text-center text-sm">Nicht autorisiert.</div>;
-  }
   const client = await clientPromise;
   const db = client.db();
   const col = db.collection('reports');

@@ -2,15 +2,7 @@ import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
-const COOKIE_NAME = 'site_auth';
-const COOKIE_VALUE = process.env.SITE_AUTH_VERSION || '1';
-
-async function ensureAuth(req: Request): Promise<boolean> {
-  return (req.headers.get('cookie') || '').includes(`${COOKIE_NAME}=${COOKIE_VALUE}`);
-}
-
 export async function PATCH(req: Request, context: unknown) {
-  if (!await ensureAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { params } = context as { params: { id: string } };
   const id = params.id;
   if (!ObjectId.isValid(id)) return NextResponse.json({ error: 'Bad id' }, { status: 400 });
@@ -23,8 +15,7 @@ export async function PATCH(req: Request, context: unknown) {
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(req: Request, context: unknown) {
-  if (!await ensureAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export async function DELETE(_req: Request, context: unknown) {
   const { params } = context as { params: { id: string } };
   const id = params.id;
   if (!ObjectId.isValid(id)) return NextResponse.json({ error: 'Bad id' }, { status: 400 });

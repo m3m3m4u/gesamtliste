@@ -1,13 +1,7 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 
-const COOKIE_NAME = 'site_auth';
-const COOKIE_VALUE = process.env.SITE_AUTH_VERSION || '1';
-
-export async function GET(req: Request) {
-  // Auth nur via Cookie
-  const auth = (req.headers.get('cookie') || '').includes(`${COOKIE_NAME}=${COOKIE_VALUE}`);
-  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export async function GET(_req: Request) {
   const client = await clientPromise; const db = client.db(); const col = db.collection('reports');
   const items = await col.find({}, { projection: { _id: 1, text: 1, status: 1, createdAt: 1, updatedAt: 1 } })
     .sort({ createdAt: -1 })
