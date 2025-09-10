@@ -177,14 +177,18 @@ export default function KlassenListePage() {
               exportWord({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}`, word: { zebra: true } });
             }} className="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Word</button>
             <button onClick={() => {
-              // Account-Karten PDF
-              const students = sortedData.map(d => ({
-                Vorname: d.Vorname as string,
-                Familienname: (d as any)['Familienname'] ?? (d as any)['Nachname'],
-                Benutzername: (d as any)['Benutzername'],
-                Passwort: (d as any)['Passwort'],
-                Anton: (d as any)['Anton']
-              }));
+              // Account-Karten PDF ohne any-Casts
+              const students = sortedData.map(d => {
+                const rec = d as Record<string, unknown>;
+                const fam = (rec['Familienname'] ?? rec['Nachname']);
+                return {
+                  Vorname: typeof d.Vorname === 'string' ? d.Vorname : undefined,
+                  Familienname: typeof fam === 'string' ? fam : undefined,
+                  Benutzername: typeof rec['Benutzername'] === 'string' ? String(rec['Benutzername']) : undefined,
+                  Passwort: typeof rec['Passwort'] === 'string' ? String(rec['Passwort']) : undefined,
+                  Anton: typeof rec['Anton'] === 'string' ? String(rec['Anton']) : undefined,
+                };
+              });
               exportAccountsPDF(students, { filenameBase: `accounts-${klasse}`, title: `Zugangsdaten ${klasse}`, columns: 3 });
             }} className="px-3 py-1 rounded bg-fuchsia-600 text-white text-xs" title="PDF Karten mit Zugangsdaten">Accounts PDF</button>
           </div>
