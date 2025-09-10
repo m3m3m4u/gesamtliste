@@ -175,14 +175,20 @@ async function ensureUnicodeFont(doc: jsPDF, preferUnicode?: boolean) {
       doc.addFont(vfsName, family, style);
       return true;
     };
-    const regularOk = await loadFont('/fonts/NotoSans-Regular.ttf','NotoSans-Regular.ttf','NotoSans','normal');
-    // Optional Bold
-    await loadFont('/fonts/NotoSans-Bold.ttf','NotoSans-Bold.ttf','NotoSans','bold').catch(()=>false);
+  const regularOk = await loadFont('/fonts/NotoSans-Regular.ttf','NotoSans-Regular.ttf','NotoSans','normal');
+  // Bold-Datei absichtlich nicht automatisch geladen um 404 zu vermeiden, falls nicht vorhanden.
+  // Falls später echte Bold-Unterstützung gewünscht ist, Datei NotoSans-Bold.ttf in /public/fonts legen
+  // und folgenden Aufruf aktivieren:
+  // await loadFont('/fonts/NotoSans-Bold.ttf','NotoSans-Bold.ttf','NotoSans','bold').catch(()=>false);
     if (!regularOk) return false;
     anyDoc._unicodeFontLoaded = true;
     doc.setFont('NotoSans','normal');
     return true;
-  } catch { return false; }
+  } catch (e) {
+    if (typeof window !== 'undefined') {
+      try { console.warn('[PDF] Unicode-Font Laden fehlgeschlagen', e); } catch {}
+    }
+    return false; }
 }
 
 export async function exportAccountsPDF(students: AccountCardStudent[], opts?: { filenameBase?: string; title?: string; columns?: number; gap?: number; margin?: number; cardHeight?: number; showAnton?: boolean; unicodeFont?: boolean; }) {
