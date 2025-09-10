@@ -68,9 +68,10 @@ export interface AccountCardStudent {
 }
 
 // Lädt optional eine Unicode-fähige Schrift (TTF) aus /fonts/NotoSans-Regular.ttf
+interface JsPdfWithFlag extends jsPDF { _unicodeFontLoaded?: boolean }
 async function ensureUnicodeFont(doc: jsPDF, preferUnicode?: boolean) {
   if (!preferUnicode) return false;
-  const anyDoc = doc as any;
+  const anyDoc = doc as JsPdfWithFlag;
   if (anyDoc._unicodeFontLoaded) {
     doc.setFont('NotoSans', 'normal');
     return true;
@@ -85,7 +86,7 @@ async function ensureUnicodeFont(doc: jsPDF, preferUnicode?: boolean) {
     const b64 = typeof btoa === 'function' ? btoa(binary) : Buffer.from(binary, 'binary').toString('base64');
     doc.addFileToVFS('NotoSans-Regular.ttf', b64);
     doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-    anyDoc._unicodeFontLoaded = true;
+  anyDoc._unicodeFontLoaded = true;
     doc.setFont('NotoSans', 'normal');
     return true;
   } catch { return false; }
