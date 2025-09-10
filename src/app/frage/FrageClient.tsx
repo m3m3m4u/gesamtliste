@@ -22,6 +22,12 @@ export default function FrageClient({ nextPath }: { nextPath: string }) {
   // Debug Ausgabe einmalig
   if (typeof window !== 'undefined') {
     console.debug('[Frage] nextPath raw=', nextPath, 'normalized=', target);
+    // Teste ob Ziel erreichbar ist (HEAD Request)
+    try {
+      fetch(target, { method:'HEAD' })
+        .then(r=>console.debug('[Frage] Vorab-Check', target, 'Status', r.status))
+        .catch(err=>console.debug('[Frage] Vorab-Check Fehler', err));
+    } catch(e) { console.debug('[Frage] Vorab-Check sync Fehler', e); }
   }
 
   const [attempted, setAttempted] = useState(false);
