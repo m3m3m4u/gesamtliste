@@ -4,6 +4,79 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType, AlignmentType, PageOrientation, BorderStyle } from 'docx';
 
+// Zentrale Unicode-Säuberung / Normalisierung für PDF-Ausgaben
+// Ziel: Entfernt problematische Steuer-/Unsichtbar-Zeichen, vereinheitlicht Sonderformen (Anführungen, Bindestriche, NBSP)
+// und normalisiert Combining Marks via NFC.
+export interface SanitizeOptions {
+  maxLength?: number;           // optionaler Cut (z.B. für Karten)
+  keepNewlines?: boolean;       // falls true, behalte echte Zeilenumbrüche vor dem Zusammenfassen von Whitespace
+  debugTag?: string;            // wenn gesetzt und localStorage.pdfDebug==='1', werden entfernte Zeichen geloggt
+}
+
+const RE_REMOVE = /[\u0000-\u001F\u007F\u200B\u200C\u200D\u2060\uFEFF\u00AD\u202A-\u202E\u2066-\u2069]/g; // Steuer + Zero-Width + LRM/RLM etc.
+const RE_VARIATION = /\uFE0E|\uFE0F/g; // Variation Selectors
+// Mapping einzelner typographischer Varianten auf einfache ASCII-Form
+const REPLACEMENTS: Record<string,string> = {
+  '\u00A0': ' ', // NBSP
+  '\u2009': ' ', // THIN SPACE
+  '\u202F': ' ', // NARROW NBSP
+  '\u2013': '-', // EN DASH
+  '\u2014': '-', // EM DASH
+  '\u2212': '-', // MINUS SIGN
+  '\u2010': '-', // HYPHEN
+  '\u2011': '-', // NON-BREAKING HYPHEN
+  '\u2018': "'",
+  '\u2019': "'",
+  '\u201A': "'",
+  '\u201B': "'",
+  '\u2032': "'",
+  '\u201C': '"',
+  '\u201D': '"',
+  '\u201E': '"',
+  '\u2033': '"',
+  '\u2026': '...', // Ellipsis
+};
+
+export function sanitizeUnicode(input: unknown, opts?: SanitizeOptions) {
+  if (input == null) return '';
+  let s = String(input);
+  const removedChars: Record<string, number> = {};
+  // Normalisiere zu NFC (kombinierende Zeichen konsolidieren)
+  try { s = s.normalize('NFC'); } catch {}
+  // Ersetze bekannte Varianten
+  s = s.replace(/[\u00A0\u2009\u202F\u2013\u2014\u2212\u2010\u2011\u2018\u2019\u201A\u201B\u2032\u201C\u201D\u201E\u2033\u2026]/g, ch => REPLACEMENTS[ch] || '');
+  // Entferne Variation Selectors separat
+  s = s.replace(RE_VARIATION, ch => { removedChars[ch] = (removedChars[ch]||0)+1; return ''; });
+  // Entferne Steuer-/Zero-Width / Richtungszeichen
+  s = s.replace(RE_REMOVE, ch => { removedChars[ch] = (removedChars[ch]||0)+1; return ''; });
+  // Whitespace normalisieren (optional Newlines behalten)
+  if (opts?.keepNewlines) {
+    // Reduziere wiederholte Leerzeichen, aber erhalte Zeilenumbrüche
+    s = s.replace(/[ \t\f\v]+/g,' ');
+    // Übermäßige Leerzeilen auf eine reduzieren
+    s = s.replace(/\n{3,}/g,'\n\n');
+  } else {
+    s = s.replace(/\s+/g,' ');
+  }
+  s = s.trim();
+  if (opts?.maxLength && s.length > opts.maxLength) {
+    s = s.slice(0, opts.maxLength - 1).trim() + '…';
+  }
+  if (opts?.debugTag && typeof window !== 'undefined') {
+    try {
+      if (window.localStorage.getItem('pdfDebug') === '1') {
+        const keys = Object.keys(removedChars);
+        if (keys.length) {
+          // Log detailiert einmal pro Aufruf
+            // eslint-disable-next-line no-console
+          console.debug(`[PDF-Sanitize:${opts.debugTag}] entfernte Zeichen`, keys.map(k=>`U+${k.charCodeAt(0).toString(16).toUpperCase().padStart(4,'0')}(${JSON.stringify(k)}) x${removedChars[k]}`).join(', '));
+        }
+      }
+    } catch {}
+  }
+  return s;
+}
+
 export interface ExportConfig {
   filenameBase: string;
   headers: string[];
@@ -44,16 +117,7 @@ export function exportExcel({ filenameBase, headers, rows, title }: ExportConfig
 export async function exportPDF({ filenameBase, headers, rows, title }: ExportConfig) {
   const doc = new jsPDF({ orientation: 'landscape' });
   const unicode = await ensureUnicodeFont(doc, true);
-  const sanitize = (v: unknown) => {
-    if (v == null) return '';
-    let s = String(v);
-    try { s = s.normalize('NFC'); } catch {}
-    // Entferne C0 + DEL
-    s = s.replace(/[\x00-\x1F\x7F]/g,'');
-    // Vereinheitliche Spacing
-    s = s.replace(/\s+/g,' ').trim();
-    return s;
-  };
+  const sanitize = (v: unknown) => sanitizeUnicode(v, { debugTag: 'table' });
   // Schrift setzen
   if (unicode) doc.setFont('NotoSans','normal'); else doc.setFont('helvetica','normal');
   let startY: number | undefined = undefined;
@@ -132,7 +196,7 @@ export async function exportAccountsPDF(students: AccountCardStudent[], opts?: {
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const unicode = await ensureUnicodeFont(doc, opts?.unicodeFont);
-  const sanitize = (v: string | undefined) => v ? v.replace(/[\x00-\x1F\x7F]/g,'').replace(/\s+/g,' ').trim() : '';
+  const sanitize = (v: string | undefined) => sanitizeUnicode(v, { maxLength: 120, debugTag: 'card' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   let y = margin;
