@@ -43,23 +43,34 @@ export function exportExcel({ filenameBase, headers, rows, title }: ExportConfig
 
 export async function exportPDF({ filenameBase, headers, rows, title }: ExportConfig) {
   const doc = new jsPDF({ orientation: 'landscape' });
-  // Versuche Unicode Font zu laden (still optional falls fetch fehlschlägt)
-  await ensureUnicodeFont(doc, true);
+  const unicode = await ensureUnicodeFont(doc, true);
   const sanitize = (v: unknown) => {
     if (v == null) return '';
     let s = String(v);
     try { s = s.normalize('NFC'); } catch {}
+    // Entferne C0 + DEL
     s = s.replace(/[\x00-\x1F\x7F]/g,'');
+    // Vereinheitliche Spacing
     s = s.replace(/\s+/g,' ').trim();
     return s;
   };
+  // Schrift setzen
+  if (unicode) doc.setFont('NotoSans','normal'); else doc.setFont('helvetica','normal');
   let startY: number | undefined = undefined;
   if (title) {
     doc.setFontSize(14);
+    if (unicode) doc.setFont('NotoSans','normal'); else doc.setFont('helvetica','bold');
     doc.text(sanitize(title), 14, 16);
     startY = 22;
+    if (!unicode) doc.setFont('helvetica','normal'); // zurück
   }
-  autoTable(doc, { startY, head: [headers.map(h=>sanitize(h))], body: rows.map(r=>r.map(c=> sanitize(c))) });
+  autoTable(doc, {
+    startY,
+    head: [headers.map(h => sanitize(h))],
+    body: rows.map(r => r.map(c => sanitize(c))),
+    styles: { font: unicode ? 'NotoSans' : 'helvetica', fontSize: 10 },
+    headStyles: { fontStyle: unicode ? 'normal' : 'bold', font: unicode ? 'NotoSans' : 'helvetica' }
+  });
   doc.save(filenameBase + '.pdf');
 }
 
