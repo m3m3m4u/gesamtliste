@@ -43,7 +43,7 @@ export default function QuizGate({ children }: { children: React.ReactNode }) {
   return (
     <div className="w-full max-w-md mx-auto mt-16 p-6 bg-white rounded shadow border space-y-4">
       <h2 className="text-lg font-semibold">Leichter Zugang</h2>
-      <p className="text-sm text-gray-600">Kein Passwort mehr. Stattdessen ein kleines "Quiz" (rein symbolisch).</p>
+  <p className="text-sm text-gray-600">Kein Passwort mehr. Stattdessen ein kleines &quot;Quiz&quot; (rein symbolisch).</p>
       <div className="space-y-2">
         <p className="font-medium text-sm">{question}</p>
         <div className="space-y-1">
