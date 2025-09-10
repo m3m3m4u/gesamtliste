@@ -10,26 +10,35 @@ export default function FrageClient({ nextPath }: { nextPath: string }) {
   function normalizeTarget(raw: string): string {
     if (!raw) return '/';
     try { raw = decodeURIComponent(raw); } catch {}
-    // Erlaube auch Formate ohne führenden Slash
     if (!raw.startsWith('/')) raw = '/' + raw.replace(/^\/+/, '');
-    // Whitelist einfacher Bereiche
-    const allowed = ['/','/schueler','/optionen','/meldungen','/klassenliste','/angebote','/schwerpunkte','/listen','/fehler'];
-    if (!allowed.includes(raw)) return '/';
+    // Erlaube jeden einfachen internen Pfad ohne Protokoll / Host / Query Manipulation
+    // Sicherheit: Keine "//" am Anfang außer genau "/"; keine ":" oder ".." Segmente
+    if (raw.startsWith('//') || raw.includes('://')) return '/';
+    if (raw.split('/').some(seg => seg === '..')) return '/';
     return raw;
   }
 
   const target = normalizeTarget(nextPath);
+  // Debug Ausgabe einmalig
+  if (typeof window !== 'undefined') {
+    console.debug('[Frage] nextPath raw=', nextPath, 'normalized=', target);
+  }
 
   function submit(e: React.FormEvent){
     e.preventDefault();
     if (val.trim() === '872020') {
-      // Erst Soft-Navigation, dann harter Fallback
-      try { router.push(target); } catch {}
-      setTimeout(() => {
-        if (window.location.pathname !== target) {
+      console.debug('[Frage] Code korrekt, navigiere zu', target);
+      try { router.push(target); } catch (e) { console.debug('[Frage] router.push Fehler', e); }
+      let attempts = 0;
+      const ensure = () => {
+        attempts++;
+        if (window.location.pathname !== target && attempts < 5) {
+          console.debug('[Frage] Hard redirect Versuch', attempts, 'aktuell', window.location.pathname);
           window.location.assign(target);
+          setTimeout(ensure, 200 * attempts);
         }
-      }, 150);
+      };
+      setTimeout(ensure, 120);
     } else {
       setError('Falsch – nochmal versuchen.');
     }

@@ -1,5 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+// Erzwinge dynamisches Rendering (verhindert mögliche Static 404s nach Client-Redirect)
+export const dynamic = "force-dynamic";
 import Link from 'next/link';
 import type { StudentDoc } from '@/lib/mongodb';
 
