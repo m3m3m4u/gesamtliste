@@ -176,6 +176,9 @@ async function ensureUnicodeFont(doc: jsPDF, preferUnicode?: boolean) {
       return true;
     };
   const regularOk = await loadFont('/fonts/NotoSans-Regular.ttf','NotoSans-Regular.ttf','NotoSans','normal');
+  if (!regularOk && typeof window !== 'undefined') {
+    try { console.warn('[PDF] Warnung: NotoSans-Regular.ttf nicht gefunden – Akzentzeichen (^ ` ´) könnten falsch sein.'); } catch {}
+  }
   // Bold-Datei absichtlich nicht automatisch geladen um 404 zu vermeiden, falls nicht vorhanden.
   // Falls später echte Bold-Unterstützung gewünscht ist, Datei NotoSans-Bold.ttf in /public/fonts legen
   // und folgenden Aufruf aktivieren:
