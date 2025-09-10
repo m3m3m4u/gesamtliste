@@ -87,17 +87,25 @@ async function ensureUnicodeFont(doc: jsPDF, preferUnicode?: boolean) {
     return true;
   }
   try {
-    const res = await fetch('/fonts/NotoSans-Regular.ttf');
-    if (!res.ok) return false;
-    const buf = await res.arrayBuffer();
-    let binary = '';
-    const bytes = new Uint8Array(buf);
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    const b64 = typeof btoa === 'function' ? btoa(binary) : Buffer.from(binary, 'binary').toString('base64');
-    doc.addFileToVFS('NotoSans-Regular.ttf', b64);
-    doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-  anyDoc._unicodeFontLoaded = true;
-    doc.setFont('NotoSans', 'normal');
+    // Regular
+    const loadFont = async (url: string, vfsName: string, family: string, style: string) => {
+      const r = await fetch(url);
+      if (!r.ok) return false;
+      const buf = await r.arrayBuffer();
+      let binary = '';
+      const bytes = new Uint8Array(buf);
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      const b64 = typeof btoa === 'function' ? btoa(binary) : Buffer.from(binary, 'binary').toString('base64');
+      doc.addFileToVFS(vfsName, b64);
+      doc.addFont(vfsName, family, style);
+      return true;
+    };
+    const regularOk = await loadFont('/fonts/NotoSans-Regular.ttf','NotoSans-Regular.ttf','NotoSans','normal');
+    // Optional Bold
+    await loadFont('/fonts/NotoSans-Bold.ttf','NotoSans-Bold.ttf','NotoSans','bold').catch(()=>false);
+    if (!regularOk) return false;
+    anyDoc._unicodeFontLoaded = true;
+    doc.setFont('NotoSans','normal');
     return true;
   } catch { return false; }
 }
@@ -112,24 +120,23 @@ export async function exportAccountsPDF(students: AccountCardStudent[], opts?: {
   const showAnton = opts?.showAnton ?? true;
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  await ensureUnicodeFont(doc, opts?.unicodeFont);
+  const unicode = await ensureUnicodeFont(doc, opts?.unicodeFont);
+  const sanitize = (v: string | undefined) => v ? v.replace(/[\x00-\x1F\x7F]/g,'').replace(/\s+/g,' ').trim() : '';
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   let y = margin;
   if (title) {
     doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text(title, pageW / 2, y, { align: 'center' });
+    if (unicode) doc.setFont('NotoSans','normal'); else doc.setFont('helvetica','bold');
+    doc.text(sanitize(title), pageW / 2, y, { align: 'center' });
     y += 8;
   }
   const usableW = pageW - margin * 2;
   const cardW = (usableW - gap * (cols - 1)) / cols;
   let x = margin;
-  doc.setFont('helvetica', 'normal');
+  if (unicode) doc.setFont('NotoSans','normal'); else doc.setFont('helvetica','normal');
   doc.setFontSize(11);
 
-  // Kleiner Sanitizer nur für Anzeige (unsichtbare Steuerzeichen entfernen, sichtbare diakritische Zeichen bleiben bestehen)
-  const sanitize = (v: string | undefined) => v ? v.replace(/[\x00-\x1F\x7F]/g,'').replace(/\s+/g,' ').trim() : '';
 
   students.forEach((s, idx) => {
     const name = `${sanitize(s.Vorname)} ${sanitize(s.Familienname)}`.trim();
@@ -146,13 +153,13 @@ export async function exportAccountsPDF(students: AccountCardStudent[], opts?: {
       y = margin;
       if (title) {
         doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(title, pageW / 2, y, { align: 'center' });
+        if (unicode) doc.setFont('NotoSans','normal'); else doc.setFont('helvetica','bold');
+        doc.text(sanitize(title), pageW / 2, y, { align: 'center' });
         y += 6;
       }
       x = margin;
       doc.setFontSize(11);
-      doc.setFont('helvetica', 'normal');
+      if (unicode) doc.setFont('NotoSans','normal'); else doc.setFont('helvetica','normal');
     }
     // Rahmen
     doc.setDrawColor(50);
@@ -161,12 +168,20 @@ export async function exportAccountsPDF(students: AccountCardStudent[], opts?: {
     // Inhalt
     let cy = y + 6;
     lines.forEach(l => {
+      const value = sanitize(l.value);
       if (l.bold) {
-        doc.setFont('helvetica', 'bold');
-        doc.text(l.value, x + 4, cy);
-        doc.setFont('helvetica', 'normal');
+        if (unicode) {
+          // Kein echtes Bold eingebettet? Dann leichte Simulation durch größeren Font kurz.
+          doc.setFontSize(11.5);
+          doc.text(value, x + 4, cy);
+          doc.setFontSize(11);
+        } else {
+          doc.setFont('helvetica','bold');
+          doc.text(value, x + 4, cy);
+          doc.setFont('helvetica','normal');
+        }
       } else {
-        const text = l.label ? `${l.label}: ${l.value}` : l.value;
+        const text = l.label ? `${l.label}: ${sanitize(l.value)}` : value;
         doc.text(text, x + 4, cy);
       }
       cy += 6;
