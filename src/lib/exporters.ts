@@ -67,7 +67,31 @@ export interface AccountCardStudent {
   Anton?: string;
 }
 
-export function exportAccountsPDF(students: AccountCardStudent[], opts?: { filenameBase?: string; title?: string; columns?: number; gap?: number; margin?: number; cardHeight?: number; showAnton?: boolean; }) {
+// Lädt optional eine Unicode-fähige Schrift (TTF) aus /fonts/NotoSans-Regular.ttf
+async function ensureUnicodeFont(doc: jsPDF, preferUnicode?: boolean) {
+  if (!preferUnicode) return false;
+  const anyDoc = doc as any;
+  if (anyDoc._unicodeFontLoaded) {
+    doc.setFont('NotoSans', 'normal');
+    return true;
+  }
+  try {
+    const res = await fetch('/fonts/NotoSans-Regular.ttf');
+    if (!res.ok) return false;
+    const buf = await res.arrayBuffer();
+    let binary = '';
+    const bytes = new Uint8Array(buf);
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    const b64 = typeof btoa === 'function' ? btoa(binary) : Buffer.from(binary, 'binary').toString('base64');
+    doc.addFileToVFS('NotoSans-Regular.ttf', b64);
+    doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    anyDoc._unicodeFontLoaded = true;
+    doc.setFont('NotoSans', 'normal');
+    return true;
+  } catch { return false; }
+}
+
+export async function exportAccountsPDF(students: AccountCardStudent[], opts?: { filenameBase?: string; title?: string; columns?: number; gap?: number; margin?: number; cardHeight?: number; showAnton?: boolean; unicodeFont?: boolean; }) {
   const filenameBase = opts?.filenameBase || 'accounts';
   const title = opts?.title;
   const cols = Math.max(1, Math.min(opts?.columns || 3, 5));
@@ -77,6 +101,7 @@ export function exportAccountsPDF(students: AccountCardStudent[], opts?: { filen
   const showAnton = opts?.showAnton ?? true;
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  await ensureUnicodeFont(doc, opts?.unicodeFont);
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   let y = margin;

@@ -189,7 +189,7 @@ export default function KlassenListePage() {
                   Anton: typeof rec['Anton'] === 'string' ? String(rec['Anton']) : undefined,
                 };
               });
-              exportAccountsPDF(students, { filenameBase: `accounts-${klasse}`, title: `Zugangsdaten ${klasse}`, columns: 3 });
+              exportAccountsPDF(students, { filenameBase: `accounts-${klasse}`, title: `Zugangsdaten ${klasse}`, columns: 3, unicodeFont: true });
             }} className="px-3 py-1 rounded bg-fuchsia-600 text-white text-xs" title="PDF Karten mit Zugangsdaten">Accounts PDF</button>
           </div>
         )}
