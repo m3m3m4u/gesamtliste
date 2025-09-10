@@ -130,8 +130,9 @@ export default function KlassenListePage() {
     }
     if (f === 'Geburtsdatum') val = fmtDate(val);
     if (Array.isArray(val)) return val.join(', ');
-    if (val == null) return '';
-    return String(val);
+  if (val == null) return '';
+  const sanitized = String(val).replace(/[\x00-\x1F\x7F]/g,'').replace(/\s+/g,' ').trim();
+  return sanitized;
   }
 
   return (

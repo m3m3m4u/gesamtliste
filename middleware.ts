@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Sehr lockere Schutz-Logik: Passwort 872020 nur noch für MUTIERENDE API Calls nötig.
-// GET Seiten (auch geschützte) und lesende API-Aufrufe laufen immer durch -> besser für iFrame/Embed ohne Cookies.
-// Ziel bleibt: Minimaler Schutz vor versehentlichem POST/PUT/DELETE.
+// Ultra-lockere Logik: Standardmäßig KEIN Passwort mehr nötig (auch nicht für Mutationen).
+// Setze ENV STRICT_SIMPLE_PASSWORD=1 um das frühere Verhalten (Mutationen brauchen Passwort) wieder zu aktivieren.
 
 const SIMPLE_PASSWORD = process.env.SIMPLE_PASSWORD || '872020';
+const STRICT_MODE = process.env.STRICT_SIMPLE_PASSWORD === '1';
 const COOKIE_NAME = 'site_auth';
 // Einfacher Wert, nicht sicherheitsrelevant
 const COOKIE_VALUE = '1';
@@ -35,6 +35,22 @@ function extractPw(req: NextRequest): string | null {
   // Pfad-Segment /pw-XXXX optional erlauben
   const segMatch = url.pathname.match(/\/pw-(\w+)/i);
   if (segMatch) return segMatch[1];
+  // Referer Parameter extrahieren falls vorhanden
+  const ref = req.headers.get('referer');
+  if (ref) {
+    try {
+      const ru = new URL(ref);
+      for (const n of qpNames) {
+        const v = ru.searchParams.get(n);
+        if (v) return v.trim();
+      }
+      // Hash (#pw=...) aus Referer
+      if (ru.hash) {
+        const m = ru.hash.match(/pw=([^&]+)/i);
+        if (m) return decodeURIComponent(m[1]);
+      }
+    } catch {}
+  }
   const headers = req.headers;
   const hCandidates = [headers.get('x-auth'), headers.get('x-password')];
   for (const h of hCandidates) { if (h) return h.trim(); }
@@ -69,22 +85,23 @@ export function middleware(req: NextRequest) {
 
   const isProtectedPage = hasProtectedPage(pathname);
   const isProtectedApi = hasProtectedApi(pathname);
-  // Nur mutierende API Calls brauchen Passwort.
+  // Nur mutierende API Calls brauchen Passwort – aber nur in STRICT_MODE.
   const method = req.method;
-  const mutating = isProtectedApi && isMutation(method);
+  const mutating = STRICT_MODE && isProtectedApi && isMutation(method);
   const pwFromReq = extractPw(req);
   const authed = alreadyAuthed(req) || (pwFromReq && pwFromReq === SIMPLE_PASSWORD);
 
   if (authed) {
     const res = NextResponse.next();
-    // Cookie sehr liberal setzen (kein Secure/SameSite) damit auch in eingebetteten Kontexten eher akzeptiert wird
-    res.cookies.set({ name: COOKIE_NAME, value: COOKIE_VALUE, path: '/', httpOnly: false });
+  // Cookie sehr liberal setzen plus SameSite=None für iFrames; secure nur in Prod
+  res.cookies.set({ name: COOKIE_NAME, value: COOKIE_VALUE, path: '/', httpOnly: false, sameSite: 'none', secure: process.env.NODE_ENV === 'production', maxAge: 60*60*12 });
     return res;
   }
   // Mutierende API ohne Passwort -> 401 JSON, alles andere frei
   if (mutating && !authed) {
     return new NextResponse(JSON.stringify({ error: 'Passwort fehlt' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
+  // In nicht-striktem Modus immer erlauben.
   return NextResponse.next();
 }
 

@@ -118,8 +118,11 @@ export async function exportAccountsPDF(students: AccountCardStudent[], opts?: {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
 
+  // Kleiner Sanitizer nur für Anzeige (unsichtbare Steuerzeichen entfernen, sichtbare diakritische Zeichen bleiben bestehen)
+  const sanitize = (v: string | undefined) => v ? v.replace(/[\x00-\x1F\x7F]/g,'').replace(/\s+/g,' ').trim() : '';
+
   students.forEach((s, idx) => {
-    const name = `${s.Vorname || ''} ${s.Familienname || ''}`.trim();
+    const name = `${sanitize(s.Vorname)} ${sanitize(s.Familienname)}`.trim();
     const lines: { label?: string; value: string; bold?: boolean }[] = [];
     lines.push({ value: name, bold: true });
     if (s.Benutzername) lines.push({ label: 'Benutzer', value: s.Benutzername });
