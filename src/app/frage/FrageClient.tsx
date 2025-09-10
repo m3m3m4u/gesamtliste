@@ -6,10 +6,30 @@ export default function FrageClient({ nextPath }: { nextPath: string }) {
   const [val, setVal] = useState('');
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  function normalizeTarget(raw: string): string {
+    if (!raw) return '/';
+    try { raw = decodeURIComponent(raw); } catch {}
+    // Erlaube auch Formate ohne führenden Slash
+    if (!raw.startsWith('/')) raw = '/' + raw.replace(/^\/+/, '');
+    // Whitelist einfacher Bereiche
+    const allowed = ['/','/schueler','/optionen','/meldungen','/klassenliste','/angebote','/schwerpunkte','/listen','/fehler'];
+    if (!allowed.includes(raw)) return '/';
+    return raw;
+  }
+
+  const target = normalizeTarget(nextPath);
+
   function submit(e: React.FormEvent){
     e.preventDefault();
     if (val.trim() === '872020') {
-      router.push(nextPath || '/');
+      // Erst Soft-Navigation, dann harter Fallback
+      try { router.push(target); } catch {}
+      setTimeout(() => {
+        if (window.location.pathname !== target) {
+          window.location.assign(target);
+        }
+      }, 150);
     } else {
       setError('Falsch – nochmal versuchen.');
     }
