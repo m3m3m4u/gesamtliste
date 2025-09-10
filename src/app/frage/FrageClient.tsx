@@ -24,21 +24,21 @@ export default function FrageClient({ nextPath }: { nextPath: string }) {
     console.debug('[Frage] nextPath raw=', nextPath, 'normalized=', target);
   }
 
+  const [attempted, setAttempted] = useState(false);
   function submit(e: React.FormEvent){
     e.preventDefault();
     if (val.trim() === '872020') {
-      console.debug('[Frage] Code korrekt, navigiere zu', target);
-      try { router.push(target); } catch (e) { console.debug('[Frage] router.push Fehler', e); }
-      let attempts = 0;
-      const ensure = () => {
-        attempts++;
-        if (window.location.pathname !== target && attempts < 5) {
-          console.debug('[Frage] Hard redirect Versuch', attempts, 'aktuell', window.location.pathname);
-          window.location.assign(target);
-          setTimeout(ensure, 200 * attempts);
+      console.debug('[Frage] Code korrekt →', target);
+      setAttempted(true);
+      // Direkt harter Redirect (reduziert Timing-Probleme)
+      try { window.location.replace(target); }
+      catch (err){ console.warn('[Frage] replace fehlgeschlagen', err); window.location.href = target; }
+      // Sicherheitsnetz: nach 800ms Link einblenden falls noch auf /frage
+      setTimeout(()=>{
+        if (window.location.pathname.startsWith('/frage')) {
+          console.debug('[Frage] Bleibe auf /frage – zeige Notfall-Link');
         }
-      };
-      setTimeout(ensure, 120);
+      }, 800);
     } else {
       setError('Falsch – nochmal versuchen.');
     }
@@ -49,7 +49,8 @@ export default function FrageClient({ nextPath }: { nextPath: string }) {
         <h1 className="text-lg font-semibold">Kurze Frage</h1>
         <p className="text-sm text-gray-600">Bitte gib den bekannten Code ein.</p>
         <input type="password" value={val} onChange={e=>{ setVal(e.target.value); setError(null); }} className="w-full border rounded px-3 py-2" placeholder="Code" autoFocus />
-        {error && <div className="text-xs text-red-600">{error}</div>}
+  {error && <div className="text-xs text-red-600">{error}</div>}
+  {attempted && <div className="text-[11px] text-amber-700">Falls nichts passiert: <a className="underline" href={target}>Hier klicken</a></div>}
         <button disabled={!val} className="w-full bg-blue-600 text-white rounded py-2 disabled:opacity-40">Weiter</button>
         <p className="text-[10px] text-gray-400 leading-snug">Hinweis: Das ist kein echtes Login, nur eine einfache Abfrage.</p>
       </form>
