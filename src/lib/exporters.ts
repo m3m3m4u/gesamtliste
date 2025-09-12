@@ -68,7 +68,6 @@ export function sanitizeUnicode(input: unknown, opts?: SanitizeOptions) {
         const keys = Object.keys(removedChars);
         if (keys.length) {
           // Log detailiert einmal pro Aufruf
-            // eslint-disable-next-line no-console
           console.debug(`[PDF-Sanitize:${opts.debugTag}] entfernte Zeichen`, keys.map(k=>`U+${k.charCodeAt(0).toString(16).toUpperCase().padStart(4,'0')}(${JSON.stringify(k)}) x${removedChars[k]}`).join(', '));
         }
       }

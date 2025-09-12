@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 
-export async function GET(_req: Request) {
+export async function GET(_: Request) {
   const client = await clientPromise; const db = client.db(); const col = db.collection('reports');
   const items = await col.find({}, { projection: { _id: 1, text: 1, status: 1, createdAt: 1, updatedAt: 1 } })
     .sort({ createdAt: -1 })

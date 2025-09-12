@@ -328,7 +328,8 @@ export default function Schueler() {
                     });
                     if(!Array.isArray(payload.Angebote)) payload.Angebote = [];
                     // Sicherstellen, dass Religion an/ab vorhanden ist
-                    if(typeof (payload as any)['Religion an/ab'] !== 'string') (payload as any)['Religion an/ab'] = '';
+                    const pa = payload as Record<string, unknown>;
+                    if (typeof pa['Religion an/ab'] !== 'string') pa['Religion an/ab'] = '';
                     if(!Array.isArray(payload.Status)) payload.Status = [];
                     const res = await fetch('/api/students', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
                     if(!res.ok) throw new Error(await res.text());

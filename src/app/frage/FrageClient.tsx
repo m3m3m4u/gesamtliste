@@ -1,11 +1,9 @@
 "use client";
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function FrageClient({ nextPath }: { nextPath: string }) {
   const [val, setVal] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
   function normalizeTarget(raw: string): string {
     if (!raw) return '/';
