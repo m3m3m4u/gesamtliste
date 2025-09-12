@@ -13,7 +13,7 @@ const CREATE_FIELDS: string[] = [
   // Reihenfolge: Frühbetreuung direkt unter Schwerpunkte, Angebote danach (breit)
   'Vorname','Familienname','Geburtsdatum',
   'Klasse 25/26','Stufe 25/26','Besuchsjahr',
-  'Muttersprache','Religion','Geschlecht',
+  'Muttersprache','Religion','Religion an/ab','Geschlecht',
   'Schwerpunkte','Frühbetreuung','Angebote',
   'Benutzername','Passwort','Anton',
   'Sokrates ID','Familien-ID','Status'
@@ -112,7 +112,7 @@ export default function Schueler() {
     const pref = [
       'Vorname','Familienname','Geburtsdatum',
       'Klasse 25/26','Stufe 25/26','Besuchsjahr',
-      'Muttersprache','Religion','Geschlecht',
+      'Muttersprache','Religion','Religion an/ab','Geschlecht',
       'Schwerpunkte','Frühbetreuung','Angebote',
       'Benutzername','Passwort','Anton',
       'Sokrates ID','Familien-ID','Status'
@@ -181,6 +181,8 @@ export default function Schueler() {
           (empty as Record<string, unknown>).Schwerpunkte = [];
           (empty as Record<string, unknown>)['Frühbetreuung'] = [];
           (empty as Record<string, unknown>).Status = [];
+          // Standardwert für Religion an/ab leer lassen
+          (empty as Record<string, unknown>)['Religion an/ab'] = '';
           setDraft(empty as Student);
           setDirty(false);
           setMsg(null);
@@ -255,6 +257,12 @@ export default function Schueler() {
                         <option value=""></option>
                         {religionOptionen.map(r => <option key={r} value={r}>{r}</option>)}
                       </select>
+                    ) : k === 'Religion an/ab' ? (
+                      <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
+                        <option value=""></option>
+                        <option value="an">an</option>
+                        <option value="ab">ab</option>
+                      </select>
                     ) : k === 'Muttersprache' ? (
                       <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
                         <option value=""></option>
@@ -319,6 +327,8 @@ export default function Schueler() {
                       }
                     });
                     if(!Array.isArray(payload.Angebote)) payload.Angebote = [];
+                    // Sicherstellen, dass Religion an/ab vorhanden ist
+                    if(typeof (payload as any)['Religion an/ab'] !== 'string') (payload as any)['Religion an/ab'] = '';
                     if(!Array.isArray(payload.Status)) payload.Status = [];
                     const res = await fetch('/api/students', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
                     if(!res.ok) throw new Error(await res.text());

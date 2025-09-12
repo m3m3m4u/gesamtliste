@@ -115,6 +115,15 @@ function FilterForm() {
   const [exporting, setExporting] = React.useState<null | 'excel' | 'pdf' | 'word'>(null);
   const [exportDone, setExportDone] = React.useState<null | 'excel' | 'pdf' | 'word'>(null);
 
+  // Spaltenauswahl wie bei /klassenliste
+  const FIELD_OPTIONS: string[] = [
+    'Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion','Benutzername','Passwort','Muttersprache','Geburtsdatum','Anton'
+  ];
+  const [selectedFields, setSelectedFields] = React.useState<string[]>(['Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion']);
+  function toggleField(f: string) {
+    setSelectedFields(prev => prev.includes(f) ? prev.filter(x=>x!==f) : [...prev, f]);
+  }
+
   const onSearch = React.useCallback(async (e?: React.FormEvent) => {
     e?.preventDefault();
     setLoading(true);
@@ -161,17 +170,9 @@ function FilterForm() {
 
   const doExport = (kind: 'excel' | 'pdf' | 'word') => {
     setExporting(kind);
-    const headers = ['Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion'];
-    const rows = items.map(it => [
-      it.Vorname ?? '',
-      it.Familienname || it.Nachname || '',
-      it['Klasse 25/26'] || it.Klasse || '',
-      it['Stufe 25/26'] || '',
-      it.Status || '',
-      String(it.Besuchsjahr ?? ''),
-      it.Religion || ''
-    ]);
-    const cfg = { filenameBase: 'liste', headers, rows };
+    const headers = selectedFields.slice();
+    const rows = items.map(it => headers.map(h => cellValue(it, h)));
+    const cfg = { filenameBase: 'liste', headers, rows } as const;
     try {
       if (kind === 'excel') exportExcel(cfg);
   else if (kind === 'pdf') (async()=>{ await exportPDF(cfg); })();
@@ -181,32 +182,61 @@ function FilterForm() {
     }
   };
 
-  // Sortierung
-  const [sortKey, setSortKey] = React.useState<'Vorname'|'Familienname'|'Klasse'|'Stufe'|'Status'|'Besuchsjahr'|'Religion'>('Familienname');
+  // Helfer: Zellenwert und Sortierwert
+  function cellValue(it: Student, key: string): string {
+    const rec = it as Record<string, unknown>;
+    let v: unknown;
+    switch (key) {
+      case 'Vorname': v = it.Vorname; break;
+      case 'Familienname': v = it.Familienname ?? it.Nachname; break;
+      case 'Klasse': v = it['Klasse 25/26'] ?? it.Klasse; break;
+      case 'Stufe': v = it['Stufe 25/26']; break;
+      case 'Besuchsjahr': v = it.Besuchsjahr; break;
+      default: v = rec[key];
+    }
+    if (Array.isArray(v)) return v.join(', ');
+    if (v == null) return '';
+    if (key === 'Geburtsdatum' && typeof v === 'string') {
+      const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[3]}.${m[2]}.${m[1]}`;
+    }
+    return String(v);
+  }
+  function sortVal(v: string, key: string): string {
+    if (key === 'Geburtsdatum') {
+      const m = v.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+      if (m) return `${m[3]}${m[2]}${m[1]}`;
+    }
+    return v.toLowerCase();
+  }
+  // Sortierung dynamisch basierend auf ausgewählten Feldern
+  const [sortField, setSortField] = React.useState<string | null>('Familienname');
   const [sortDir, setSortDir] = React.useState<'asc'|'desc'>('asc');
   const sortedItems = React.useMemo(()=>{
+    if (!sortField) return items;
     const arr = [...items];
     arr.sort((a,b)=>{
-      function val(it: Student, key: string){
-        if(key==='Klasse') return (it['Klasse 25/26']||it.Klasse||'').toString();
-        if(key==='Stufe') return (it['Stufe 25/26']||'').toString();
-        if(key==='Besuchsjahr') return (it.Besuchsjahr||'').toString();
-  return (it as Record<string, unknown>)[key] ? String((it as Record<string, unknown>)[key]) : '';
-      }
-      const va = val(a, sortKey);
-      const vb = val(b, sortKey);
-      return sortDir==='asc' ? va.localeCompare(vb,'de',{numeric:true,sensitivity:'base'}) : vb.localeCompare(va,'de',{numeric:true,sensitivity:'base'});
+      const av = sortVal(cellValue(a, sortField), sortField);
+      const bv = sortVal(cellValue(b, sortField), sortField);
+      if (av < bv) return sortDir==='asc' ? -1 : 1;
+      if (av > bv) return sortDir==='asc' ? 1 : -1;
+      // Tiebreaker
+      const af = sortVal(cellValue(a,'Familienname'),'Familienname');
+      const bf = sortVal(cellValue(b,'Familienname'),'Familienname');
+      if (af !== bf) return af.localeCompare(bf,'de');
+      const avn = sortVal(cellValue(a,'Vorname'),'Vorname');
+      const bvn = sortVal(cellValue(b,'Vorname'),'Vorname');
+      return avn.localeCompare(bvn,'de');
     });
     return arr;
-  }, [items, sortKey, sortDir]);
-  function toggleSort(key: typeof sortKey){
-    setSortKey(prev=> prev===key ? prev : key);
-    setSortDir(prev=> sortKey===key ? (prev==='asc'?'desc':'asc') : 'asc');
+  }, [items, sortField, sortDir]);
+  function toggleSort(field: string) {
+    if (sortField !== field) { setSortField(field); setSortDir('asc'); }
+    else { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }
   }
-  function th(label: string, key: typeof sortKey){
-    const active = sortKey===key;
+  function th(label: string){
+    const active = sortField===label;
     return (
-      <th className={"border px-2 py-1 text-left cursor-pointer select-none "+(active? 'bg-blue-50':'')} onClick={()=>toggleSort(key)}>
+      <th className={"border px-2 py-1 text-left cursor-pointer select-none "+(active? 'bg-blue-50':'')} onClick={()=>toggleSort(label)}>
         {label}{active && <span className="ml-1 text-xs">{sortDir==='asc'?'▲':'▼'}</span>}
       </th>
     );
@@ -224,6 +254,18 @@ function FilterForm() {
   {/* Hinweis entfällt, da Checkbox-Dropdowns */}
       {error && <span className="text-red-600 text-sm">{error}</span>}
 
+      <div className="w-full" />
+      <div className="w-full">
+        <label className="block text-xs font-semibold mb-1">Felder</label>
+        <div className="flex flex-wrap gap-2">
+          {FIELD_OPTIONS.map(f => (
+            <label key={f} className="flex items-center gap-1 text-xs border rounded px-2 py-1 bg-white">
+              <input type="checkbox" checked={selectedFields.includes(f)} onChange={()=>toggleField(f)} />
+              {f}
+            </label>
+          ))}
+        </div>
+      </div>
       <div className="ml-auto flex items-center gap-2">
         <button type="button" aria-pressed={exporting==='excel'} aria-busy={exporting==='excel'} disabled={exporting!==null}
           onClick={()=>doExport('excel')} className="px-3 py-1 border rounded flex items-center gap-2 disabled:opacity-50 active:translate-y-px">
@@ -249,25 +291,17 @@ function FilterForm() {
         <table className="min-w-[700px] w-full table-fixed border-collapse">
           <thead>
             <tr className="bg-gray-100">
-              {th('Vorname','Vorname')}
-              {th('Familienname','Familienname')}
-              {th('Klasse','Klasse')}
-              {th('Stufe','Stufe')}
-              {th('Status','Status')}
-              {th('Besuchsjahr','Besuchsjahr')}
-              {th('Religion','Religion')}
+              {selectedFields.map(f => (
+                <React.Fragment key={f}>{th(f)}</React.Fragment>
+              ))}
             </tr>
           </thead>
           <tbody>
             {sortedItems.map((it: Student) => (
               <tr key={it._id} className="odd:bg-white even:bg-gray-50">
-                <td className="border px-2 py-1">{it.Vorname}</td>
-                <td className="border px-2 py-1">{it.Familienname || it.Nachname}</td>
-                <td className="border px-2 py-1">{it['Klasse 25/26'] || it.Klasse}</td>
-                <td className="border px-2 py-1">{it['Stufe 25/26']}</td>
-                <td className="border px-2 py-1">{it.Status}</td>
-                <td className="border px-2 py-1">{it.Besuchsjahr}</td>
-                <td className="border px-2 py-1">{it.Religion}</td>
+                {selectedFields.map(f => (
+                  <td key={f} className="border px-2 py-1">{cellValue(it, f)}</td>
+                ))}
               </tr>
             ))}
           </tbody>
