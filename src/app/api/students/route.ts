@@ -85,13 +85,14 @@ export async function GET(request: Request) {
     };
   }
   if (klasseParams.length) {
-    // Ausschließlich Feld '25/26' als Klassenfilter
+    // Klassenfilter: sowohl kanonisches Feld '25/26' als auch Anzeige-Feld 'Klasse 25/26' berücksichtigen
     const orList: Record<string, unknown>[] = [];
     for (const k of klasseParams) {
       const escaped = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const spacedPattern = escaped.split('').map(ch=> ch + '\\s*').join('');
       const rx = { $regex: `^${spacedPattern}$`, $options: 'i' };
       orList.push({ '25/26': rx });
+      orList.push({ 'Klasse 25/26': rx });
     }
     const klasseFilter = { $or: orList };
     filter = Object.keys(filter).length ? { $and: [filter, klasseFilter] } : klasseFilter;
@@ -136,8 +137,8 @@ export async function GET(request: Request) {
     const escaped = schwerpunkt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const schwerpunktFilter = {
       $or: [
-        { Schwerpunkte: { $regex: `(^|[,;/\\s])${escaped}([,;/\\s]|$)`, $options: 'i' } },
-        { Schwerpunkt: { $regex: `(^|[,;/\\s])${escaped}([,;/\\s]|$)`, $options: 'i' } }
+        { Schwerpunkte: { $regex: `(^|[,;/\\\s])${escaped}([,;/\\\s]|$)`, $options: 'i' } },
+        { Schwerpunkt: { $regex: `(^|[,;/\\\s])${escaped}([,;/\\\s]|$)`, $options: 'i' } }
       ]
     };
     filter = Object.keys(filter).length ? { $and: [filter, schwerpunktFilter] } : schwerpunktFilter;

@@ -16,11 +16,38 @@ export default function KlassenListePage() {
 
   // Felder die auswählbar sind (kann erweitert werden)
   const FIELD_OPTIONS: string[] = [
-    'Vorname','Familienname','Stufe 25/26','Geschlecht','Benutzername','Geburtsdatum','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung'
+    'Nr.','Vorname','Familienname','Stufe 25/26','Geschlecht','Benutzername','Geburtsdatum','Status','Muttersprache','Religion','Religion an/ab','Passwort','Angebote','Frühbetreuung','Schwerpunkte'
   ];
 
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [optAngebote, setOptAngebote] = useState<string[]>([]);
+  const [optFrueh, setOptFrueh] = useState<string[]>([]);
+  const [optSchwerpunkte, setOptSchwerpunkte] = useState<string[]>([]);
+  const allowedAngebote = useMemo(()=> new Set(optAngebote.map(s=>String(s).trim().toLowerCase()).filter(Boolean)), [optAngebote]);
+  const allowedFrueh = useMemo(()=> new Set(optFrueh.map(s=>String(s).trim().toLowerCase()).filter(Boolean)), [optFrueh]);
+  const allowedSchwerpunkte = useMemo(()=> new Set(optSchwerpunkte.map(s=>String(s).trim().toLowerCase()).filter(Boolean)), [optSchwerpunkte]);
+
+  // Hilfsfunktionen zur Erkennung/Normalisierung von "Religion an/ab" inkl. Tippfehler-Varianten
+  const normalizeKey = (k: string) => k
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '');
+  const isRelAnAbVariant = (k: string) => /^religi?onanab$/.test(normalizeKey(k));
+  const getRelAnAb = (rec: Record<string, unknown>): string => {
+    let raw: unknown = rec['Religion an/ab'];
+    if (typeof raw !== 'string') {
+      for (const key of Object.keys(rec)) {
+        if (key !== 'Religion an/ab' && isRelAnAbVariant(key)) { raw = rec[key]; break; }
+      }
+    }
+    if (typeof raw === 'string') {
+      const g = raw.trim().toLowerCase();
+      return g === 'an' ? 'an' : g === 'ab' ? 'ab' : '';
+    }
+    return '';
+  };
 
   // Klassen-Liste aus DB laden (einmal)
   useEffect(() => {
@@ -33,6 +60,16 @@ export default function KlassenListePage() {
         const arr = Array.isArray(json.klassen) ? json.klassen.map((v:string)=>v.trim()).filter((v:string)=>v.length>0) : [];
   const opts: Option[] = (arr as string[]).sort((a:string,b:string)=>a.localeCompare(b,'de')).map((v:string)=>({ value: v, label: v }));
         setAvailableKlassen(opts);
+        // Lade Optionen für Angebote/Frühbetreuung für Anzeige-Filterung
+        try {
+          const or = await fetch('/api/options', { cache: 'no-store' });
+          if (or.ok) {
+            const ov = await or.json();
+            setOptAngebote(Array.isArray(ov.angebote) ? ov.angebote : []);
+            setOptFrueh(Array.isArray(ov.fruehbetreuung) ? ov.fruehbetreuung : []);
+            setOptSchwerpunkte(Array.isArray(ov.schwerpunkte) ? ov.schwerpunkte : []);
+          }
+        } catch {}
       } catch(e){ console.error(e); }
     })();
   }, []);
@@ -43,7 +80,8 @@ export default function KlassenListePage() {
       const params = new URLSearchParams({ klasse, limit: '2000' });
       if (selectedFields.length) {
         // '25/26' immer mit abfragen, damit Filterung funktioniert
-        const fields = [...selectedFields, '25/26'];
+        // Außerdem immer Benutzername/Passwort/Anton laden, damit Accounts-PDF funktioniert
+        const fields = [...selectedFields.filter(f=>f!=='Nr.'), '25/26', 'Benutzername', 'Passwort', 'Anton'];
         params.set('fields', Array.from(new Set(fields)).join(','));
       }
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
@@ -87,8 +125,14 @@ export default function KlassenListePage() {
     if (!sortField) return data;
     const copy = [...data];
     copy.sort((a,b)=>{
-      const av = normalizeSortVal(a[sortField], sortField);
-      const bv = normalizeSortVal(b[sortField], sortField);
+      let av: string; let bv: string;
+      if (sortField === 'Religion an/ab') {
+        av = getRelAnAb(a as unknown as Record<string, unknown>);
+        bv = getRelAnAb(b as unknown as Record<string, unknown>);
+      } else {
+        av = normalizeSortVal(a[sortField], sortField);
+        bv = normalizeSortVal(b[sortField], sortField);
+      }
       if (av < bv) return sortDir === 'asc' ? -1 : 1;
       if (av > bv) return sortDir === 'asc' ? 1 : -1;
       // Fallback zusätzliche stabile Kriterien (Familienname, Vorname)
@@ -124,6 +168,39 @@ export default function KlassenListePage() {
   // Fallback für Familienname: falls nur 'Nachname' im Dokument vorhanden ist
   const rec = d as Record<string, unknown>; // generischer Zugriff ohne any
   let val: unknown = f === 'Familienname' ? (rec['Familienname'] ?? rec['Nachname']) : rec[f];
+    if (f === 'Religion an/ab') {
+      return getRelAnAb(rec);
+    }
+    // Anzeige von Angebote/Frühbetreuung auf erlaubte Optionen beschränken
+    if (f === 'Angebote' || f === 'Frühbetreuung') {
+      const toArr = (v: unknown): string[] => {
+        if (Array.isArray(v)) return v.map(x=>String(x).trim()).filter(Boolean);
+        if (v == null) return [];
+        const s = String(v).trim();
+        if (!s) return [];
+        return s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean);
+      };
+      const allowed = f === 'Angebote' ? allowedAngebote : allowedFrueh;
+      const arr = toArr(val);
+      const filtered = allowed.size ? arr.filter(v=>allowed.has(v.toLowerCase())) : arr;
+      return filtered.join(', ');
+    }
+    if (f === 'Schwerpunkte') {
+      const toArr = (v: unknown): string[] => {
+        if (Array.isArray(v)) return v.map(x=>String(x).trim()).filter(Boolean);
+        if (v == null) return [];
+        const s = String(v).trim();
+        if (!s) return [];
+        return s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean);
+      };
+      // Fallback: falls nur 'Schwerpunkt' (Singular) befüllt, diesen verwenden
+      if (val == null || (Array.isArray(val) && (val as unknown[]).length===0)) {
+        val = rec['Schwerpunkt'];
+      }
+      const arr = toArr(val);
+      const filtered = allowedSchwerpunkte.size ? arr.filter(v=>allowedSchwerpunkte.has(v.toLowerCase())) : arr;
+      return filtered.join(', ');
+    }
     if (f === 'Stufe 25/26') {
       // Wenn Stufe fehlt oder leer -> als '0' anzeigen
       if (val == null || String(val).trim() === '' || val === '-' || val === '—') return '0';
@@ -166,16 +243,25 @@ export default function KlassenListePage() {
         {klasse && data.length > 0 && (
           <div className="flex gap-2 flex-wrap">
             <button onClick={() => {
-              const rows = sortedData.map(d => selectedFields.map(f => cellValue(d,f)));
-              exportExcel({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}` });
+              const headersAll = selectedFields.slice();
+              const hasNr = headersAll.includes('Nr.');
+              const headers = hasNr ? (['Nr.', ...headersAll.filter(h=>h!=='Nr.')]) : headersAll;
+              const rows = sortedData.map((d,i) => headers.map(h => h==='Nr.' ? String(i+1) : cellValue(d,h)));
+              exportExcel({ filenameBase: `klasse-${klasse}`, headers, rows, title: `Klassenliste ${klasse}` });
             }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
             <button onClick={async () => {
-              const rows = sortedData.map(d => selectedFields.map(f => cellValue(d,f)));
-              await exportPDF({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}` });
+              const headersAll = selectedFields.slice();
+              const hasNr = headersAll.includes('Nr.');
+              const headers = hasNr ? (['Nr.', ...headersAll.filter(h=>h!=='Nr.')]) : headersAll;
+              const rows = sortedData.map((d,i) => headers.map(h => h==='Nr.' ? String(i+1) : cellValue(d,h)));
+              await exportPDF({ filenameBase: `klasse-${klasse}`, headers, rows, title: `Klassenliste ${klasse}` });
             }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
             <button onClick={() => {
-              const rows = sortedData.map(d => selectedFields.map(f => cellValue(d,f)));
-              exportWord({ filenameBase: `klasse-${klasse}`, headers: selectedFields, rows, title: `Klassenliste ${klasse}`, word: { zebra: true } });
+              const headersAll = selectedFields.slice();
+              const hasNr = headersAll.includes('Nr.');
+              const headers = hasNr ? (['Nr.', ...headersAll.filter(h=>h!=='Nr.')]) : headersAll;
+              const rows = sortedData.map((d,i) => headers.map(h => h==='Nr.' ? String(i+1) : cellValue(d,h)));
+              exportWord({ filenameBase: `klasse-${klasse}`, headers, rows, title: `Klassenliste ${klasse}`, word: { zebra: true } });
             }} className="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Word</button>
             <button onClick={() => {
               // Account-Karten PDF ohne any-Casts
@@ -203,19 +289,19 @@ export default function KlassenListePage() {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100">
                 <tr>
-                  {selectedFields.map(f => {
+                  {(selectedFields.includes('Nr.') ? ['Nr.', ...selectedFields.filter(f=>f!=='Nr.')] : selectedFields).map(f => {
                     const active = sortField === f;
                     const arrow = active ? (sortDir === 'asc' ? '▲' : '▼') : '';
                     return (
                       <th
                         key={f}
-                        className="text-left px-3 py-2 font-semibold select-none cursor-pointer hover:bg-gray-200 transition"
-                        onClick={()=>toggleSort(f)}
+                        className={"text-left px-3 py-2 font-semibold select-none "+(f==='Nr.'? '' : 'cursor-pointer hover:bg-gray-200 transition')}
+                        onClick={()=>{ if(f!=='Nr.') toggleSort(f); }}
                         title={active ? `Sortierung: ${sortDir === 'asc' ? 'aufsteigend' : 'absteigend'} (klicken zum Umschalten)` : 'Klicken zum Sortieren'}
                       >
                         <span className="inline-flex items-center gap-1">
                           <span>{f}</span>
-                          {arrow && <span className="text-[10px] opacity-70">{arrow}</span>}
+                          {f!=='Nr.' && arrow && <span className="text-[10px] opacity-70">{arrow}</span>}
                         </span>
                       </th>
                     );
@@ -225,13 +311,13 @@ export default function KlassenListePage() {
               <tbody>
                 {sortedData.map((row,i) => (
                   <tr key={row._id || i} className={i%2? 'bg-gray-50' : ''}>
-                    {selectedFields.map(f => (
-                      <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{cellValue(row,f)}</td>
+                    {(selectedFields.includes('Nr.') ? ['Nr.', ...selectedFields.filter(f=>f!=='Nr.')] : selectedFields).map(f => (
+                      <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{f==='Nr.' ? (i+1) : cellValue(row,f)}</td>
                     ))}
                   </tr>
                 ))}
                 {data.length === 0 && (
-                  <tr><td colSpan={selectedFields.length} className="px-3 py-4 text-center text-gray-500 text-xs">Keine Daten</td></tr>
+                  <tr><td colSpan={(selectedFields.includes('Nr.')? (selectedFields.length) : selectedFields.length)} className="px-3 py-4 text-center text-gray-500 text-xs">Keine Daten</td></tr>
                 )}
               </tbody>
             </table>

@@ -117,7 +117,7 @@ function FilterForm() {
 
   // Spaltenauswahl wie bei /klassenliste
   const FIELD_OPTIONS: string[] = [
-    'Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion','Benutzername','Passwort','Muttersprache','Geburtsdatum','Anton'
+    'Nr.','Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion','Benutzername','Passwort','Muttersprache','Geburtsdatum','Anton'
   ];
   const [selectedFields, setSelectedFields] = React.useState<string[]>(['Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion']);
   function toggleField(f: string) {
@@ -170,8 +170,10 @@ function FilterForm() {
 
   const doExport = (kind: 'excel' | 'pdf' | 'word') => {
     setExporting(kind);
-    const headers = selectedFields.slice();
-    const rows = items.map(it => headers.map(h => cellValue(it, h)));
+    const headersAll = selectedFields.slice();
+    const hasNr = headersAll.includes('Nr.');
+    const headers = hasNr ? (['Nr.', ...headersAll.filter(h=>h!=='Nr.')]) : headersAll;
+    const rows = sortedItems.map((it, idx) => headers.map(h => h==='Nr.' ? String(idx+1) : cellValue(it, h)));
     const cfg = { filenameBase: 'liste', headers, rows } as const;
     try {
       if (kind === 'excel') exportExcel(cfg);
@@ -235,6 +237,11 @@ function FilterForm() {
   }
   function th(label: string){
     const active = sortField===label;
+    if (label === 'Nr.') {
+      return (
+        <th className="border px-2 py-1 text-left select-none">{label}</th>
+      );
+    }
     return (
       <th className={"border px-2 py-1 text-left cursor-pointer select-none "+(active? 'bg-blue-50':'')} onClick={()=>toggleSort(label)}>
         {label}{active && <span className="ml-1 text-xs">{sortDir==='asc'?'▲':'▼'}</span>}
@@ -291,16 +298,16 @@ function FilterForm() {
         <table className="min-w-[700px] w-full table-fixed border-collapse">
           <thead>
             <tr className="bg-gray-100">
-              {selectedFields.map(f => (
+              {(selectedFields.includes('Nr.') ? ['Nr.', ...selectedFields.filter(f=>f!=='Nr.')] : selectedFields).map(f => (
                 <React.Fragment key={f}>{th(f)}</React.Fragment>
               ))}
             </tr>
           </thead>
           <tbody>
-            {sortedItems.map((it: Student) => (
+            {sortedItems.map((it: Student, idx: number) => (
               <tr key={it._id} className="odd:bg-white even:bg-gray-50">
-                {selectedFields.map(f => (
-                  <td key={f} className="border px-2 py-1">{cellValue(it, f)}</td>
+                {(selectedFields.includes('Nr.') ? ['Nr.', ...selectedFields.filter(f=>f!=='Nr.')] : selectedFields).map(f => (
+                  <td key={f} className="border px-2 py-1">{f==='Nr.' ? (idx+1) : cellValue(it, f)}</td>
                 ))}
               </tr>
             ))}

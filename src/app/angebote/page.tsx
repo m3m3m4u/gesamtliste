@@ -9,6 +9,7 @@ const FIELD_OPTIONS = ['Vorname','Familienname','Benutzername','Geburtsdatum','K
 export default function AngebotePage() {
   const [angebot, setAngebot] = useState('');
   const [angeboteList, setAngeboteList] = useState<string[]>([]);
+  const [allowedSet, setAllowedSet] = useState<Set<string>>(new Set());
   const [selectedFields, setSelectedFields] = useState<string[]>(['Vorname','Familienname','Benutzername']);
   const [data, setData] = useState<StudentDoc[]>([]);
   const [loading, setLoading] = useState(false);
@@ -17,14 +18,15 @@ export default function AngebotePage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/students?limit=3000&fields=Angebote');
-        const json = await res.json();
-        const setA = new Set<string>();
-        for (const s of (json.items || []) as StudentDoc[]) {
-          if (Array.isArray(s.Angebote)) s.Angebote.forEach(a => { if (a) setA.add(String(a)); });
-        }
-        setAngeboteList(Array.from(setA).sort());
-  } catch { /* ignore */ }
+        // Angebote ausschließlich aus Optionen beziehen
+        const r = await fetch('/api/options', { cache: 'no-store' });
+        if (!r.ok) return;
+        const j = await r.json();
+        const arr = Array.isArray(j.angebote) ? j.angebote.map((s:string)=>String(s).trim()).filter(Boolean) : [];
+        arr.sort((a:string,b:string)=>a.localeCompare(b,'de')); // stabil alfabetisch
+        setAngeboteList(arr);
+  setAllowedSet(new Set(arr.map((s:string)=>s.toLowerCase())));
+      } catch {/* ignore */}
     })();
   }, []);
 
@@ -39,6 +41,17 @@ export default function AngebotePage() {
     }
     return v;
   }
+  const toArr = (v: unknown): string[] => {
+    if (Array.isArray(v)) return v.map(x=>String(x).trim()).filter(Boolean);
+    if (v == null) return [];
+    const s = String(v).trim(); if (!s) return [];
+    return s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean);
+  };
+  const filterAllowedAngebote = (v: unknown): string => {
+    const arr = toArr(v);
+    if (!allowedSet.size) return arr.join(', ');
+    return arr.filter(x=>allowedSet.has(x.toLowerCase())).join(', ');
+  };
   const load = useCallback(async () => {
     if (!angebot) { setData([]); return; }
     setLoading(true); setError(null);
@@ -89,6 +102,7 @@ export default function AngebotePage() {
               const rows = data.map(d => selectedFields.map(f => {
                 let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
+                if (f === 'Angebote') return filterAllowedAngebote(val);
                 if (Array.isArray(val)) return val.join(', ');
                 return (val == null ? '' : String(val));
               }));
@@ -98,6 +112,7 @@ export default function AngebotePage() {
               const rows = data.map(d => selectedFields.map(f => {
                 let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
+                if (f === 'Angebote') return filterAllowedAngebote(val);
                 if (Array.isArray(val)) return val.join(', ');
                 return (val == null ? '' : String(val));
               }));
@@ -107,7 +122,8 @@ export default function AngebotePage() {
               const rows = data.map(d => selectedFields.map(f => {
                 let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
-        if (Array.isArray(val)) return val.join(', ');
+                if (f === 'Angebote') return filterAllowedAngebote(val);
+                if (Array.isArray(val)) return val.join(', ');
                 return (val == null ? '' : String(val));
               }));
               exportWord({ filenameBase: `angebot-${angebot}`, headers: selectedFields, rows, title: `Angebot: ${angebot}`, word: { zebra: true, orientation: 'landscape' } });
@@ -132,7 +148,8 @@ export default function AngebotePage() {
                     {selectedFields.map(f => {
                       let v = row[f];
                       if (f === 'Geburtsdatum') v = fmtDate(v);
-                      if (Array.isArray(v)) v = v.join(', ');
+                      if (f === 'Angebote') v = filterAllowedAngebote(v);
+                      else if (Array.isArray(v)) v = v.join(', ');
                       if (v === null || v === undefined) v = '';
                       return <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{String(v)}</td>;
                     })}

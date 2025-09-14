@@ -63,6 +63,15 @@ export default function Schueler() {
   const [klassenOptionen, setKlassenOptionen] = useState<string[]>([]);
   const [sprachenOptionen, setSprachenOptionen] = useState<string[]>([]);
 
+  // Hilfsfunktionen zur robusten Erkennung von Tipp-/Schreibvarianten
+  const normalizeKey = (k: string) => k
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Diakritika entfernen
+    .toLowerCase()
+    .replace(/[^a-z]/g, ''); // nur Buchstaben behalten
+  // Accept: "religion an/ab" oder häufige Variante "religon an/ab"
+  const isRelAnAbVariant = (k: string) => /^religi?onanab$/.test(normalizeKey(k));
+
   useEffect(() => {
     (async () => {
       try {
@@ -107,7 +116,19 @@ export default function Schueler() {
 
   const HIDDEN = new Set(['_id','createdAt','updatedAt','deletedAt','_deleted','NormBenutzername','Stufe 24/25','Stufe 24/25_1','Klasse 24/25','Klasse 24/25_1','Schwerpunkt 1','Klasse 22/23','Klasse 23/24','ImportStamp','BJ','m/w','24/25','25/26','25/6','24/25.1']);
   function orderedKeys(s: Student) {
-    const keys = Object.keys(s || {}).filter(k => !HIDDEN.has(k));
+    // Grundmenge der Schlüssel (ohne versteckte)
+    let keys = Object.keys(s || {}).filter(k => !HIDDEN.has(k));
+    // Spezialfall: Religion darf nur als kanonisches Feld 'Religion' erscheinen –
+    // entferne case-insensitive Duplikate wie 'religion' etc.
+    const hasCanonicalReligion = keys.includes('Religion');
+    if (hasCanonicalReligion) {
+      keys = keys.filter(k => k === 'Religion' || k.toLowerCase() !== 'religion');
+    }
+    // Spezialfall: Religion an/ab nur als kanonisches Feld anzeigen (alle Varianten entfernen)
+    const hasRelAnAbVariant = keys.some(k => isRelAnAbVariant(k));
+    if (hasRelAnAbVariant) {
+      keys = keys.filter(k => k === 'Religion an/ab' || !isRelAnAbVariant(k));
+    }
     // Präferenzliste um Reihenfolge beizubehalten (erste Elemente werden oben/links gerendert)
     const pref = [
       'Vorname','Familienname','Geburtsdatum',
@@ -138,6 +159,28 @@ export default function Schueler() {
       clone.Angebote = toArr(clone.Angebote);
       clone.Schwerpunkte = toArr(clone.Schwerpunkte ?? clone.Schwerpunkt);
       clone['Frühbetreuung'] = toArr(clone['Frühbetreuung']);
+      // Religion an/ab auf zulässige Werte normalisieren und Schreibvarianten (inkl. Tippfehler) konsolidieren
+      // 1) Varianten finden, ggf. Wert auf kanonisches Feld migrieren, Varianten löschen
+      const keys = Object.keys(clone);
+      let canonical = (clone as Record<string, unknown>)['Religion an/ab'];
+      for (const key of keys) {
+        if (key !== 'Religion an/ab' && isRelAnAbVariant(key)) {
+          const v = (clone as Record<string, unknown>)[key];
+          // Falls kanonisch leer und Variante einen String hat, übernehmen
+          if ((typeof canonical !== 'string' || !canonical) && typeof v === 'string' && v.trim()) {
+            canonical = v;
+          }
+          delete (clone as Record<string, unknown>)[key];
+        }
+      }
+      (clone as Record<string, unknown>)['Religion an/ab'] = canonical;
+      const relAAraw = (clone as Record<string, unknown>)['Religion an/ab'];
+      let relAA = '';
+      if (typeof relAAraw === 'string') {
+        const g = relAAraw.trim().toLowerCase();
+        relAA = g === 'an' ? 'an' : g === 'ab' ? 'ab' : '';
+      }
+      (clone as Record<string, unknown>)['Religion an/ab'] = relAA;
   // Status robust extrahieren ohne any
   const rawStatus: unknown = (clone as Record<string, unknown>)['Status'];
   clone.Status = toArr(rawStatus);
@@ -181,7 +224,6 @@ export default function Schueler() {
           (empty as Record<string, unknown>).Schwerpunkte = [];
           (empty as Record<string, unknown>)['Frühbetreuung'] = [];
           (empty as Record<string, unknown>).Status = [];
-          // Standardwert für Religion an/ab leer lassen
           (empty as Record<string, unknown>)['Religion an/ab'] = '';
           setDraft(empty as Student);
           setDirty(false);
@@ -326,10 +368,12 @@ export default function Schueler() {
                         payload[k] = '';
                       }
                     });
+                    // Sicherheit: Nur gültige Werte für "Religion an/ab"
+                    if (typeof payload['Religion an/ab'] === 'string') {
+                      const t = String(payload['Religion an/ab']).trim().toLowerCase();
+                      payload['Religion an/ab'] = t === 'an' ? 'an' : t === 'ab' ? 'ab' : '';
+                    }
                     if(!Array.isArray(payload.Angebote)) payload.Angebote = [];
-                    // Sicherstellen, dass Religion an/ab vorhanden ist
-                    const pa = payload as Record<string, unknown>;
-                    if (typeof pa['Religion an/ab'] !== 'string') pa['Religion an/ab'] = '';
                     if(!Array.isArray(payload.Status)) payload.Status = [];
                     const res = await fetch('/api/students', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
                     if(!res.ok) throw new Error(await res.text());
@@ -349,6 +393,11 @@ export default function Schueler() {
                   try {
                     const payload: Record<string, unknown> = {};
                     for (const k of orderedKeys(draft as Student)) payload[k] = (draft as PartialStudent)[k];
+                    // Sicherheit: Nur gültige Werte für "Religion an/ab"
+                    if (typeof payload['Religion an/ab'] === 'string') {
+                      const t = String(payload['Religion an/ab']).trim().toLowerCase();
+                      payload['Religion an/ab'] = t === 'an' ? 'an' : t === 'ab' ? 'ab' : '';
+                    }
                     const res = await fetch(`/api/students/${current._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                     if (!res.ok) throw new Error(await res.text());
                     const updated = await res.json();

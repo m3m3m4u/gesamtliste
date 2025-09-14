@@ -64,11 +64,11 @@ export async function GET() {
   // Schwerpunkte können in verschiedenen Feldern / Formaten liegen
   const rawSchwerpunkteFeld = await col.distinct('Schwerpunkte', baseFilter);
   const rawSchwerpunkt = await col.distinct('Schwerpunkt', baseFilter);
-  const rawSchwerpunkt1 = await col.distinct('Schwerpunkt 1', baseFilter).catch(()=>[]);
+  // 'Schwerpunkt 1' wird bewusst ignoriert (Legacy)
   const rawFrueh = await col.distinct('Frühbetreuung', baseFilter);
   const splitter = /[,;/\n\r\t]+/;
   const collect: string[] = [];
-  for (const src of [rawSchwerpunkteFeld, rawSchwerpunkt, rawSchwerpunkt1]) {
+  for (const src of [rawSchwerpunkteFeld, rawSchwerpunkt]) {
     for (const item of src as unknown[]) {
       if (item == null) continue;
       if (Array.isArray(item)) {
