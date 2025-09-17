@@ -22,20 +22,18 @@ function addMany(map: CountMap, values: unknown) {
   if (values == null) return;
   const splitter = /[,;/\n\r\t]+/;
   if (Array.isArray(values)) {
+    // WICHTIG: Array-Elemente gelten bereits als normalisierte EINZEL-Einträge.
+    // Nicht erneut splitten (sonst würden zusammengesetzte Begriffe wie
+    // "Informatik 5./6. Stufe" an '/' zerteilt und nie als Ganzes gezählt).
     const seen = new Set<string>();
     for (const v of values) {
       const s = String(v ?? '').trim();
       if (!s) continue;
-      if (splitter.test(s)) {
-        for (const part of s.split(splitter)) {
-          const p = part.trim();
-          if (p && !seen.has(p)) { add(map, p); seen.add(p); }
-        }
-      } else {
-        if (!seen.has(s)) { add(map, s); seen.add(s); }
-      }
+      if (!seen.has(s)) { add(map, s); seen.add(s); }
     }
-  } else if (typeof values === 'string') {
+    return;
+  }
+  if (typeof values === 'string') {
     const s = values.trim();
     if (!s) return;
     if (splitter.test(s)) {
@@ -44,10 +42,13 @@ function addMany(map: CountMap, values: unknown) {
         const p = part.trim();
         if (p && !seen.has(p)) { add(map, p); seen.add(p); }
       }
-    } else add(map, s);
-  } else {
-    add(map, values);
+    } else {
+      add(map, s);
+    }
+    return;
   }
+  // Fallback: einfacher Wert
+  add(map, values);
 }
 
 export async function GET() {
