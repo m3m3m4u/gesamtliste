@@ -144,7 +144,7 @@ export default function KlassenListePage() {
       return vorA.localeCompare(vorB, 'de');
     });
     return copy;
-  }, [data, sortField, sortDir]);
+  }, [data, sortField, sortDir, getRelAnAb]);
 
   function toggleSort(field: string) {
     if (sortField !== field) {

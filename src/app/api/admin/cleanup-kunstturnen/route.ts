@@ -11,7 +11,18 @@ import clientPromise from '@/lib/mongodb';
   Sicherheitsmechanik: Nur POST erlaubt; GET liefert Hinweis.
 */
 
-const TARGET_FIELDS: Array<'Angebote' | 'Schwerpunkte' | 'Schwerpunkt'> = ['Angebote','Schwerpunkte','Schwerpunkt'];
+const TARGET_FIELDS = ['Angebote','Schwerpunkte','Schwerpunkt'] as const;
+type FieldName = typeof TARGET_FIELDS[number];
+
+import { ObjectId } from 'mongodb';
+
+interface StudentCleanupDoc {
+  _id: ObjectId; // ObjectId des Dokuments
+  Angebote?: unknown;
+  Schwerpunkte?: unknown;
+  Schwerpunkt?: unknown;
+  [key: string]: unknown;
+}
 
 function normalizeList(val: unknown): string[] {
   if (Array.isArray(val)) return val.map(v=>String(v).trim()).filter(Boolean);
@@ -31,22 +42,24 @@ export async function GET() {
 }
 
 export async function POST() {
-  const client = await clientPromise; const db = client.db(); const col = db.collection('students');
+  const client = await clientPromise; const db = client.db(); const col = db.collection<StudentCleanupDoc>('students');
 
   const needle = 'kunstturnen';
-  const query = {
-    $or: TARGET_FIELDS.map(f => ({ [f]: { $regex: /kunstturnen/i } }))
-  } as any;
+  const regex = /kunstturnen/i;
+  const query: { $or: Array<Record<FieldName, { $regex: RegExp }>> } = {
+    $or: TARGET_FIELDS.map(f => ({ [f]: { $regex: regex } })) as Array<Record<FieldName, { $regex: RegExp }>>
+  };
 
   const cursor = col.find(query, { projection: { _id: 1, Angebote: 1, Schwerpunkte: 1, Schwerpunkt: 1 } });
   let modified = 0;
-  const bulk: any[] = [];
+  const bulk: Array<{ updateOne: { filter: { _id: ObjectId }; update: { $set: Record<string, unknown> } } }> = [];
   while (await cursor.hasNext()) {
-    const doc: any = await cursor.next();
+    const doc = await cursor.next();
+    if (!doc) break;
     const update: Record<string, unknown> = {};
     let changed = false;
     for (const field of TARGET_FIELDS) {
-      const original = doc[field];
+      const original = (doc as StudentCleanupDoc)[field];
       if (original === undefined) continue;
       const list = normalizeList(original);
       const filtered = list.filter(x => x.toLowerCase() !== needle);

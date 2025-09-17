@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 // Erzwinge dynamisches Rendering (verhindert mögliche Static 404s nach Client-Redirect)
 export const dynamic = "force-dynamic";
 import Link from 'next/link';
@@ -70,7 +70,7 @@ export default function Schueler() {
     .toLowerCase()
     .replace(/[^a-z]/g, ''); // nur Buchstaben behalten
   // Accept: "religion an/ab" oder häufige Variante "religon an/ab"
-  const isRelAnAbVariant = (k: string) => /^religi?onanab$/.test(normalizeKey(k));
+  const isRelAnAbVariant = useCallback((k: string) => /^religi?onanab$/.test(normalizeKey(k)), [normalizeKey]);
 
   useEffect(() => {
     (async () => {
@@ -115,7 +115,7 @@ export default function Schueler() {
   const current = results[index];
 
   const HIDDEN = new Set(['_id','createdAt','updatedAt','deletedAt','_deleted','NormBenutzername','Stufe 24/25','Stufe 24/25_1','Klasse 24/25','Klasse 24/25_1','Schwerpunkt 1','Klasse 22/23','Klasse 23/24','ImportStamp','BJ','m/w','24/25','25/26','25/6','24/25.1']);
-  function orderedKeys(s: Student) {
+  const orderedKeys = useCallback((s: Student) => {
     // Grundmenge der Schlüssel (ohne versteckte)
     let keys = Object.keys(s || {}).filter(k => !HIDDEN.has(k));
     // Spezialfall: Religion darf nur als kanonisches Feld 'Religion' erscheinen –
@@ -139,7 +139,7 @@ export default function Schueler() {
       'Sokrates ID','Familien-ID','Status'
     ];
     return [...pref.filter(k=>keys.includes(k)), ...keys.filter(k=>!pref.includes(k))];
-  }
+  }, [isRelAnAbVariant]);
 
   function next() { setIndex(i => Math.min(i + 1, results.length - 1)); }
   function prev() { setIndex(i => Math.max(i - 1, 0)); }
@@ -195,7 +195,7 @@ export default function Schueler() {
       setDraft(null);
       setDirty(false);
     }
-  }, [current]);
+  }, [current, isRelAnAbVariant]);
 
   // Ensure we display important fields (like Passwort) even when they're missing
   const keysToRender = (creating || (draft && (draft as PartialStudent)._deleted))
