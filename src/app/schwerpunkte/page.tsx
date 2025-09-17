@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { exportExcel, exportPDF, exportWord } from '@/lib/exporters';
 import type { StudentDoc } from '@/lib/mongodb';
 type Student = StudentDoc;
+type Row = Student & { [key: string]: unknown };
 
 const FIELD_OPTIONS = ['Vorname','Familienname','Benutzername','Geburtsdatum','Klasse 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung','Schwerpunkte'];
 
@@ -115,15 +116,16 @@ export default function SchwerpunktePage() {
     }
     return String(val).toLowerCase();
   }
-  function combinedSchwerpunkte(row: Student): string {
+  const combinedSchwerpunkte = useCallback((row: Student): string => {
     const parts: string[] = [];
     const add = (x: unknown) => { if (!x) return; if (Array.isArray(x)) x.forEach(add); else if (typeof x === 'string') parts.push(...x.split(/[;,+&|\n\r\t\\\/]/).map(s=>s.trim()).filter(Boolean)); };
-    add((row as any).Schwerpunkte);
-    add((row as any).Schwerpunkt);
+    const r = row as Row;
+    add(r.Schwerpunkte);
+    add(r.Schwerpunkt);
     const uniq = Array.from(new Set(parts.map(p=>p.toLowerCase()))).map(lc => parts.find(p=>p.toLowerCase()===lc) || lc);
     return uniq.join(', ');
-  }
-  function filterAllowedAngebote(val: unknown): string {
+  }, []);
+  const filterAllowedAngebote = useCallback((val: unknown): string => {
     if (!allowedAngebote.size) {
       if (Array.isArray(val)) return val.map(v=>String(v)).filter(Boolean).join(', ');
       if (typeof val === 'string') return val;
@@ -133,38 +135,39 @@ export default function SchwerpunktePage() {
     if (Array.isArray(val)) parts.push(...val.map(v=>String(v)));
     else if (typeof val === 'string') parts.push(...val.split(/[,;/\n\r\t]+/));
     return parts.map(p=>p.trim()).filter(p=>p && allowedAngebote.has(p.toLowerCase())).join(', ');
-  }
+  }, [allowedAngebote]);
   const sortedData = useMemo(()=>{
     if (!sortField) return data;
     const copy = [...data];
     copy.sort((a,b)=>{
+      const A = a as Row; const B = b as Row;
       let av: unknown; let bv: unknown;
       if (sortField === 'Familienname') {
-        av = (a as any)['Familienname'] ?? (a as any)['Nachname'];
-        bv = (b as any)['Familienname'] ?? (b as any)['Nachname'];
+        av = A['Familienname'] ?? A['Nachname'];
+        bv = B['Familienname'] ?? B['Nachname'];
       } else if (sortField === 'Schwerpunkte') {
-        av = combinedSchwerpunkte(a);
-        bv = combinedSchwerpunkte(b);
+        av = combinedSchwerpunkte(A);
+        bv = combinedSchwerpunkte(B);
       } else if (sortField === 'Angebote') {
-        av = filterAllowedAngebote((a as any)['Angebote']);
-        bv = filterAllowedAngebote((b as any)['Angebote']);
+        av = filterAllowedAngebote(A['Angebote']);
+        bv = filterAllowedAngebote(B['Angebote']);
       } else {
-        av = (a as any)[sortField];
-        bv = (b as any)[sortField];
+        av = A[sortField];
+        bv = B[sortField];
       }
       const AS = normalizeSortVal(av, sortField);
       const BS = normalizeSortVal(bv, sortField);
       if (AS < BS) return sortDir === 'asc' ? -1 : 1;
       if (AS > BS) return sortDir === 'asc' ? 1 : -1;
-      const famA = normalizeSortVal((a as any)['Familienname'] ?? (a as any)['Nachname'], 'Familienname');
-      const famB = normalizeSortVal((b as any)['Familienname'] ?? (b as any)['Nachname'], 'Familienname');
+      const famA = normalizeSortVal(A['Familienname'] ?? A['Nachname'], 'Familienname');
+      const famB = normalizeSortVal(B['Familienname'] ?? B['Nachname'], 'Familienname');
       if (famA !== famB) return famA.localeCompare(famB,'de');
-      const vorA = normalizeSortVal((a as any)['Vorname'], 'Vorname');
-      const vorB = normalizeSortVal((b as any)['Vorname'], 'Vorname');
+      const vorA = normalizeSortVal(A['Vorname'], 'Vorname');
+      const vorB = normalizeSortVal(B['Vorname'], 'Vorname');
       return vorA.localeCompare(vorB,'de');
     });
     return copy;
-  }, [data, sortField, sortDir]);
+  }, [data, sortField, sortDir, combinedSchwerpunkte, filterAllowedAngebote]);
   function toggleSort(field: string) {
     if (sortField !== field) { setSortField(field); setSortDir('asc'); }
     else { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }
@@ -202,35 +205,35 @@ export default function SchwerpunktePage() {
           <div className="flex gap-2">
             <button onClick={() => {
               const base = sortField ? sortedData : data;
-              const rows = base.map(d => selectedFields.map(f => {
-                let val: unknown = d[f];
+              const rows = base.map(d => { const row = d as Row; return selectedFields.map(f => {
+                let val: unknown = row[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (f === 'Angebote') return filterAllowedAngebote(val);
                 if (Array.isArray(val)) return val.join(', ');
                 return val == null ? '' : String(val);
-              }));
+              }); });
               exportExcel({ filenameBase: `schwerpunkt-${schwerpunkt}`, headers: selectedFields, rows });
             }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
             <button onClick={async () => {
               const base = sortField ? sortedData : data;
-              const rows = base.map(d => selectedFields.map(f => {
-                let val: unknown = d[f];
+              const rows = base.map(d => { const row = d as Row; return selectedFields.map(f => {
+                let val: unknown = row[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (f === 'Angebote') return filterAllowedAngebote(val);
                 if (Array.isArray(val)) return val.join(', ');
                 return val == null ? '' : String(val);
-              }));
+              }); });
               await exportPDF({ filenameBase: `schwerpunkt-${schwerpunkt}`, headers: selectedFields, rows });
             }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
             <button onClick={() => {
               const base = sortField ? sortedData : data;
-              const rows = base.map(d => selectedFields.map(f => {
-                let val: unknown = d[f];
+              const rows = base.map(d => { const row = d as Row; return selectedFields.map(f => {
+                let val: unknown = row[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (f === 'Angebote') return filterAllowedAngebote(val);
         if (Array.isArray(val)) val = val.join(', ');
                 return val == null ? '' : String(val);
-              }));
+              }); });
               exportWord({ filenameBase: `schwerpunkt-${schwerpunkt}`, headers: selectedFields, rows, title: `Schwerpunkt: ${schwerpunkt}`, word: { zebra: true, orientation: 'landscape' } });
             }} className="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Word</button>
           </div>
@@ -263,10 +266,10 @@ export default function SchwerpunktePage() {
                 </tr>
               </thead>
               <tbody>
-                {(sortField ? sortedData : data).map((row,i) => (
-                  <tr key={row._id || i} className={i%2? 'bg-gray-50' : ''}>
+                {(sortField ? sortedData : data).map((row,i) => { const r = row as Row; return (
+                  <tr key={r._id || i} className={i%2? 'bg-gray-50' : ''}>
                     {selectedFields.map(f => {
-                      let v = row[f];
+                      let v: unknown = r[f];
                       if (f === 'Geburtsdatum') v = fmtDate(v);
                       if (f === 'Angebote') v = filterAllowedAngebote(v);
                       else if (Array.isArray(v)) v = v.join(', ');
@@ -274,7 +277,7 @@ export default function SchwerpunktePage() {
                       return <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{String(v)}</td>;
                     })}
                   </tr>
-                ))}
+                ); })}
                 {data.length === 0 && (
                   <tr><td colSpan={selectedFields.length} className="px-3 py-4 text-center text-gray-500 text-xs">Keine Daten</td></tr>
                 )}

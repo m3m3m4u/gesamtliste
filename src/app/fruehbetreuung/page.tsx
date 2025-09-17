@@ -7,6 +7,9 @@ import type { StudentDoc } from '@/lib/mongodb';
 // Felder analog zu Angebote/Schwerpunkte-Seiten
 const FIELD_OPTIONS = ['Vorname','Familienname','Benutzername','Geburtsdatum','Klasse 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung','Schwerpunkte'];
 
+// Row Typ für dynamische Feldzugriffe (Index-Signature nur für erlaubte Felder)
+type Row = StudentDoc & { [key: string]: unknown };
+
 export default function FruehbetreuungPage() {
   const [slot, setSlot] = useState('');
   const [slots, setSlots] = useState<string[]>([]);
@@ -34,9 +37,9 @@ export default function FruehbetreuungPage() {
   function toggleField(f: string){ setSelectedFields(p=>p.includes(f)? p.filter(x=>x!==f): [...p,f]); }
 
   function fmtDate(v: unknown): string | unknown { if (typeof v === 'string'){ const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return `${m[3]}.${m[2]}.${m[1]}`; const m2 = v.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if(m2) return v; } return v; }
-  const toArr = (v: unknown): string[] => { if (Array.isArray(v)) return v.map(x=>String(x).trim()).filter(Boolean); if (v==null) return []; const s = String(v).trim(); if(!s) return []; return s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean); };
-  const filterAllowedSlot = (v: unknown): string => { const arr = toArr(v); if(!allowedSet.size) return arr.join(', '); return arr.filter(x=>allowedSet.has(x.toLowerCase())).join(', '); };
-  const filterAllowedAngebote = (v: unknown): string => { const arr = toArr(v); if(!allowedAngebote.size) return arr.join(', '); return arr.filter(x=>allowedAngebote.has(x.toLowerCase())).join(', '); };
+  const toArr = useCallback((v: unknown): string[] => { if (Array.isArray(v)) return v.map(x=>String(x).trim()).filter(Boolean); if (v==null) return []; const s = String(v).trim(); if(!s) return []; return s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean); }, []);
+  const filterAllowedSlot = useCallback((v: unknown): string => { const arr = toArr(v); if(!allowedSet.size) return arr.join(', '); return arr.filter(x=>allowedSet.has(x.toLowerCase())).join(', '); }, [allowedSet, toArr]);
+  const filterAllowedAngebote = useCallback((v: unknown): string => { const arr = toArr(v); if(!allowedAngebote.size) return arr.join(', '); return arr.filter(x=>allowedAngebote.has(x.toLowerCase())).join(', '); }, [allowedAngebote, toArr]);
 
   const load = useCallback(async () => { if(!slot){ setData([]); return; } setLoading(true); setError(null); try { const params = new URLSearchParams({ fruehbetreuung: slot, limit: '3000', fields: selectedFields.join(',') }); const res = await fetch('/api/students?'+params.toString(), {cache:'no-store'}); if(!res.ok) throw new Error(await res.text()); const json: {items?: StudentDoc[]} = await res.json(); setData(json.items||[]); } catch(e){ setError(e instanceof Error ? e.message : 'Fehler'); setData([]);} finally{ setLoading(false);} }, [slot, selectedFields]);
   const depsKey = useMemo(()=>selectedFields.join('|'),[selectedFields]);
@@ -44,7 +47,7 @@ export default function FruehbetreuungPage() {
 
   function normalizeSortVal(val: unknown, field: string): string { if (val==null) return ''; if (Array.isArray(val)) return val.map(v=>String(v)).join(', ').toLowerCase(); if (field==='Geburtsdatum' && typeof val === 'string'){ const iso = val.match(/^(\d{4})-(\d{2})-(\d{2})/); if(iso) return iso[1]+iso[2]+iso[3]; const de = val.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if(de) return de[3]+de[2]+de[1]; } return String(val).toLowerCase(); }
 
-  const sortedData = useMemo(()=>{ if(!sortField) return data; const copy=[...data]; copy.sort((a,b)=>{ let av: unknown; let bv: unknown; if (sortField==='Familienname'){ av = (a as any)['Familienname'] ?? (a as any)['Nachname']; bv = (b as any)['Familienname'] ?? (b as any)['Nachname']; } else if (sortField==='Frühbetreuung'){ av = filterAllowedSlot((a as any)['Frühbetreuung']); bv = filterAllowedSlot((b as any)['Frühbetreuung']); } else if (sortField==='Angebote'){ av = filterAllowedAngebote((a as any)['Angebote']); bv = filterAllowedAngebote((b as any)['Angebote']); } else { av = (a as any)[sortField]; bv = (b as any)[sortField]; } const AS = normalizeSortVal(av, sortField); const BS = normalizeSortVal(bv, sortField); if (AS<BS) return sortDir==='asc'? -1:1; if (AS>BS) return sortDir==='asc'? 1:-1; const famA = normalizeSortVal((a as any)['Familienname'] ?? (a as any)['Nachname'],'Familienname'); const famB = normalizeSortVal((b as any)['Familienname'] ?? (b as any)['Nachname'],'Familienname'); if (famA!==famB) return famA.localeCompare(famB,'de'); const vorA = normalizeSortVal((a as any)['Vorname'],'Vorname'); const vorB = normalizeSortVal((b as any)['Vorname'],'Vorname'); return vorA.localeCompare(vorB,'de'); }); return copy; }, [data, sortField, sortDir]);
+  const sortedData = useMemo(()=>{ if(!sortField) return data; const copy=[...data]; copy.sort((a,b)=>{ const A = a as Row; const B = b as Row; let av: unknown; let bv: unknown; if (sortField==='Familienname'){ av = A['Familienname'] ?? A['Nachname']; bv = B['Familienname'] ?? B['Nachname']; } else if (sortField==='Frühbetreuung'){ av = filterAllowedSlot(A['Frühbetreuung']); bv = filterAllowedSlot(B['Frühbetreuung']); } else if (sortField==='Angebote'){ av = filterAllowedAngebote(A['Angebote']); bv = filterAllowedAngebote(B['Angebote']); } else { av = A[sortField]; bv = B[sortField]; } const AS = normalizeSortVal(av, sortField); const BS = normalizeSortVal(bv, sortField); if (AS<BS) return sortDir==='asc'? -1:1; if (AS>BS) return sortDir==='asc'? 1:-1; const famA = normalizeSortVal(A['Familienname'] ?? A['Nachname'],'Familienname'); const famB = normalizeSortVal(B['Familienname'] ?? B['Nachname'],'Familienname'); if (famA!==famB) return famA.localeCompare(famB,'de'); const vorA = normalizeSortVal(A['Vorname'],'Vorname'); const vorB = normalizeSortVal(B['Vorname'],'Vorname'); return vorA.localeCompare(vorB,'de'); }); return copy; }, [data, sortField, sortDir, filterAllowedSlot, filterAllowedAngebote]);
   function toggleSort(field: string){ if (sortField !== field){ setSortField(field); setSortDir('asc'); } else { setSortDir(d=> d==='asc' ? 'desc' : 'asc'); } }
 
   return (
@@ -77,9 +80,9 @@ export default function FruehbetreuungPage() {
         <div className="text-xs text-gray-500">{slot && (sortField? sortedData : data).length ? `${(sortField? sortedData : data).length} Einträge` : ''}</div>
         {slot && data.length>0 && (
           <div className="flex gap-2">
-            <button onClick={()=>{ const base = sortField? sortedData : data; const rows = base.map(d=> selectedFields.map(f=>{ let val: unknown = (d as any)[f]; if (f==='Geburtsdatum') val = fmtDate(val); if (f==='Frühbetreuung') return filterAllowedSlot(val); if (f==='Angebote') return filterAllowedAngebote(val); if (Array.isArray(val)) return val.join(', '); return val==null? '' : String(val); })); exportExcel({ filenameBase: `fruehbetreuung-${slot}`, headers: selectedFields, rows }); }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
-            <button onClick={async ()=>{ const base = sortField? sortedData : data; const rows = base.map(d=> selectedFields.map(f=>{ let val: unknown = (d as any)[f]; if (f==='Geburtsdatum') val = fmtDate(val); if (f==='Frühbetreuung') return filterAllowedSlot(val); if (f==='Angebote') return filterAllowedAngebote(val); if (Array.isArray(val)) return val.join(', '); return val==null? '' : String(val); })); await exportPDF({ filenameBase: `fruehbetreuung-${slot}`, headers: selectedFields, rows }); }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
-            <button onClick={()=>{ const base = sortField? sortedData : data; const rows = base.map(d=> selectedFields.map(f=>{ let val: unknown = (d as any)[f]; if (f==='Geburtsdatum') val = fmtDate(val); if (f==='Frühbetreuung') return filterAllowedSlot(val); if (f==='Angebote') return filterAllowedAngebote(val); if (Array.isArray(val)) val = val.join(', '); return val==null? '' : String(val); })); exportWord({ filenameBase: `fruehbetreuung-${slot}`, headers: selectedFields, rows, title: `Frühbetreuung: ${slot}`, word: { zebra:true, orientation:'landscape' } }); }} className="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Word</button>
+            <button onClick={()=>{ const base = sortField? sortedData : data; const rows = base.map(d=>{ const row = d as Row; return selectedFields.map(f=>{ let val: unknown = row[f]; if (f==='Geburtsdatum') val = fmtDate(val); if (f==='Frühbetreuung') return filterAllowedSlot(val); if (f==='Angebote') return filterAllowedAngebote(val); if (Array.isArray(val)) return val.join(', '); return val==null? '' : String(val); }); }); exportExcel({ filenameBase: `fruehbetreuung-${slot}`, headers: selectedFields, rows }); }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
+            <button onClick={async ()=>{ const base = sortField? sortedData : data; const rows = base.map(d=>{ const row = d as Row; return selectedFields.map(f=>{ let val: unknown = row[f]; if (f==='Geburtsdatum') val = fmtDate(val); if (f==='Frühbetreuung') return filterAllowedSlot(val); if (f==='Angebote') return filterAllowedAngebote(val); if (Array.isArray(val)) return val.join(', '); return val==null? '' : String(val); }); }); await exportPDF({ filenameBase: `fruehbetreuung-${slot}`, headers: selectedFields, rows }); }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
+            <button onClick={()=>{ const base = sortField? sortedData : data; const rows = base.map(d=>{ const row = d as Row; return selectedFields.map(f=>{ let val: unknown = row[f]; if (f==='Geburtsdatum') val = fmtDate(val); if (f==='Frühbetreuung') return filterAllowedSlot(val); if (f==='Angebote') return filterAllowedAngebote(val); if (Array.isArray(val)) val = val.join(', '); return val==null? '' : String(val); }); }); exportWord({ filenameBase: `fruehbetreuung-${slot}`, headers: selectedFields, rows, title: `Frühbetreuung: ${slot}`, word: { zebra:true, orientation:'landscape' } }); }} className="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Word</button>
           </div>
         )}
       </div>
@@ -101,11 +104,11 @@ export default function FruehbetreuungPage() {
                 </tr>
               </thead>
               <tbody>
-                {(sortField? sortedData : data).map((row,i)=>(
-                  <tr key={row._id || i} className={i%2? 'bg-gray-50':''}>
-                    {selectedFields.map(f=>{ let v: any = (row as any)[f]; if (f==='Geburtsdatum') v = fmtDate(v); if (f==='Frühbetreuung') v = filterAllowedSlot(v); else if (f==='Angebote') v = filterAllowedAngebote(v); else if (Array.isArray(v)) v = v.join(', '); if (v==null) v=''; return <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{String(v)}</td>; })}
+                {(sortField? sortedData : data).map((row,i)=>{ const r = row as Row; return (
+                  <tr key={r._id || i} className={i%2? 'bg-gray-50':''}>
+                    {selectedFields.map(f=>{ let v: unknown = r[f]; if (f==='Geburtsdatum') v = fmtDate(v); if (f==='Frühbetreuung') v = filterAllowedSlot(v); else if (f==='Angebote') v = filterAllowedAngebote(v); else if (Array.isArray(v)) v = v.join(', '); if (v==null) v=''; return <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{String(v)}</td>; })}
                   </tr>
-                ))}
+                );})}
                 {(sortField? sortedData : data).length===0 && (
                   <tr><td colSpan={selectedFields.length} className="px-3 py-4 text-center text-gray-500 text-xs">Keine Daten</td></tr>
                 )}

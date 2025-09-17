@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { exportExcel, exportPDF, exportWord } from '@/lib/exporters';
 import type { StudentDoc } from '@/lib/mongodb';
 
+type Row = StudentDoc & Record<string, unknown>;
+
 const FIELD_OPTIONS = ['Vorname','Familienname','Benutzername','Geburtsdatum','Klasse 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung','Schwerpunkte'];
 
 export default function AngebotePage() {
@@ -11,7 +13,7 @@ export default function AngebotePage() {
   const [angeboteList, setAngeboteList] = useState<string[]>([]);
   const [allowedSet, setAllowedSet] = useState<Set<string>>(new Set());
   const [selectedFields, setSelectedFields] = useState<string[]>(['Vorname','Familienname','Benutzername']);
-  const [data, setData] = useState<StudentDoc[]>([]);
+  const [data, setData] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortField, setSortField] = useState<string | null>(null);
@@ -43,17 +45,17 @@ export default function AngebotePage() {
     }
     return v;
   }
-  const toArr = (v: unknown): string[] => {
+  const toArr = useCallback((v: unknown): string[] => {
     if (Array.isArray(v)) return v.map(x=>String(x).trim()).filter(Boolean);
     if (v == null) return [];
     const s = String(v).trim(); if (!s) return [];
     return s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean);
-  };
-  const filterAllowedAngebote = (v: unknown): string => {
+  }, []);
+  const filterAllowedAngebote = useCallback((v: unknown): string => {
     const arr = toArr(v);
     if (!allowedSet.size) return arr.join(', ');
     return arr.filter(x=>allowedSet.has(x.toLowerCase())).join(', ');
-  };
+  }, [allowedSet, toArr]);
   const load = useCallback(async () => {
     if (!angebot) { setData([]); return; }
     setLoading(true); setError(null);
@@ -86,28 +88,28 @@ export default function AngebotePage() {
     copy.sort((a,b)=>{
       let av: unknown; let bv: unknown;
       if (sortField === 'Familienname') {
-        av = (a as any)['Familienname'] ?? (a as any)['Nachname'];
-        bv = (b as any)['Familienname'] ?? (b as any)['Nachname'];
+        av = (a as Row)['Familienname'] ?? (a as Row)['Nachname'];
+        bv = (b as Row)['Familienname'] ?? (b as Row)['Nachname'];
       } else if (sortField === 'Angebote') {
-        av = filterAllowedAngebote((a as any)['Angebote']);
-        bv = filterAllowedAngebote((b as any)['Angebote']);
+        av = filterAllowedAngebote((a as Row)['Angebote']);
+        bv = filterAllowedAngebote((b as Row)['Angebote']);
       } else {
-        av = (a as any)[sortField];
-        bv = (b as any)[sortField];
+        av = (a as Row)[sortField];
+        bv = (b as Row)[sortField];
       }
       const AS = normalizeSortVal(av, sortField);
       const BS = normalizeSortVal(bv, sortField);
       if (AS < BS) return sortDir === 'asc' ? -1 : 1;
       if (AS > BS) return sortDir === 'asc' ? 1 : -1;
-      const famA = normalizeSortVal((a as any)['Familienname'] ?? (a as any)['Nachname'], 'Familienname');
-      const famB = normalizeSortVal((b as any)['Familienname'] ?? (b as any)['Nachname'], 'Familienname');
+      const famA = normalizeSortVal((a as Row)['Familienname'] ?? (a as Row)['Nachname'], 'Familienname');
+      const famB = normalizeSortVal((b as Row)['Familienname'] ?? (b as Row)['Nachname'], 'Familienname');
       if (famA !== famB) return famA.localeCompare(famB,'de');
-      const vorA = normalizeSortVal((a as any)['Vorname'], 'Vorname');
-      const vorB = normalizeSortVal((b as any)['Vorname'], 'Vorname');
+      const vorA = normalizeSortVal((a as Row)['Vorname'], 'Vorname');
+      const vorB = normalizeSortVal((b as Row)['Vorname'], 'Vorname');
       return vorA.localeCompare(vorB,'de');
     });
     return copy;
-  }, [data, sortField, sortDir]);
+  }, [data, sortField, sortDir, filterAllowedAngebote]);
 
   function toggleSort(field: string) {
     if (sortField !== field) { setSortField(field); setSortDir('asc'); }
