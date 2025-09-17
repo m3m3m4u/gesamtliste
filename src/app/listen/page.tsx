@@ -117,7 +117,7 @@ function FilterForm() {
 
   // Spaltenauswahl wie bei /klassenliste
   const FIELD_OPTIONS: string[] = [
-    'Nr.','Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion','Benutzername','Passwort','Muttersprache','Geburtsdatum','Anton'
+    'Nr.','Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion','Angebote','Schwerpunkte','Benutzername','Passwort','Muttersprache','Geburtsdatum','Anton'
   ];
   const [selectedFields, setSelectedFields] = React.useState<string[]>(['Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion']);
   function toggleField(f: string) {
@@ -196,7 +196,16 @@ function FilterForm() {
       case 'Besuchsjahr': v = it.Besuchsjahr; break;
       default: v = rec[key];
     }
-    if (Array.isArray(v)) return v.join(', ');
+    // Normalisierung Mehrfachfelder (Angebote/Schwerpunkte) falls als String gespeichert
+    if ((key === 'Angebote' || key === 'Schwerpunkte') && !Array.isArray(v) && typeof v === 'string') {
+      const s = v.trim();
+      if (s) {
+        v = s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean);
+      } else {
+        v = [];
+      }
+    }
+    if (Array.isArray(v)) return (v as unknown[]).map(x=>String(x).trim()).filter(Boolean).join(', ');
     if (v == null) return '';
     if (key === 'Geburtsdatum' && typeof v === 'string') {
       const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[3]}.${m[2]}.${m[1]}`;
@@ -204,6 +213,10 @@ function FilterForm() {
     return String(v);
   }
   function sortVal(v: string, key: string): string {
+    if (key === 'Angebote' || key === 'Schwerpunkte') {
+      // Für stabile Sortierung: einzelnes String-Feld in Kleinbuchstaben
+      return v.toLowerCase();
+    }
     if (key === 'Geburtsdatum') {
       const m = v.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
       if (m) return `${m[3]}${m[2]}${m[1]}`;
