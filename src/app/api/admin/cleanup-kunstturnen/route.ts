@@ -64,7 +64,24 @@ export async function POST() {
       const list = normalizeList(original);
       const filtered = list.filter(x => x.toLowerCase() !== needle);
       if (filtered.length !== list.length) {
-        update[field] = rebuild(original, filtered);
+        const rebuilt = rebuild(original, filtered);
+        // Nach-Reinigung: Wenn komplett leer -> Feld entfernen statt leeres Konstrukt zu lassen
+        if (Array.isArray(rebuilt) && rebuilt.length === 0) {
+          update[field] = [];
+        } else if (typeof rebuilt === 'string') {
+          const trimmed = rebuilt.trim()
+            .replace(/^[,;/+&|\s]+/, '')
+            .replace(/[,;/+&|\s]+$/, '')
+            .replace(/\s{2,}/g,' ');
+          if (!trimmed) {
+            // Leerer String -> Feld leeren (Array leere Repräsentation bevorzugen für Einheitlichkeit)
+            update[field] = [];
+          } else {
+            update[field] = trimmed;
+          }
+        } else {
+          update[field] = rebuilt;
+        }
         changed = true;
       }
     }
