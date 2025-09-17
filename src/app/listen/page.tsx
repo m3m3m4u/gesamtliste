@@ -114,6 +114,11 @@ function FilterForm() {
   const [klassenOpt, setKlassenOpt] = React.useState<string[]>([]);
   const [exporting, setExporting] = React.useState<null | 'excel' | 'pdf' | 'word'>(null);
   const [exportDone, setExportDone] = React.useState<null | 'excel' | 'pdf' | 'word'>(null);
+  // Erlaubte Listen aus /api/options
+  const [optAngebote, setOptAngebote] = React.useState<string[]>([]);
+  const [optSchwerpunkte, setOptSchwerpunkte] = React.useState<string[]>([]);
+  const allowedAngebote = React.useMemo(()=> new Set(optAngebote.map(s=>s.toLowerCase()).filter(Boolean)), [optAngebote]);
+  const allowedSchwerpunkte = React.useMemo(()=> new Set(optSchwerpunkte.map(s=>s.toLowerCase()).filter(Boolean)), [optSchwerpunkte]);
 
   // Spaltenauswahl wie bei /klassenliste
   const FIELD_OPTIONS: string[] = [
@@ -164,6 +169,15 @@ function FilterForm() {
     setJahreOpt(d.jahre || []);
   setReligionOpt(d.religionen || []);
     setKlassenOpt(d.klassen || []);
+        // Lade Optionen für erlaubte Angebote / Schwerpunkte (konsistente Quelle)
+        try {
+          const optRes = await fetch('/api/options', { cache: 'no-store' });
+          if (optRes.ok) {
+            const optJson = await optRes.json();
+            if (Array.isArray(optJson.angebote)) setOptAngebote(optJson.angebote);
+            if (Array.isArray(optJson.schwerpunkte)) setOptSchwerpunkte(optJson.schwerpunkte);
+          }
+        } catch {}
       } catch {}
     })();
   }, []);
@@ -196,14 +210,20 @@ function FilterForm() {
       case 'Besuchsjahr': v = it.Besuchsjahr; break;
       default: v = rec[key];
     }
-    // Normalisierung Mehrfachfelder (Angebote/Schwerpunkte) falls als String gespeichert
-    if ((key === 'Angebote' || key === 'Schwerpunkte') && !Array.isArray(v) && typeof v === 'string') {
-      const s = v.trim();
-      if (s) {
-        v = s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean);
-      } else {
-        v = [];
-      }
+    // Normalisierung + Filter erlaubte Werte für Angebote / Schwerpunkte
+    const toArr = (val: unknown): string[] => {
+      if (Array.isArray(val)) return val.map(x=>String(x).trim()).filter(Boolean);
+      if (val == null) return [];
+      const s = String(val).trim(); if(!s) return [];
+      return s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean);
+    };
+    if (key === 'Angebote') {
+      const list = toArr(v).filter(x=>!allowedAngebote.size || allowedAngebote.has(x.toLowerCase()));
+      return list.join(', ');
+    }
+    if (key === 'Schwerpunkte') {
+      const list = toArr(v).filter(x=>!allowedSchwerpunkte.size || allowedSchwerpunkte.has(x.toLowerCase()));
+      return list.join(', ');
     }
     if (Array.isArray(v)) return (v as unknown[]).map(x=>String(x).trim()).filter(Boolean).join(', ');
     if (v == null) return '';
