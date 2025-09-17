@@ -64,11 +64,11 @@ export default function Schueler() {
   const [sprachenOptionen, setSprachenOptionen] = useState<string[]>([]);
 
   // Hilfsfunktionen zur robusten Erkennung von Tipp-/Schreibvarianten
-  const normalizeKey = (k: string) => k
+  const normalizeKey = useCallback((k: string) => k
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') // Diakritika entfernen
     .toLowerCase()
-    .replace(/[^a-z]/g, ''); // nur Buchstaben behalten
+    .replace(/[^a-z]/g, ''), []); // nur Buchstaben behalten
   // Accept: "religion an/ab" oder häufige Variante "religon an/ab"
   const isRelAnAbVariant = useCallback((k: string) => /^religi?onanab$/.test(normalizeKey(k)), [normalizeKey]);
 
@@ -195,7 +195,10 @@ export default function Schueler() {
       setDraft(null);
       setDirty(false);
     }
-  }, [current, isRelAnAbVariant]);
+  // Wichtig: Dieser Effekt hängt NICHT von isRelAnAbVariant ab, damit nicht bei jedem Render
+  // (durch stabile Callback-Referenzänderungen) die Benutzereingaben in den Multi-Select Feldern
+  // (Angebote/Schwerpunkte/Frühbetreuung/Status) überschrieben werden.
+  }, [current]);
 
   // Ensure we display important fields (like Passwort) even when they're missing
   const keysToRender = (creating || (draft && (draft as PartialStudent)._deleted))
