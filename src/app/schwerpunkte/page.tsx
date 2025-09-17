@@ -10,16 +10,31 @@ const FIELD_OPTIONS = ['Vorname','Familienname','Benutzername','Geburtsdatum','K
 export default function SchwerpunktePage() {
   const [schwerpunkt, setSchwerpunkt] = useState('');
   const [liste, setListe] = useState<string[]>([]);
+  const [allowedAngebote, setAllowedAngebote] = useState<Set<string>>(new Set());
   const [selectedFields, setSelectedFields] = useState<string[]>(['Vorname','Familienname','Benutzername']);
   const [data, setData] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc');
 
   useEffect(() => {
     (async () => {
       try {
   const res = await fetch('/api/students?limit=3000&fields=Schwerpunkte,Schwerpunkt');
         const json = await res.json();
+        // Lade aktuelle Angebote-Liste separat für erlaubte Filterung
+        try {
+          const optRes = await fetch('/api/options',{cache:'no-store'});
+          if (optRes.ok){
+            const optJson = await optRes.json();
+            if (Array.isArray(optJson.angebote)) {
+              const set = new Set<string>();
+              optJson.angebote.forEach((s:string)=>{ const t = String(s).trim(); if(t) set.add(t.toLowerCase()); });
+              setAllowedAngebote(set);
+            }
+          }
+        } catch {/* ignore options load */}
         const uniqueMap = new Map<string,string>(); // lower -> original
         const pushToken = (raw: string) => {
           const cleaned = raw.trim().replace(/\s{2,}/g,' ');
@@ -91,6 +106,70 @@ export default function SchwerpunktePage() {
   const depsKey = useMemo(()=>selectedFields.join('|'),[selectedFields]);
   useEffect(() => { load(); }, [load, schwerpunkt, depsKey]);
 
+  function normalizeSortVal(val: unknown, field: string): string {
+    if (val == null) return '';
+    if (Array.isArray(val)) return val.map(v=>String(v)).join(', ').toLowerCase();
+    if (field === 'Geburtsdatum' && typeof val === 'string') {
+      const iso = val.match(/^(\d{4})-(\d{2})-(\d{2})/); if (iso) return iso[1]+iso[2]+iso[3];
+      const de = val.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if (de) return de[3]+de[2]+de[1];
+    }
+    return String(val).toLowerCase();
+  }
+  function combinedSchwerpunkte(row: Student): string {
+    const parts: string[] = [];
+    const add = (x: unknown) => { if (!x) return; if (Array.isArray(x)) x.forEach(add); else if (typeof x === 'string') parts.push(...x.split(/[;,+&|\n\r\t\\\/]/).map(s=>s.trim()).filter(Boolean)); };
+    add((row as any).Schwerpunkte);
+    add((row as any).Schwerpunkt);
+    const uniq = Array.from(new Set(parts.map(p=>p.toLowerCase()))).map(lc => parts.find(p=>p.toLowerCase()===lc) || lc);
+    return uniq.join(', ');
+  }
+  function filterAllowedAngebote(val: unknown): string {
+    if (!allowedAngebote.size) {
+      if (Array.isArray(val)) return val.map(v=>String(v)).filter(Boolean).join(', ');
+      if (typeof val === 'string') return val;
+      return '';
+    }
+    const parts: string[] = [];
+    if (Array.isArray(val)) parts.push(...val.map(v=>String(v)));
+    else if (typeof val === 'string') parts.push(...val.split(/[,;/\n\r\t]+/));
+    return parts.map(p=>p.trim()).filter(p=>p && allowedAngebote.has(p.toLowerCase())).join(', ');
+  }
+  const sortedData = useMemo(()=>{
+    if (!sortField) return data;
+    const copy = [...data];
+    copy.sort((a,b)=>{
+      let av: unknown; let bv: unknown;
+      if (sortField === 'Familienname') {
+        av = (a as any)['Familienname'] ?? (a as any)['Nachname'];
+        bv = (b as any)['Familienname'] ?? (b as any)['Nachname'];
+      } else if (sortField === 'Schwerpunkte') {
+        av = combinedSchwerpunkte(a);
+        bv = combinedSchwerpunkte(b);
+      } else if (sortField === 'Angebote') {
+        av = filterAllowedAngebote((a as any)['Angebote']);
+        bv = filterAllowedAngebote((b as any)['Angebote']);
+      } else {
+        av = (a as any)[sortField];
+        bv = (b as any)[sortField];
+      }
+      const AS = normalizeSortVal(av, sortField);
+      const BS = normalizeSortVal(bv, sortField);
+      if (AS < BS) return sortDir === 'asc' ? -1 : 1;
+      if (AS > BS) return sortDir === 'asc' ? 1 : -1;
+      const famA = normalizeSortVal((a as any)['Familienname'] ?? (a as any)['Nachname'], 'Familienname');
+      const famB = normalizeSortVal((b as any)['Familienname'] ?? (b as any)['Nachname'], 'Familienname');
+      if (famA !== famB) return famA.localeCompare(famB,'de');
+      const vorA = normalizeSortVal((a as any)['Vorname'], 'Vorname');
+      const vorB = normalizeSortVal((b as any)['Vorname'], 'Vorname');
+      return vorA.localeCompare(vorB,'de');
+    });
+    return copy;
+  }, [data, sortField, sortDir]);
+  function toggleSort(field: string) {
+    if (sortField !== field) { setSortField(field); setSortDir('asc'); }
+    else { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -122,27 +201,33 @@ export default function SchwerpunktePage() {
   {data.length > 0 && (
           <div className="flex gap-2">
             <button onClick={() => {
-              const rows = data.map(d => selectedFields.map(f => {
+              const base = sortField ? sortedData : data;
+              const rows = base.map(d => selectedFields.map(f => {
                 let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
+                if (f === 'Angebote') return filterAllowedAngebote(val);
                 if (Array.isArray(val)) return val.join(', ');
                 return val == null ? '' : String(val);
               }));
               exportExcel({ filenameBase: `schwerpunkt-${schwerpunkt}`, headers: selectedFields, rows });
             }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
             <button onClick={async () => {
-              const rows = data.map(d => selectedFields.map(f => {
+              const base = sortField ? sortedData : data;
+              const rows = base.map(d => selectedFields.map(f => {
                 let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
+                if (f === 'Angebote') return filterAllowedAngebote(val);
                 if (Array.isArray(val)) return val.join(', ');
                 return val == null ? '' : String(val);
               }));
               await exportPDF({ filenameBase: `schwerpunkt-${schwerpunkt}`, headers: selectedFields, rows });
             }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
             <button onClick={() => {
-              const rows = data.map(d => selectedFields.map(f => {
+              const base = sortField ? sortedData : data;
+              const rows = base.map(d => selectedFields.map(f => {
                 let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
+                if (f === 'Angebote') return filterAllowedAngebote(val);
         if (Array.isArray(val)) val = val.join(', ');
                 return val == null ? '' : String(val);
               }));
@@ -159,16 +244,32 @@ export default function SchwerpunktePage() {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100">
                 <tr>
-                  {selectedFields.map(f => <th key={f} className="text-left px-3 py-2 font-semibold">{f}</th>)}
+                    {selectedFields.map(f => {
+                    const active = sortField === f;
+                    return (
+                      <th
+                        key={f}
+                        onClick={()=>toggleSort(f)}
+                        className={"text-left px-3 py-2 font-semibold select-none "+(active? 'bg-blue-50 cursor-pointer':'cursor-pointer hover:bg-gray-200 transition')}
+                        title={active? `Sortierung: ${sortDir==='asc'?'auf':'ab'}steigend (klicken zum Umschalten)` : 'Klicken zum Sortieren'}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <span>{f}</span>
+                          {active && <span className="text-[10px] opacity-70">{sortDir==='asc'? '▲':'▼'}</span>}
+                        </span>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {data.map((row,i) => (
+                {(sortField ? sortedData : data).map((row,i) => (
                   <tr key={row._id || i} className={i%2? 'bg-gray-50' : ''}>
                     {selectedFields.map(f => {
                       let v = row[f];
                       if (f === 'Geburtsdatum') v = fmtDate(v);
-                      if (Array.isArray(v)) v = v.join(', ');
+                      if (f === 'Angebote') v = filterAllowedAngebote(v);
+                      else if (Array.isArray(v)) v = v.join(', ');
                       if (v === null || v === undefined) v = '';
                       return <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{String(v)}</td>;
                     })}

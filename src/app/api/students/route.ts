@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     ...(searchParams.get('klasse') ? [String(searchParams.get('klasse')).trim()] : [])
   ]));
   const angebot = (searchParams.get('angebot') || '').trim();
+  const fruehParam = (searchParams.get('frueh') || searchParams.get('fruehbetreuung') || '').trim();
   // Mehrfachwerte unterstützen (sowohl getAll als auch einzelner Fallback)
   const stufeParams = Array.from(new Set([
     ...searchParams.getAll('stufe').map(s => s.trim()).filter(Boolean),
@@ -102,6 +103,12 @@ export async function GET(request: Request) {
     const escaped = angebot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const angebotFilter = { Angebote: { $regex: `^${escaped}$`, $options: 'i' } };
     filter = Object.keys(filter).length ? { $and: [filter, angebotFilter] } : angebotFilter;
+  }
+  if (fruehParam) {
+    // Exakte (case-insensitive) Übereinstimmung eines Array-Elements in Frühbetreuung
+    const escaped = fruehParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const fruehFilter = { 'Frühbetreuung': { $regex: `^${escaped}$`, $options: 'i' } };
+    filter = Object.keys(filter).length ? { $and: [filter, fruehFilter] } : fruehFilter;
   }
   if (stufeParams.length) {
     // Exakt (case-insensitive); "0" bedeutet leere/fehlende Stufe

@@ -14,6 +14,8 @@ export default function AngebotePage() {
   const [data, setData] = useState<StudentDoc[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     (async () => {
@@ -68,6 +70,50 @@ export default function AngebotePage() {
   const depsKey = useMemo(()=>selectedFields.join('|'),[selectedFields]);
   useEffect(() => { load(); }, [load, angebot, depsKey]);
 
+  function normalizeSortVal(val: unknown, field: string): string {
+    if (val == null) return '';
+    if (Array.isArray(val)) return val.map(v=>String(v)).join(', ').toLowerCase();
+    if (field === 'Geburtsdatum' && typeof val === 'string') {
+      const iso = val.match(/^(\d{4})-(\d{2})-(\d{2})/); if (iso) return iso[1]+iso[2]+iso[3];
+      const de = val.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if (de) return de[3]+de[2]+de[1];
+    }
+    return String(val).toLowerCase();
+  }
+
+  const sortedData = useMemo(()=>{
+    if (!sortField) return data;
+    const copy = [...data];
+    copy.sort((a,b)=>{
+      let av: unknown; let bv: unknown;
+      if (sortField === 'Familienname') {
+        av = (a as any)['Familienname'] ?? (a as any)['Nachname'];
+        bv = (b as any)['Familienname'] ?? (b as any)['Nachname'];
+      } else if (sortField === 'Angebote') {
+        av = filterAllowedAngebote((a as any)['Angebote']);
+        bv = filterAllowedAngebote((b as any)['Angebote']);
+      } else {
+        av = (a as any)[sortField];
+        bv = (b as any)[sortField];
+      }
+      const AS = normalizeSortVal(av, sortField);
+      const BS = normalizeSortVal(bv, sortField);
+      if (AS < BS) return sortDir === 'asc' ? -1 : 1;
+      if (AS > BS) return sortDir === 'asc' ? 1 : -1;
+      const famA = normalizeSortVal((a as any)['Familienname'] ?? (a as any)['Nachname'], 'Familienname');
+      const famB = normalizeSortVal((b as any)['Familienname'] ?? (b as any)['Nachname'], 'Familienname');
+      if (famA !== famB) return famA.localeCompare(famB,'de');
+      const vorA = normalizeSortVal((a as any)['Vorname'], 'Vorname');
+      const vorB = normalizeSortVal((b as any)['Vorname'], 'Vorname');
+      return vorA.localeCompare(vorB,'de');
+    });
+    return copy;
+  }, [data, sortField, sortDir]);
+
+  function toggleSort(field: string) {
+    if (sortField !== field) { setSortField(field); setSortDir('asc'); }
+    else { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -99,7 +145,8 @@ export default function AngebotePage() {
         {angebot && data.length > 0 && (
           <div className="flex gap-2">
             <button onClick={() => {
-              const rows = data.map(d => selectedFields.map(f => {
+              const base = sortField ? sortedData : data;
+              const rows = base.map(d => selectedFields.map(f => {
                 let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (f === 'Angebote') return filterAllowedAngebote(val);
@@ -109,7 +156,8 @@ export default function AngebotePage() {
               exportExcel({ filenameBase: `angebot-${angebot}`, headers: selectedFields, rows });
             }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
             <button onClick={async () => {
-              const rows = data.map(d => selectedFields.map(f => {
+              const base = sortField ? sortedData : data;
+              const rows = base.map(d => selectedFields.map(f => {
                 let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (f === 'Angebote') return filterAllowedAngebote(val);
@@ -119,7 +167,8 @@ export default function AngebotePage() {
               await exportPDF({ filenameBase: `angebot-${angebot}`, headers: selectedFields, rows });
             }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
             <button onClick={() => {
-              const rows = data.map(d => selectedFields.map(f => {
+              const base = sortField ? sortedData : data;
+              const rows = base.map(d => selectedFields.map(f => {
                 let val: unknown = d[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (f === 'Angebote') return filterAllowedAngebote(val);
@@ -139,11 +188,26 @@ export default function AngebotePage() {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100">
                 <tr>
-                  {selectedFields.map(f => <th key={f} className="text-left px-3 py-2 font-semibold">{f}</th>)}
+                  {selectedFields.map(f => {
+                    const active = sortField === f;
+                    return (
+                      <th
+                        key={f}
+                        onClick={()=>toggleSort(f)}
+                        className={"text-left px-3 py-2 font-semibold select-none "+(active? 'bg-blue-50 cursor-pointer':'cursor-pointer hover:bg-gray-200 transition')}
+                        title={active? `Sortierung: ${sortDir==='asc'?'auf':'ab'}steigend (klicken zum Umschalten)` : 'Klicken zum Sortieren'}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <span>{f}</span>
+                          {active && <span className="text-[10px] opacity-70">{sortDir==='asc'? '▲':'▼'}</span>}
+                        </span>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {data.map((row,i) => (
+                {(sortField ? sortedData : data).map((row,i) => (
                   <tr key={row._id || i} className={i%2? 'bg-gray-50' : ''}>
                     {selectedFields.map(f => {
                       let v = row[f];
