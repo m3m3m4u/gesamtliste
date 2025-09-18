@@ -6,7 +6,7 @@ import type { StudentDoc } from '@/lib/mongodb';
 type Student = StudentDoc;
 type Row = Student & { [key: string]: unknown };
 
-const FIELD_OPTIONS = ['Vorname','Familienname','Benutzername','Geburtsdatum','Klasse 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung','Schwerpunkte'];
+const FIELD_OPTIONS = ['Vorname','Familienname','Benutzername','Geburtsdatum','Klasse 25/26','Stufe 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung','Schwerpunkte'];
 
 export default function SchwerpunktePage() {
   const [schwerpunkt, setSchwerpunkt] = useState('');
