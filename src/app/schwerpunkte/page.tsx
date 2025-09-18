@@ -10,7 +10,9 @@ const FIELD_OPTIONS = ['Vorname','Familienname','Benutzername','Geburtsdatum','K
 
 export default function SchwerpunktePage() {
   const [schwerpunkt, setSchwerpunkt] = useState('');
+  const [stufe, setStufe] = useState('');
   const [liste, setListe] = useState<string[]>([]);
+  const [stufenList, setStufenList] = useState<string[]>([]);
   const [allowedAngebote, setAllowedAngebote] = useState<Set<string>>(new Set());
   const [selectedFields, setSelectedFields] = useState<string[]>(['Vorname','Familienname','Benutzername']);
   const [data, setData] = useState<Student[]>([]);
@@ -66,6 +68,19 @@ export default function SchwerpunktePage() {
     })();
   }, []);
 
+  // Stufen laden
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch('/api/students/distincts', { cache: 'no-store' });
+        if (!r.ok) return;
+        const j = await r.json();
+        const a: string[] = Array.isArray(j.stufen) ? j.stufen : [];
+        setStufenList(a);
+      } catch {/* ignore */}
+    })();
+  }, []);
+
   function toggleField(f: string) {
     setSelectedFields(prev => prev.includes(f) ? prev.filter(x=>x!==f) : [...prev, f]);
   }
@@ -94,6 +109,7 @@ export default function SchwerpunktePage() {
   const baseFields = new Set<string>([...selectedFields,'Schwerpunkte','Schwerpunkt']);
       const params = new URLSearchParams({ limit: '3000', fields: Array.from(baseFields).join(',') });
       if (schwerpunkt) params.set('schwerpunkt', schwerpunkt);
+      if (stufe) params.set('stufe', stufe);
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
       if (!res.ok) throw new Error(await res.text());
       const json: { items?: Student[] } = await res.json();
@@ -103,7 +119,7 @@ export default function SchwerpunktePage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Fehler'); setData([]);
     } finally { setLoading(false); }
-  }, [schwerpunkt, selectedFields]);
+  }, [schwerpunkt, selectedFields, stufe]);
   const depsKey = useMemo(()=>selectedFields.join('|'),[selectedFields]);
   useEffect(() => { load(); }, [load, schwerpunkt, depsKey]);
 
@@ -185,6 +201,15 @@ export default function SchwerpunktePage() {
           <select value={schwerpunkt} onChange={e=>setSchwerpunkt(e.target.value)} className="border rounded px-3 py-2 min-w-[220px]">
             <option value="">– Schwerpunkt –</option>
             {liste.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold mb-1">Stufe</label>
+          <select value={stufe} onChange={e=>setStufe(e.target.value)} className="border rounded px-3 py-2 min-w-[120px]">
+            <option value="">Alle</option>
+            {stufenList.map(s => (
+              <option key={s} value={s}>{s === '0' ? '0 (leer)' : s}</option>
+            ))}
           </select>
         </div>
         <div>
