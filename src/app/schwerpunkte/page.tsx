@@ -6,7 +6,32 @@ import type { StudentDoc } from '@/lib/mongodb';
 type Student = StudentDoc;
 type Row = Student & { [key: string]: unknown };
 
+type OptionenResponse = {
+  angebote?: unknown[];
+  schwerpunkte?: unknown[];
+};
+
 const FIELD_OPTIONS = ['Vorname','Familienname','Benutzername','Geburtsdatum','Klasse 25/26','Stufe 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung','Schwerpunkte'];
+
+function normalizeOptionList(values: unknown[]): string[] {
+  const map = new Map<string, string>();
+  for (const raw of values) {
+    const cleaned = String(raw ?? '').trim().replace(/\s{2,}/g, ' ');
+    if (!cleaned) continue;
+    const key = cleaned.toLowerCase();
+    if (!map.has(key)) map.set(key, cleaned);
+  }
+  return Array.from(map.values()).sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }));
+}
+
+function splitSchwerpunkteString(str: string): string[] {
+  const norm = str.replace(/\r?\n+/g, ';');
+  return norm
+    .split(/[;,+&|\\/\t]/)
+    .flatMap(part => part.split(/\s{2,}/))
+    .map(s => s.trim())
+    .filter(Boolean);
+}
 
 export default function SchwerpunktePage() {
   const [schwerpunkt, setSchwerpunkt] = useState('');
@@ -14,6 +39,7 @@ export default function SchwerpunktePage() {
   const [liste, setListe] = useState<string[]>([]);
   const [stufenList, setStufenList] = useState<string[]>([]);
   const [allowedAngebote, setAllowedAngebote] = useState<Set<string>>(new Set());
+  const [allowedSchwerpunkteSet, setAllowedSchwerpunkteSet] = useState<Set<string>>(new Set());
   const [selectedFields, setSelectedFields] = useState<string[]>(['Vorname','Familienname','Benutzername']);
   const [data, setData] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
@@ -24,49 +50,55 @@ export default function SchwerpunktePage() {
   useEffect(() => {
     (async () => {
       try {
-  const res = await fetch('/api/students?limit=3000&fields=Schwerpunkte,Schwerpunkt');
-        const json = await res.json();
-        // Lade aktuelle Angebote-Liste separat für erlaubte Filterung
-        try {
-          const optRes = await fetch('/api/options',{cache:'no-store'});
-          if (optRes.ok){
-            const optJson = await optRes.json();
-            if (Array.isArray(optJson.angebote)) {
-              const set = new Set<string>();
-              optJson.angebote.forEach((s:string)=>{ const t = String(s).trim(); if(t) set.add(t.toLowerCase()); });
-              setAllowedAngebote(set);
+        const [optRes, studentsRes] = await Promise.all([
+          fetch('/api/options', { cache: 'no-store' }),
+          fetch('/api/students?limit=3000&fields=Schwerpunkte,Schwerpunkt')
+        ]);
+
+        const optJson: OptionenResponse | null = optRes.ok ? await optRes.json() : null;
+        const studentJson: { items?: Student[] } = studentsRes.ok ? await studentsRes.json() : { items: [] };
+
+        const angebotSet = new Set<string>();
+        optJson?.angebote?.forEach((s) => {
+          const value = String(s ?? '').trim();
+          if (value) angebotSet.add(value.toLowerCase());
+        });
+        setAllowedAngebote(angebotSet);
+
+        let schwerpunkteList: string[] = [];
+        if (optJson?.schwerpunkte && optJson.schwerpunkte.length) {
+          schwerpunkteList = normalizeOptionList(optJson.schwerpunkte);
+        } else {
+          const tokens: string[] = [];
+          for (const s of (studentJson.items || []) as Student[]) {
+            if (Array.isArray(s.Schwerpunkte)) {
+              tokens.push(...s.Schwerpunkte.map(v => String(v ?? '').trim()).filter(Boolean));
+            } else if (typeof s.Schwerpunkte === 'string') {
+              tokens.push(...splitSchwerpunkteString(s.Schwerpunkte));
+            }
+            if (Array.isArray(s.Schwerpunkt)) {
+              tokens.push(...s.Schwerpunkt.map(v => String(v ?? '').trim()).filter(Boolean));
+            } else if (typeof s.Schwerpunkt === 'string') {
+              tokens.push(...splitSchwerpunkteString(s.Schwerpunkt));
             }
           }
-        } catch {/* ignore options load */}
-        const uniqueMap = new Map<string,string>(); // lower -> original
-        const pushToken = (raw: string) => {
-          const cleaned = raw.trim().replace(/\s{2,}/g,' ');
-          if (!cleaned) return;
-            const key = cleaned.toLowerCase();
-            if (!uniqueMap.has(key)) uniqueMap.set(key, cleaned);
-        };
-        const splitString = (str: string) => {
-          // Ersetze Zeilenumbrüche durch Semikolon als Trenner
-          const norm = str.replace(/\r?\n+/g,';');
-          // Split an ; , / \\ | + & und Kombinationen sowie Tab
-          return norm.split(/[;,+&|\\\/\t]/).flatMap(part => part.split(/\s{2,}/)).map(s=>s.trim()).filter(Boolean);
-        };
-  for (const s of (json.items || []) as Student[]) {
-          let tokens: string[] = [];
-          if (Array.isArray(s.Schwerpunkte)) tokens = tokens.concat(s.Schwerpunkte.map(String));
-          else if (typeof s.Schwerpunkte === 'string') tokens = tokens.concat(splitString(s.Schwerpunkte));
-          if (Array.isArray(s.Schwerpunkt)) tokens = tokens.concat(s.Schwerpunkt.map(String));
-          else if (typeof s.Schwerpunkt === 'string') tokens = tokens.concat(splitString(s.Schwerpunkt));
-          // 'Schwerpunkt 1' removed — older imports may still have data but we ignore this field now
-          tokens.forEach(pushToken);
+          schwerpunkteList = normalizeOptionList(tokens)
+            .filter(v => !/^schwerpunkt\s*\d+$/i.test(v) && !/^schwerpunkt$/i.test(v));
         }
-        const list = Array.from(uniqueMap.values())
-          .filter(v => !/^schwerpunkt\s*\d+$/i.test(v) && !/^schwerpunkt$/i.test(v))
-          .sort((a,b)=>a.localeCompare(b,'de',{sensitivity:'base'}));
-        setListe(list);
-  } catch { /* ignore */ }
+
+        setListe(schwerpunkteList);
+        setAllowedSchwerpunkteSet(new Set(schwerpunkteList.map(v => v.toLowerCase())));
+      } catch {
+        /* ignore */
+      }
     })();
   }, []);
+
+  useEffect(() => {
+    if (schwerpunkt && !liste.includes(schwerpunkt)) {
+      setSchwerpunkt('');
+    }
+  }, [liste, schwerpunkt]);
 
   // Stufen laden
   useEffect(() => {
@@ -92,16 +124,38 @@ export default function SchwerpunktePage() {
     }
     return v;
   }
-  function hasAnySchwerpunkt(s: Student): boolean {
-    const sources: string[] = [];
-    if (Array.isArray(s.Schwerpunkte)) sources.push(...s.Schwerpunkte.map(String));
-    if (Array.isArray(s.Schwerpunkt)) sources.push(...s.Schwerpunkt.map(String));
-  ['Schwerpunkte','Schwerpunkt'].forEach(k => {
-      const raw = s[k];
-      if (typeof raw === 'string') sources.push(...raw.split(/\r?\n|[;,+&|\\\/]/));
+  const extractSchwerpunkteTokens = useCallback((row: Student): string[] => {
+    const tokens: string[] = [];
+    const addFrom = (val: unknown) => {
+      if (!val) return;
+      if (Array.isArray(val)) {
+        val.forEach(addFrom);
+        return;
+      }
+      const str = String(val ?? '');
+      if (!str) return;
+      tokens.push(...splitSchwerpunkteString(str));
+    };
+    const r = row as Row;
+    addFrom(r.Schwerpunkte);
+    addFrom(r.Schwerpunkt);
+    const map = new Map<string, string>();
+    tokens.forEach(tok => {
+      const cleaned = tok.trim().replace(/\s{2,}/g, ' ');
+      if (!cleaned) return;
+      const key = cleaned.toLowerCase();
+      if (!map.has(key)) map.set(key, cleaned);
     });
-    return sources.some(x => x.trim().length > 0);
-  }
+    let values = Array.from(map.values()).filter(v => !/^schwerpunkt\s*\d+$/i.test(v) && !/^schwerpunkt$/i.test(v));
+    if (allowedSchwerpunkteSet.size) {
+      values = values.filter(v => allowedSchwerpunkteSet.has(v.toLowerCase()));
+    }
+    return values;
+  }, [allowedSchwerpunkteSet]);
+
+  const hasAnySchwerpunkt = useCallback((s: Student) => extractSchwerpunkteTokens(s).length > 0, [extractSchwerpunkteTokens]);
+
+  const combinedSchwerpunkte = useCallback((row: Student): string => extractSchwerpunkteTokens(row).join(', '), [extractSchwerpunkteTokens]);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -119,9 +173,9 @@ export default function SchwerpunktePage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Fehler'); setData([]);
     } finally { setLoading(false); }
-  }, [schwerpunkt, selectedFields, stufe]);
+  }, [schwerpunkt, selectedFields, stufe, hasAnySchwerpunkt]);
   const depsKey = useMemo(()=>selectedFields.join('|'),[selectedFields]);
-  useEffect(() => { load(); }, [load, schwerpunkt, depsKey]);
+  useEffect(() => { load(); }, [load, depsKey]);
 
   function normalizeSortVal(val: unknown, field: string): string {
     if (val == null) return '';
@@ -132,15 +186,6 @@ export default function SchwerpunktePage() {
     }
     return String(val).toLowerCase();
   }
-  const combinedSchwerpunkte = useCallback((row: Student): string => {
-    const parts: string[] = [];
-    const add = (x: unknown) => { if (!x) return; if (Array.isArray(x)) x.forEach(add); else if (typeof x === 'string') parts.push(...x.split(/[;,+&|\n\r\t\\\/]/).map(s=>s.trim()).filter(Boolean)); };
-    const r = row as Row;
-    add(r.Schwerpunkte);
-    add(r.Schwerpunkt);
-    const uniq = Array.from(new Set(parts.map(p=>p.toLowerCase()))).map(lc => parts.find(p=>p.toLowerCase()===lc) || lc);
-    return uniq.join(', ');
-  }, []);
   const filterAllowedAngebote = useCallback((val: unknown): string => {
     if (!allowedAngebote.size) {
       if (Array.isArray(val)) return val.map(v=>String(v)).filter(Boolean).join(', ');
@@ -234,6 +279,7 @@ export default function SchwerpunktePage() {
                 let val: unknown = row[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (f === 'Angebote') return filterAllowedAngebote(val);
+                if (f === 'Schwerpunkte') return combinedSchwerpunkte(d as Student);
                 if (Array.isArray(val)) return val.join(', ');
                 return val == null ? '' : String(val);
               }); });
@@ -245,6 +291,7 @@ export default function SchwerpunktePage() {
                 let val: unknown = row[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (f === 'Angebote') return filterAllowedAngebote(val);
+                if (f === 'Schwerpunkte') return combinedSchwerpunkte(d as Student);
                 if (Array.isArray(val)) return val.join(', ');
                 return val == null ? '' : String(val);
               }); });
@@ -256,6 +303,7 @@ export default function SchwerpunktePage() {
                 let val: unknown = row[f];
                 if (f === 'Geburtsdatum') val = fmtDate(val);
                 if (f === 'Angebote') return filterAllowedAngebote(val);
+                if (f === 'Schwerpunkte') return combinedSchwerpunkte(d as Student);
         if (Array.isArray(val)) val = val.join(', ');
                 return val == null ? '' : String(val);
               }); });
@@ -297,6 +345,7 @@ export default function SchwerpunktePage() {
                       let v: unknown = r[f];
                       if (f === 'Geburtsdatum') v = fmtDate(v);
                       if (f === 'Angebote') v = filterAllowedAngebote(v);
+                      else if (f === 'Schwerpunkte') v = combinedSchwerpunkte(row as Student);
                       else if (Array.isArray(v)) v = v.join(', ');
                       if (v === null || v === undefined) v = '';
                       return <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{String(v)}</td>;
