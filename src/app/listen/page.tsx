@@ -28,6 +28,29 @@ type Student = {
   Religion?: string;
 };
 
+const normalizeKey = (k: string) => k
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[^a-z]/g, '');
+const isRelAnAbVariant = (k: string) => /^religi?onanab$/.test(normalizeKey(k));
+const normalizeRelAnAbValue = (v: unknown): '' | 'an' | 'ab' => {
+  if (typeof v !== 'string') return '';
+  const g = v.trim().toLowerCase();
+  return g === 'an' ? 'an' : g === 'ab' ? 'ab' : '';
+};
+const getRelAnAb = (rec: Record<string, unknown>): string => {
+  const canonical = normalizeRelAnAbValue(rec['Religion an/ab']);
+  if (canonical) return canonical;
+  for (const key of Object.keys(rec)) {
+    if (key !== 'Religion an/ab' && isRelAnAbVariant(key)) {
+      const norm = normalizeRelAnAbValue(rec[key]);
+      if (norm) return norm;
+    }
+  }
+  return '';
+};
+
 function ListenClient() {
   return (
     <div className="w-full max-w-5xl">
@@ -103,6 +126,7 @@ function FilterForm() {
   const [status, setStatus] = React.useState<string[]>([]);
   const [jahr, setJahr] = React.useState<string[]>([]);
   const [religion, setReligion] = React.useState<string[]>([]);
+  const [religionAnAb, setReligionAnAb] = React.useState<string[]>([]);
   const [klassen, setKlassen] = React.useState<string[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [items, setItems] = React.useState<Student[]>([]);
@@ -111,6 +135,7 @@ function FilterForm() {
   const [statusOpt, setStatusOpt] = React.useState<string[]>([]);
   const [jahreOpt, setJahreOpt] = React.useState<string[]>([]);
   const [religionOpt, setReligionOpt] = React.useState<string[]>([]);
+  const [religionAnAbOpt, setReligionAnAbOpt] = React.useState<string[]>([]);
   const [klassenOpt, setKlassenOpt] = React.useState<string[]>([]);
   const [exporting, setExporting] = React.useState<null | 'excel' | 'pdf' | 'word'>(null);
   const [exportDone, setExportDone] = React.useState<null | 'excel' | 'pdf' | 'word'>(null);
@@ -122,7 +147,7 @@ function FilterForm() {
 
   // Spaltenauswahl wie bei /klassenliste
   const FIELD_OPTIONS: string[] = [
-    'Nr.','Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion','Angebote','Schwerpunkte','Benutzername','Passwort','Muttersprache','Geburtsdatum','Anton'
+    'Nr.','Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion','Religion an/ab','Angebote','Schwerpunkte','Benutzername','Passwort','Muttersprache','Geburtsdatum','Anton'
   ];
   const [selectedFields, setSelectedFields] = React.useState<string[]>(['Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion']);
   function toggleField(f: string) {
@@ -139,6 +164,7 @@ function FilterForm() {
       status.forEach(s => p.append('status', s));
       jahr.forEach(j => p.append('jahr', j));
   religion.forEach(r => p.append('religion', r));
+  religionAnAb.forEach(r => p.append('religionAnAb', r));
   klassen.forEach(k => p.append('klasse', k));
       p.set('limit', '2000');
       const res = await fetch(`/api/students?${p.toString()}`, { cache: 'no-store' });
@@ -147,14 +173,22 @@ function FilterForm() {
         throw new Error(msg || `HTTP ${res.status}`);
       }
       const data = await res.json();
-      setItems(data.items || []);
+      const rawItems: Student[] = data.items || [];
+      const relFilter = new Set(religionAnAb.map(v => v.toLowerCase()));
+      const filtered = relFilter.size
+        ? rawItems.filter(it => {
+            const val = getRelAnAb(it as unknown as Record<string, unknown>);
+            return val ? relFilter.has(val) : relFilter.has('');
+          })
+        : rawItems;
+      setItems(filtered);
     } catch (e) {
       setItems([]);
       setError(e instanceof Error ? e.message : 'Failed to fetch');
     } finally {
       setLoading(false);
     }
-  }, [stufe, status, jahr, religion, klassen]);
+  }, [stufe, status, jahr, religion, religionAnAb, klassen]);
 
   React.useEffect(() => { void onSearch(); }, [onSearch]);
 
@@ -162,13 +196,14 @@ function FilterForm() {
   React.useEffect(() => {
     (async () => {
       try {
-  const res = await fetch('/api/students/distincts', { cache: 'no-store' });
+        const res = await fetch('/api/students/distincts', { cache: 'no-store' });
         const d = await res.json();
         setStufenOpt(d.stufen || []);
         setStatusOpt(d.status || []);
-    setJahreOpt(d.jahre || []);
-  setReligionOpt(d.religionen || []);
-    setKlassenOpt(d.klassen || []);
+        setJahreOpt(d.jahre || []);
+        setReligionOpt(d.religionen || []);
+        setReligionAnAbOpt(Array.isArray(d.religionAnAb) ? d.religionAnAb : []);
+        setKlassenOpt(d.klassen || []);
         // Lade Optionen für erlaubte Angebote / Schwerpunkte (konsistente Quelle)
         try {
           const optRes = await fetch('/api/options', { cache: 'no-store' });
@@ -209,6 +244,9 @@ function FilterForm() {
       case 'Stufe': v = it['Stufe 25/26']; break;
       case 'Besuchsjahr': v = it.Besuchsjahr; break;
       default: v = rec[key];
+    }
+    if (key === 'Religion an/ab') {
+      return getRelAnAb(rec);
     }
     // Normalisierung + Filter erlaubte Werte für Angebote / Schwerpunkte
     const toArr = (val: unknown): string[] => {
@@ -288,6 +326,7 @@ function FilterForm() {
       <MultiSelect label="Status" options={statusOpt} values={status} onChange={setStatus} className="w-64" />
       <MultiSelect label="Besuchsjahr" options={jahreOpt} values={jahr} onChange={setJahr} className="w-48" />
   <MultiSelect label="Religion" options={religionOpt} values={religion} onChange={setReligion} className="w-48" />
+    <MultiSelect label="Religion an/ab" options={religionAnAbOpt} values={religionAnAb} onChange={setReligionAnAb} className="w-40" />
       <MultiSelect label="Klasse" options={klassenOpt} values={klassen} onChange={setKlassen} className="w-48" />
       <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded disabled:opacity-50" disabled={loading}>{loading? 'Laden…':'Filtern'}</button>
       <span className="text-gray-500 text-sm">Treffer: {items.length}</span>

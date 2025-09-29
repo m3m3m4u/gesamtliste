@@ -9,6 +9,17 @@ function normStufe(v: unknown): string {
 }
 
 function unique<T>(arr: T[]): T[] { return Array.from(new Set(arr)); }
+const normalizeKey = (k: string) => k
+  .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[^a-z]/g, '');
+const isRelAnAbVariant = (k: string) => /^religi?onanab$/.test(normalizeKey(k));
+const normalizeRelAnAbValue = (v: unknown): '' | 'an' | 'ab' => {
+  if (typeof v !== 'string') return '';
+  const g = v.trim().toLowerCase();
+  return g === 'an' ? 'an' : g === 'ab' ? 'ab' : '';
+};
 
 export async function GET() {
   const client = await clientPromise;
@@ -43,6 +54,26 @@ export async function GET() {
   let religionen = unique(rawReligion.map(v => String(v ?? '').trim()))
     .filter(s => s !== '')
     .sort((a, b) => a.localeCompare(b, 'de'));
+  const relAnAbValues: string[] = [];
+  try {
+    const rawRelAnAb = await col.distinct('Religion an/ab', baseFilter);
+    for (const item of rawRelAnAb as unknown[]) {
+      const norm = normalizeRelAnAbValue(item);
+      if (norm) relAnAbValues.push(norm);
+    }
+  } catch {}
+  try {
+    const probeDocs = await col.find(baseFilter, { projection: { _id: 0 } }).limit(2000).toArray();
+    for (const doc of probeDocs) {
+      for (const [key, value] of Object.entries(doc)) {
+        if (isRelAnAbVariant(key)) {
+          const norm = normalizeRelAnAbValue(value);
+          if (norm) relAnAbValues.push(norm);
+        }
+      }
+    }
+  } catch {}
+  const religionAnAb = unique(relAnAbValues).sort((a, b) => a.localeCompare(b));
   const rawSprachen = await col.distinct('Muttersprache', baseFilter);
   let sprachen = unique(rawSprachen.map(v=>String(v??'').trim())).filter(s=>s!=='').sort((a,b)=>a.localeCompare(b,'de'));
 
@@ -185,5 +216,5 @@ export async function GET() {
     }
   }
   klassen = klassen.sort((a,b)=>a.localeCompare(b,'de'));
-  return NextResponse.json({ stufen, status, jahre, religionen, sprachen, angebote, schwerpunkte, fruehbetreuung, klassen });
+  return NextResponse.json({ stufen, status, jahre, religionen, religionAnAb, sprachen, angebote, schwerpunkte, fruehbetreuung, klassen });
 }

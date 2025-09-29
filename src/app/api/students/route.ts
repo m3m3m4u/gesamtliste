@@ -31,6 +31,11 @@ export async function GET(request: Request) {
     ...searchParams.getAll('religion').map(s => s.trim()).filter(Boolean),
     ...(searchParams.get('religion') ? [String(searchParams.get('religion')).trim()] : [])
   ]));
+  const religionAnAbParams = Array.from(new Set(
+    [...searchParams.getAll('religionAnAb'), ...searchParams.getAll('religionanab')]
+      .map(s => s.trim().toLowerCase())
+      .filter(s => s === 'an' || s === 'ab')
+  ));
   const onlyNames = searchParams.has('onlyNames');
   const schwerpunkt = (searchParams.get('schwerpunkt') || '').trim();
   const fields = (searchParams.get('fields') || '').trim(); // Kommagetrennte Feldliste
@@ -138,6 +143,11 @@ export async function GET(request: Request) {
     const ors = religionParams.map(s => ({ Religion: { $regex: `^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } }));
     const religionFilter = { $or: ors };
     filter = Object.keys(filter).length ? { $and: [filter, religionFilter] } : religionFilter;
+  }
+  if (religionAnAbParams.length) {
+    const ors = religionAnAbParams.map(s => ({ 'Religion an/ab': { $regex: `^${s}$`, $options: 'i' } }));
+    const relAnAbFilter = { $or: ors };
+    filter = Object.keys(filter).length ? { $and: [filter, relAnAbFilter] } : relAnAbFilter;
   }
   if (schwerpunkt) {
     // Exakte (case-insensitive) Übereinstimmung in Schwerpunkte (Array oder String) oder Schwerpunkt (Singular)

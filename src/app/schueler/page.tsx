@@ -72,6 +72,12 @@ export default function Schueler() {
   // Accept: "religion an/ab" oder häufige Variante "religon an/ab"
   const isRelAnAbVariant = useCallback((k: string) => /^religi?onanab$/.test(normalizeKey(k)), [normalizeKey]);
 
+  const confirmDiscard = useCallback(() => {
+    if (!dirty) return true;
+    if (typeof window === 'undefined') return true;
+    return window.confirm('Es gibt ungespeicherte Änderungen. Trotzdem wechseln?');
+  }, [dirty]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -141,8 +147,16 @@ export default function Schueler() {
     return [...pref.filter(k=>keys.includes(k)), ...keys.filter(k=>!pref.includes(k))];
   }, [isRelAnAbVariant]);
 
-  function next() { setIndex(i => Math.min(i + 1, results.length - 1)); }
-  function prev() { setIndex(i => Math.max(i - 1, 0)); }
+  function next() {
+    if (!results.length) return;
+    if (!confirmDiscard()) return;
+    setIndex(i => Math.min(i + 1, results.length - 1));
+  }
+  function prev() {
+    if (!results.length) return;
+    if (!confirmDiscard()) return;
+    setIndex(i => Math.max(i - 1, 0));
+  }
 
   useEffect(() => {
     if (current) {
@@ -210,7 +224,14 @@ export default function Schueler() {
   <div className="w-full max-w-4xl mx-auto p-6 pt-10 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Schüler Suche & Bearbeitung</h1>
-  <Link href="/" className="text-sm text-blue-600 underline">Zurück</Link>
+  <Link href="/" className="text-sm text-blue-600 underline"
+    onClick={(e)=>{
+      if (!confirmDiscard()) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }}
+  >Zurück</Link>
       </div>
       <form onSubmit={search} className="flex flex-wrap gap-3 items-center">
         <input className="border rounded px-3 py-2 flex-1 min-w-[240px]" placeholder="Suche (Vorname / Familienname)" value={q} onChange={e=>setQ(e.target.value)} />
