@@ -5,30 +5,42 @@ export function middleware(req: NextRequest) {
   const referer = req.headers.get('referer') || '';
   const dest = req.headers.get('sec-fetch-dest');
   const secFetchSite = req.headers.get('sec-fetch-site');
+  const secFetchMode = req.headers.get('sec-fetch-mode');
   const accept = req.headers.get('accept') || '';
   const isHtml = accept.includes('text/html');
+  const url = req.nextUrl;
 
-  // Erlaubte Domains für Iframe-Einbettung
-  const allowedDomains = ['diler.schuleamsee.at', 'localhost'];
+  // Nur in Production blockieren (Vercel setzt NODE_ENV automatisch)
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // Erlaubte Domain für Iframe-Einbettung (nur diler.schuleamsee.at)
+  const allowedDomain = 'diler.schuleamsee.at';
   
   // Prüfe ob Zugriff aus erlaubtem Referer kommt
-  const hasValidReferer = allowedDomains.some(domain => referer.includes(domain));
+  const hasValidReferer = referer.includes(allowedDomain);
 
-  // Blockiere direkten Zugriff auf HTML-Seiten
-  if (isHtml) {
-    // Fall 1: sec-fetch-dest ist gesetzt und NICHT iframe
-    if (dest && dest !== 'iframe') {
-      return new NextResponse('Zugriff nur über eingebettete Ansicht erlaubt.', { status: 403 });
-    }
+  // Blockiere direkten Zugriff auf HTML-Seiten (nur in Production)
+  if (isHtml && isProduction) {
+    // Explizit: NUR iframe-Zugriff erlauben
+    const isIframeRequest = dest === 'iframe' || secFetchMode === 'nested-navigate';
     
-    // Fall 2: sec-fetch-site ist 'none' (direkter Browser-Zugriff) ohne validen Referer
-    if (secFetchSite === 'none' && !hasValidReferer) {
-      return new NextResponse('Zugriff nur über eingebettete Ansicht erlaubt.', { status: 403 });
-    }
-    
-    // Fall 3: Kein sec-fetch-dest Header und kein valider Referer (ältere Browser)
-    if (!dest && !hasValidReferer && secFetchSite !== 'same-origin') {
-      return new NextResponse('Zugriff nur über eingebettete Ansicht erlaubt.', { status: 403 });
+    // Wenn es KEIN Iframe-Request ist UND kein valider Referer → Blockieren
+    if (!isIframeRequest && !hasValidReferer) {
+      return new NextResponse(
+        `<!DOCTYPE html>
+<html>
+<head><title>Zugriff eingeschränkt</title></head>
+<body style="font-family: system-ui; padding: 2rem; max-width: 600px; margin: 0 auto;">
+  <h1>⛔ Zugriff eingeschränkt</h1>
+  <p>Diese Anwendung ist nur über die offizielle Website zugänglich.</p>
+  <p>Bitte besuchen Sie: <a href="https://diler.schuleamsee.at">diler.schuleamsee.at</a></p>
+</body>
+</html>`,
+        { 
+          status: 403,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        }
+      );
     }
   }
 
