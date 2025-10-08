@@ -3,6 +3,9 @@ import clientPromise from '@/lib/mongodb';
 import StatistikClient from './StatistikClient';
 import BackLink from './BackLink';
 
+// Force dynamic rendering to avoid build-time DB connection
+export const dynamic = 'force-dynamic';
+
 function normalizeKey(v: unknown) {
   if (v === null || v === undefined) return '—';
   return String(v);
