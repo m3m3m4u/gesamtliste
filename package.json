@@ -8,8 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "import:data": "node -r dotenv/config -r ts-node/register/transpile-only import.ts",
-    "db:wipe": "node -r dotenv/config -r ts-node/register/transpile-only scripts/wipeDatabase.ts"
-  ,"replace:students": "node -r dotenv/config -r ts-node/register/transpile-only scripts/replaceStudents.ts"
+    "db:wipe": "node -r dotenv/config -r ts-node/register/transpile-only scripts/wipeDatabase.ts",
+    "replace:students": "node -r dotenv/config -r ts-node/register/transpile-only scripts/replaceStudents.ts"
   },
   "dependencies": {
     "docx": "^8.5.0",
@@ -17,7 +17,7 @@
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
     "mongodb": "^6.18.0",
-    "next": "15.4.6",
+    "next": "^16.1.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "xlsx": "^0.18.5"
