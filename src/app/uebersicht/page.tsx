@@ -1,5 +1,6 @@
 "use client";
 import React from 'react';
+import Link from 'next/link';
 import { SchuljahresWechsler, useSchuljahr } from '@/lib/schuljahr';
 
 export default function UebersichtPage() {
@@ -34,7 +35,7 @@ export default function UebersichtPage() {
           </a>
         </div>
         <div className="pt-4">
-          <a href="/" className="text-gray-500 hover:text-gray-700 text-sm">← Zurück zum Hauptmenü</a>
+          <Link href="/" className="text-gray-500 hover:text-gray-700 text-sm">← Zurück zum Hauptmenü</Link>
         </div>
       </div>
     </main>

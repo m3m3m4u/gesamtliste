@@ -9,16 +9,21 @@ import { SchuljahresWechsler } from '@/lib/schuljahr';
 type Student = StudentDoc;
 type PartialStudent = Student & Record<string, unknown>;
 
-// Stabil: Reihenfolge der Eingabefelder (außerhalb der Komponente, damit sich die Referenz nicht bei jedem Render ändert)
-const CREATE_FIELDS: string[] = [
-  // Reihenfolge: Frühbetreuung direkt unter Schwerpunkte, Angebote danach (breit)
-  'Vorname','Familienname','Geburtsdatum',
-  'Klasse 25/26','Stufe 25/26','Besuchsjahr',
-  'Muttersprache','Religion','Religion an/ab','Geschlecht',
-  'Schwerpunkte','Frühbetreuung','Angebote',
-  'Benutzername','Passwort','Anton',
-  'Sokrates ID','Familien-ID','Status'
-];
+import { useSchuljahr } from '@/lib/schuljahr';
+
+// Dynamische Felder für das aktuelle Schuljahr
+function getCreateFields(schuljahr: string) {
+  return [
+    'Vorname','Familienname','Geburtsdatum',
+    `Klasse ${schuljahr}`,
+    `Stufe ${schuljahr}`,
+    schuljahr === '25/26' ? 'Besuchsjahr' : `Besuchsjahr ${schuljahr}`,
+    'Muttersprache','Religion','Religion an/ab','Geschlecht',
+    'Schwerpunkte','Frühbetreuung','Angebote',
+    'Benutzername','Passwort','Anton',
+    'Sokrates ID','Familien-ID','Status'
+  ];
+}
 
 function ToggleMulti({value, onChange, options, color='green'}: {value: string[]; onChange:(v:string[])=>void; options: string[]; color?: 'green'|'blue'|'emerald'}) {
   function toggle(item: string){
@@ -46,6 +51,8 @@ function ToggleMulti({value, onChange, options, color='green'}: {value: string[]
 }
 
 export default function Schueler() {
+  const { schuljahr, klasseFeld, stufeFeld } = useSchuljahr();
+  const createFields = getCreateFields(schuljahr);
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Student[]>([]);
@@ -200,8 +207,8 @@ export default function Schueler() {
   const rawStatus: unknown = (clone as Record<string, unknown>)['Status'];
   clone.Status = toArr(rawStatus);
       if (current._deleted) {
-        CREATE_FIELDS.forEach(f => {
-      if (!(f in clone)) (clone as PartialStudent)[f] = (f === 'Angebote' || f==='Schwerpunkte' || f==='Frühbetreuung' || f==='Status') ? [] : '';
+        getCreateFields(schuljahr).forEach((f: string) => {
+          if (!(f in clone)) (clone as PartialStudent)[f] = (f === 'Angebote' || f==='Schwerpunkte' || f==='Frühbetreuung' || f==='Status') ? [] : '';
         });
       }
       setDraft(clone as Student);
@@ -217,9 +224,8 @@ export default function Schueler() {
 
   // Ensure we display important fields (like Passwort) even when they're missing
   const keysToRender = (creating || (draft && (draft as PartialStudent)._deleted))
-    ? CREATE_FIELDS
-    // Ensure CREATE_FIELDS defines the primary order so grouping stays stable
-    : Array.from(new Set([ ...CREATE_FIELDS, ...(draft ? orderedKeys(draft as Student) : []) ]));
+    ? createFields
+    : Array.from(new Set([ ...createFields, ...(draft ? orderedKeys(draft as Student) : []) ]));
 
   return (
   <div className="w-full max-w-4xl mx-auto p-6 pt-10 space-y-6">
@@ -247,7 +253,7 @@ export default function Schueler() {
         <button type="button" onClick={()=>{
           setCreating(true);
           const empty = {} as PartialStudent;
-          CREATE_FIELDS.forEach(f=>{ empty[f] = ''; });
+          getCreateFields(schuljahr).forEach((f: string)=>{ empty[f] = ''; });
           empty.Angebote = [];
           (empty as Record<string, unknown>).Schwerpunkte = [];
           (empty as Record<string, unknown>)['Frühbetreuung'] = [];
@@ -311,7 +317,7 @@ export default function Schueler() {
                   <div>
                     {k === 'Geburtsdatum' ? (
                       <input type="date" className="w-full border rounded px-2 py-1 font-mono text-xs" value={displayVal ? String(displayVal).slice(0,10) : ''} onChange={e=>update(e.target.value)} />
-                    ) : k === 'Klasse 25/26' ? (
+                    ) : k.startsWith('Klasse ') ? (
                       <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
                         <option value=""></option>
                         {klassenOptionen.map(c=> <option key={c} value={c}>{c}</option>)}
@@ -369,6 +375,10 @@ export default function Schueler() {
                       </div>
                     ) : isObj || (isArray && k === 'Angebote') || String(displayVal).length > 60 ? (
                       <textarea className="w-full border rounded px-2 py-1 font-mono text-xs min-h-[60px]" value={String(displayVal)} onChange={e=>update(e.target.value)} />
+                    ) : k.startsWith('Stufe ') ? (
+                      <input className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)} type="text" />
+                    ) : k.startsWith('Besuchsjahr') ? (
+                      <input className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)} type="number" min={1} />
                     ) : (
                       <input className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)} type={k === 'Passwort' ? 'text' : 'text'} />
                     )}
@@ -384,8 +394,8 @@ export default function Schueler() {
                   if(!draft) return; setSaving(true); setMsg(null);
                   try {
                     const payload: Record<string, unknown> = {};
-                    CREATE_FIELDS.forEach(k=>{
-          const v = (draft as PartialStudent)[k];
+                    getCreateFields(schuljahr).forEach((k: string)=>{
+                      const v = (draft as PartialStudent)[k];
                       if(Array.isArray(v)) {
                         payload[k] = v;
                       } else if(typeof v === 'string') {
