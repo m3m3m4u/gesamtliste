@@ -21,19 +21,24 @@ const normalizeRelAnAbValue = (v: unknown): '' | 'an' | 'ab' => {
   return g === 'an' ? 'an' : g === 'ab' ? 'ab' : '';
 };
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const schuljahr = searchParams.get('schuljahr') || '25/26';
+  const stufeFeld = `Stufe ${schuljahr}`;
+  const klasseFeld = `Klasse ${schuljahr}`;
+  
   const client = await clientPromise;
   const db = client.db();
   const col = db.collection('students');
   const baseFilter = { _deleted: { $ne: true } };
 
-  const rawStufen = await col.distinct('Stufe 25/26', baseFilter);
+  const rawStufen = await col.distinct(stufeFeld, baseFilter);
   let stufen = unique(rawStufen.map(normStufe))
     .filter(s => s !== '')
     .sort((a, b) => (a === '0' ? -1 : b === '0' ? 1 : Number(a) - Number(b)));
   // Spezialfall: Einträge '25/26' und '24/25' sollen als Klassen behandelt werden, nicht als Stufen
   const klassenAusStufen: string[] = [];
-  for (const spec of ['25/26','24/25']) {
+  for (const spec of ['25/26','24/25','26/27']) {
     if (stufen.includes(spec)) {
       stufen = stufen.filter(s => s !== spec);
       klassenAusStufen.push(spec);
@@ -146,9 +151,9 @@ export async function GET() {
       ...cfg.sprachen.map(v=>String(v??'').trim()).filter(s=>s.length>0)
     ]).sort((a,b)=>a.localeCompare(b,'de'));
   }
-  // Klassen (primär aus kanonischem Feld '25/26', danach aus 'Klasse 25/26') aggregieren
-  const rawKlassenPrim = await col.distinct('25/26', baseFilter);
-  const rawKlassenSek = await col.distinct('Klasse 25/26', baseFilter);
+  // Klassen (primär aus kanonischem Feld, dann aus Klasse-Feld für das gewählte Schuljahr) aggregieren
+  const rawKlassenPrim = await col.distinct(schuljahr, baseFilter);
+  const rawKlassenSek = await col.distinct(klasseFeld, baseFilter);
   let klassen = unique([
     ...(rawKlassenPrim as unknown[]).map(v=>String(v??'').trim()),
     ...(rawKlassenSek as unknown[]).map(v=>String(v??'').trim())
@@ -156,7 +161,7 @@ export async function GET() {
   // Fallback: Wenn zu wenige Klassen (<=1), ergänze aus Legacy-/Alternativfeldern
   if (klassen.length <= 1) {
     const altFields = [
-      'Klasse', '25/26', 'Klasse25', 'Klasse26', 'Klasse 24/25', 'Klasse 24/25_1'
+      'Klasse', schuljahr, `Klasse ${schuljahr}`, 'Klasse25', 'Klasse26', 'Klasse 24/25', 'Klasse 24/25_1'
     ];
     const extra: string[] = [];
     for (const f of altFields) {

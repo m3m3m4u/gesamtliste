@@ -1,13 +1,20 @@
 "use client";
 import React from 'react';
+import { SchuljahresWechsler, useSchuljahr } from '@/lib/schuljahr';
 
 export default function HomeClient() {
+  const { schuljahrLabel } = useSchuljahr();
+  
   return (
     <main className="w-full flex justify-center p-8">
       <div className="text-center space-y-8 max-w-md mt-8">
-        <h1 className="text-3xl font-bold tracking-tight">Übersicht</h1>
-        <p className="text-gray-600 leading-relaxed">Wähle einen Bereich.</p>
+        <div className="flex flex-col items-center gap-2">
+          <h1 className="text-3xl font-bold tracking-tight">Hauptmenü</h1>
+          <SchuljahresWechsler />
+        </div>
+        <p className="text-gray-600 leading-relaxed">Wähle einen Bereich. (Schuljahr {schuljahrLabel})</p>
         <div className="flex flex-col gap-4">
+          <a href="/uebersicht" className="inline-block bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-md shadow transition-colors">Übersicht</a>
           <a href="/klassenliste" className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-md shadow transition-colors">Klassenliste</a>
           <a href="/angebote" className="inline-block bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 rounded-md shadow transition-colors">Angebote</a>
           <a href="/fruehbetreuung" className="inline-block bg-cyan-600 hover:bg-cyan-700 text-white px-8 py-3 rounded-md shadow transition-colors">Frühbetreuung</a>

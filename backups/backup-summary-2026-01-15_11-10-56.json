@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-01-15_11-10-56",
+  "database": "gesamtliste",
+  "collections": {
+    "reports": {
+      "count": 2,
+      "file": "reports-backup-2026-01-15_11-10-56.json",
+      "size_bytes": 603
+    },
+    "students": {
+      "count": 1096,
+      "file": "students-backup-2026-01-15_11-10-56.json",
+      "size_bytes": 967542
+    },
+    "config": {
+      "count": 1,
+      "file": "config-backup-2026-01-15_11-10-56.json",
+      "size_bytes": 2585
+    },
+    "students_trash": {
+      "count": 105,
+      "file": "students_trash-backup-2026-01-15_11-10-56.json",
+      "size_bytes": 123552
+    }
+  },
+  "full_backup": {
+    "file": "full-backup-2026-01-15_11-10-56.json",
+    "total_documents": 1204,
+    "size_bytes": 1173940
+  }
+}

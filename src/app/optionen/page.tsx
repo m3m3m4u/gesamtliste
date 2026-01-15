@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { SchuljahresWechsler } from '@/lib/schuljahr';
 
 type Lists = { angebote: string[]; schwerpunkte: string[]; fruehbetreuung: string[]; status: string[]; religionen: string[]; klassen: string[]; sprachen: string[] };
 type CountMap = Record<string, number>;
@@ -170,6 +171,7 @@ export default function OptionenPage(){
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Optionen verwalten</h1>
         <div className="flex items-center gap-2">
+          <SchuljahresWechsler />
           <button disabled={!dirty||saving} onClick={save} className="px-3 py-1.5 rounded bg-green-600 text-white text-sm disabled:opacity-50">{saving? '...' : 'Speichern'}</button>
           <button disabled={!dirty||saving} onClick={discard} className="px-3 py-1.5 rounded border text-sm">Verwerfen</button>
           <Link href="/" className="text-sm text-blue-600 underline ml-2">Zurück</Link>

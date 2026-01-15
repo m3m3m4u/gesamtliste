@@ -1,5 +1,6 @@
 "use client";
 import React, { useMemo } from 'react';
+import { SchuljahresWechsler } from '@/lib/schuljahr';
 
 type YearStats = { total: number; w: number; m: number };
 type StufenMap = Record<string, { w: number; m: number }>;
@@ -50,6 +51,9 @@ export default function StatistikClient({ data }: { data: DataProp }) {
 
   return (
   <div className="w-full overflow-x-auto">
+  <div className="flex justify-end mb-4">
+    <SchuljahresWechsler />
+  </div>
   {/* No client-side sorting controls — server order is used */}
   <table className="min-w-[520px] table-fixed border-collapse mx-auto">
         <colgroup>

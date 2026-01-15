@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 export const dynamic = "force-dynamic";
 import Link from 'next/link';
 import type { StudentDoc } from '@/lib/mongodb';
+import { SchuljahresWechsler } from '@/lib/schuljahr';
 
 type Student = StudentDoc;
 type PartialStudent = Student & Record<string, unknown>;
@@ -224,7 +225,9 @@ export default function Schueler() {
   <div className="w-full max-w-4xl mx-auto p-6 pt-10 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Schüler Suche & Bearbeitung</h1>
-  <Link href="/" className="text-sm text-blue-600 underline"
+        <div className="flex items-center gap-4">
+          <SchuljahresWechsler />
+          <Link href="/" className="text-sm text-blue-600 underline"
     onClick={(e)=>{
       if (!confirmDiscard()) {
         e.preventDefault();
@@ -232,6 +235,7 @@ export default function Schueler() {
       }
     }}
   >Zurück</Link>
+        </div>
       </div>
       <form onSubmit={search} className="flex flex-wrap gap-3 items-center">
         <input className="border rounded px-3 py-2 flex-1 min-w-[240px]" placeholder="Suche (Vorname / Familienname)" value={q} onChange={e=>setQ(e.target.value)} />

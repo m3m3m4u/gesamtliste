@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { exportExcel, exportPDF, exportWord } from '@/lib/exporters';
 import type { StudentDoc } from '@/lib/mongodb';
+import { SchuljahresWechsler } from '@/lib/schuljahr';
 
 type Row = StudentDoc & Record<string, unknown>;
 
@@ -136,7 +137,10 @@ export default function AngebotePage() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Angebotsliste</h1>
-  <Link href="/" className="text-sm text-blue-600 underline">Zurück</Link>
+        <div className="flex items-center gap-4">
+          <SchuljahresWechsler />
+          <Link href="/" className="text-sm text-blue-600 underline">Zurück</Link>
+        </div>
       </div>
       <div className="flex flex-wrap gap-4 items-end">
         <div>

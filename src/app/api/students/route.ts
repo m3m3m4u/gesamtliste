@@ -8,6 +8,11 @@ import type { Document, ObjectId, AnyBulkWriteOperation } from 'mongodb';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const raw = (searchParams.get('q') || searchParams.get('search') || '').trim();
+  // Schuljahr-Parameter (Standard: 25/26)
+  const schuljahr = searchParams.get('schuljahr') || '25/26';
+  const stufeFeld = `Stufe ${schuljahr}`;
+  const klasseFeld = `Klasse ${schuljahr}`;
+  
   const klasseParams = Array.from(new Set([
     ...searchParams.getAll('klasse').map(s=>s.trim()).filter(Boolean),
     ...(searchParams.get('klasse') ? [String(searchParams.get('klasse')).trim()] : [])
@@ -91,14 +96,14 @@ export async function GET(request: Request) {
     };
   }
   if (klasseParams.length) {
-    // Klassenfilter: sowohl kanonisches Feld '25/26' als auch Anzeige-Feld 'Klasse 25/26' berücksichtigen
+    // Klassenfilter: sowohl kanonisches Feld als auch Anzeige-Feld für das gewählte Schuljahr berücksichtigen
     const orList: Record<string, unknown>[] = [];
     for (const k of klasseParams) {
       const escaped = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const spacedPattern = escaped.split('').map(ch=> ch + '\\s*').join('');
       const rx = { $regex: `^${spacedPattern}$`, $options: 'i' };
-      orList.push({ '25/26': rx });
-      orList.push({ 'Klasse 25/26': rx });
+      orList.push({ [schuljahr]: rx });
+      orList.push({ [klasseFeld]: rx });
     }
     const klasseFilter = { $or: orList };
     filter = Object.keys(filter).length ? { $and: [filter, klasseFilter] } : klasseFilter;
@@ -120,10 +125,10 @@ export async function GET(request: Request) {
     const ors: Record<string, unknown>[] = [];
     for (const s of stufeParams) {
       if (s === '0') {
-        ors.push({ 'Stufe 25/26': { $in: [null, '', '-', '—', 0, '0'] } });
+        ors.push({ [stufeFeld]: { $in: [null, '', '-', '—', 0, '0'] } });
       } else {
         const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        ors.push({ 'Stufe 25/26': { $regex: `^${escaped}$`, $options: 'i' } });
+        ors.push({ [stufeFeld]: { $regex: `^${escaped}$`, $options: 'i' } });
       }
     }
     const stufeFilter = { $or: ors };

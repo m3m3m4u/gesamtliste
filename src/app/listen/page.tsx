@@ -3,11 +3,15 @@
 import React from 'react';
 import BackLink from '../statistik/BackLink';
 import { exportExcel, exportPDF, exportWord } from '@/lib/exporters';
+import { SchuljahresWechsler } from '@/lib/schuljahr';
 
 export default function ListenPage() {
   return (
     <div className="p-6">
-      <BackLink />
+      <div className="flex items-center justify-between mb-4">
+        <BackLink />
+        <SchuljahresWechsler />
+      </div>
       <h1 className="text-2xl font-bold mb-4">Listen</h1>
       <p className="text-gray-600 mb-2">Filter nach Stufe, Status, Besuchsjahr</p>
       <ListenClient />

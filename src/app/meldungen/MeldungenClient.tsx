@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from 'react';
+import { SchuljahresWechsler } from '@/lib/schuljahr';
 
 interface Report { _id: string; text: string; status: 'offen'|'erledigt'; createdAt: string; updatedAt: string; }
 
@@ -22,6 +23,9 @@ export default function MeldungenClient({ initialItems }: { initialItems: Report
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end mb-2">
+        <SchuljahresWechsler />
+      </div>
       <div className="flex flex-wrap gap-3 items-center text-sm">
         <div className="flex gap-2">
           {(['alle','offen','erledigt'] as const).map(f=> (
