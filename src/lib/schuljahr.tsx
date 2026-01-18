@@ -14,6 +14,7 @@ interface SchuljahresContextType {
   // Dynamische Feldnamen
   stufeFeld: string;
   klasseFeld: string;
+  besuchsjahrFeld: string;
   // Hilfsfunktion für Label
   schuljahrLabel: string;
 }
@@ -38,6 +39,8 @@ export function SchuljahresProvider({ children }: { children: ReactNode }) {
 
   const stufeFeld = `Stufe ${schuljahr}`;
   const klasseFeld = `Klasse ${schuljahr}`;
+  // Besuchsjahr-Feld: für 25/26 heißt es "Besuchsjahr", für andere Jahre "Besuchsjahr XX/YY"
+  const besuchsjahrFeld = schuljahr === '25/26' ? 'Besuchsjahr' : `Besuchsjahr ${schuljahr}`;
   const schuljahrLabel = `20${schuljahr}`;
 
   return (
@@ -46,6 +49,7 @@ export function SchuljahresProvider({ children }: { children: ReactNode }) {
       setSchuljahr,
       stufeFeld,
       klasseFeld,
+      besuchsjahrFeld,
       schuljahrLabel,
     }}>
       {children}

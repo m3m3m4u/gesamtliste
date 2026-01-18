@@ -1,17 +1,20 @@
 "use client";
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import type { StudentDoc } from '@/lib/mongodb';
 import { useSchuljahr, SchuljahresWechsler } from '@/lib/schuljahr';
+import { InlineEditRow } from '../EditStudentModal';
 
 // Präfixe für Stufen 4, 5, 6
 const KLASSEN_PREFIXES = ['A2', 'B1', 'C1'];
 
 export default function Stufen456Page() {
-  const { schuljahr, stufeFeld, klasseFeld, schuljahrLabel } = useSchuljahr();
+  const { schuljahr, stufeFeld, klasseFeld, besuchsjahrFeld, schuljahrLabel } = useSchuljahr();
   const [allKlassen, setAllKlassen] = useState<string[]>([]);
   const [studentsByKlasse, setStudentsByKlasse] = useState<Record<string, StudentDoc[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
   // Gefilterte Klassen nach Präfix
   const filteredKlassen = useMemo(() => {
@@ -53,7 +56,7 @@ export default function Stufen456Page() {
           const params = new URLSearchParams({ 
             klasse, 
             limit: '500',
-            fields: `Vorname,Familienname,Nachname,${stufeFeld},Geschlecht,Religion,Muttersprache,Besuchsjahr`,
+            fields: `Vorname,Familienname,Nachname,${stufeFeld},Geschlecht,Religion,Muttersprache,${besuchsjahrFeld}`,
             schuljahr
           });
           const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
@@ -69,7 +72,11 @@ export default function Stufen456Page() {
       setStudentsByKlasse(results);
       setLoading(false);
     })();
-  }, [filteredKlassen, stufeFeld, schuljahr]);
+  }, [filteredKlassen, stufeFeld, besuchsjahrFeld, schuljahr, reloadTrigger]);
+
+  const handleReload = useCallback(() => {
+    setReloadTrigger(prev => prev + 1);
+  }, []);
 
   const getName = (s: StudentDoc) => {
     const rec = s as Record<string, unknown>;
@@ -99,19 +106,19 @@ export default function Stufen456Page() {
     return famA.localeCompare(famB, 'de');
   };
 
-  // Hintergrundfarbe je Stufe
+  // Hintergrundfarbe je Stufe (dezente, kontrastreiche Farben)
   const getStufeColor = (stufe: string) => {
     const s = String(stufe).trim();
     switch (s) {
-      case '0': return 'bg-stone-100';
+      case '0': return 'bg-gray-100';
       case '1': return 'bg-amber-100';
-      case '2': return 'bg-lime-100';
-      case '3': return 'bg-cyan-100';
-      case '4': return 'bg-sky-100';
-      case '5': return 'bg-violet-100';
-      case '6': return 'bg-pink-100';
-      case '7': return 'bg-orange-100';
-      case '8': return 'bg-rose-100';
+      case '2': return 'bg-sky-100';
+      case '3': return 'bg-lime-100';
+      case '4': return 'bg-purple-100';
+      case '5': return 'bg-yellow-100';
+      case '6': return 'bg-cyan-100';
+      case '7': return 'bg-rose-100';
+      case '8': return 'bg-emerald-100';
       default: return 'bg-gray-50';
     }
   };
@@ -153,9 +160,11 @@ export default function Stufen456Page() {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="text-left px-3 py-2 font-semibold w-10"></th>
                   <th className="text-left px-3 py-2 font-semibold w-12">Nr.</th>
                   <th className="text-left px-3 py-2 font-semibold">Vorname</th>
                   <th className="text-left px-3 py-2 font-semibold">Familienname</th>
+                  <th className="text-left px-3 py-2 font-semibold">Klasse</th>
                   <th className="text-left px-3 py-2 font-semibold">Stufe</th>
                   <th className="text-left px-3 py-2 font-semibold">Geschlecht</th>
                   <th className="text-left px-3 py-2 font-semibold">Religion</th>
@@ -171,22 +180,54 @@ export default function Stufen456Page() {
                     const fam = rec['Familienname'] ?? rec['Nachname'] ?? '';
                     const stufe = String(rec[stufeFeld] || '');
                     const geschlecht = String(rec['Geschlecht'] || '');
+                    
+                    if (editingId === student._id) {
+                      return (
+                        <InlineEditRow
+                          key={student._id}
+                          student={student}
+                          index={i}
+                          schuljahr={schuljahr}
+                          klasseFeld={klasseFeld}
+                          stufeFeld={stufeFeld}
+                          besuchsjahrFeld={besuchsjahrFeld}
+                          availableKlassen={allKlassen}
+                          getStufeColor={getStufeColor}
+                          getGeschlechtColor={getGeschlechtColor}
+                          onSave={() => { setEditingId(null); handleReload(); }}
+                          onCancel={() => setEditingId(null)}
+                        />
+                      );
+                    }
+                    
                     return (
                       <tr key={student._id || i} className={getStufeColor(stufe)}>
+                        <td className="px-3 py-1">
+                          <button
+                            onClick={() => setEditingId(student._id)}
+                            className="text-gray-500 hover:text-blue-600"
+                            title="Bearbeiten"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                            </svg>
+                          </button>
+                        </td>
                         <td className="px-3 py-1">{i + 1}</td>
                         <td className="px-3 py-1">{student.Vorname || ''}</td>
                         <td className="px-3 py-1">{String(fam)}</td>
+                        <td className="px-3 py-1">{String(rec[klasseFeld] || '')}</td>
                         <td className="px-3 py-1">{stufe}</td>
                         <td className={`px-3 py-1 ${getGeschlechtColor(geschlecht)}`}>{geschlecht}</td>
                         <td className="px-3 py-1">{String(rec['Religion'] || '')}</td>
                         <td className="px-3 py-1">{String(rec['Muttersprache'] || '')}</td>
-                        <td className="px-3 py-1">{String(rec['Besuchsjahr'] || '')}</td>
+                        <td className="px-3 py-1">{String(rec[besuchsjahrFeld] || '')}</td>
                       </tr>
                     );
                   })}
                 {(!studentsByKlasse[klasse] || studentsByKlasse[klasse].length === 0) && (
                   <tr>
-                    <td colSpan={8} className="px-3 py-4 text-center text-gray-500 text-xs">
+                    <td colSpan={10} className="px-3 py-4 text-center text-gray-500 text-xs">
                       Keine Schüler
                     </td>
                   </tr>
