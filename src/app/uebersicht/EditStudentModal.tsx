@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 
 interface InlineEditRowProps {
   student: {
-    _id: string;
+    _id?: string;
     Vorname?: string;
     Familienname?: string;
     [key: string]: unknown;

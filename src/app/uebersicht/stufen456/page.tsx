@@ -204,7 +204,7 @@ export default function Stufen456Page() {
                       <tr key={student._id || i} className={getStufeColor(stufe)}>
                         <td className="px-3 py-1">
                           <button
-                            onClick={() => setEditingId(student._id)}
+                            onClick={() => setEditingId(student._id || null)}
                             className="text-gray-500 hover:text-blue-600"
                             title="Bearbeiten"
                           >
