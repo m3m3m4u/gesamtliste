@@ -221,5 +221,12 @@ export async function GET(request: Request) {
     }
   }
   klassen = klassen.sort((a,b)=>a.localeCompare(b,'de'));
-  return NextResponse.json({ stufen, status, jahre, religionen, religionAnAb, sprachen, angebote, schwerpunkte, fruehbetreuung, klassen });
+  
+  // Erstsprachunterricht-Optionen
+  const rawErstsprach = await col.distinct('Erstsprachunterricht', baseFilter);
+  const erstsprachunterricht = unique(rawErstsprach.map(v=>String(v??'').trim()))
+    .filter(s=>s!=='')
+    .sort((a,b)=>a.localeCompare(b,'de'));
+  
+  return NextResponse.json({ stufen, status, jahre, religionen, religionAnAb, sprachen, angebote, schwerpunkte, fruehbetreuung, klassen, erstsprachunterricht });
 }

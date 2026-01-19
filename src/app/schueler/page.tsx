@@ -19,7 +19,7 @@ function getCreateFields(schuljahr: string) {
     `Stufe ${schuljahr}`,
     schuljahr === '25/26' ? 'Besuchsjahr' : `Besuchsjahr ${schuljahr}`,
     'Muttersprache','Religion','Religion an/ab','Geschlecht',
-    'Schwerpunkte','Frühbetreuung','Angebote',
+    'Schwerpunkte','Frühbetreuung','Angebote','Erstsprachunterricht',
     'Benutzername','Passwort','Anton',
     'Sokrates ID','Familien-ID','Status'
   ];
@@ -70,6 +70,7 @@ export default function Schueler() {
   const [statusOptionen, setStatusOptionen] = useState<string[]>([]);
   const [klassenOptionen, setKlassenOptionen] = useState<string[]>([]);
   const [sprachenOptionen, setSprachenOptionen] = useState<string[]>([]);
+  const [erstsprachOptionen, setErstsprachOptionen] = useState<string[]>([]);
 
   // Hilfsfunktionen zur robusten Erkennung von Tipp-/Schreibvarianten
   const normalizeKey = useCallback((k: string) => k
@@ -99,6 +100,7 @@ export default function Schueler() {
           if(Array.isArray(json.status)) setStatusOptionen(json.status);
           if(Array.isArray(json.klassen)) setKlassenOptionen(json.klassen);
           if(Array.isArray(json.sprachen)) setSprachenOptionen(json.sprachen);
+          if(Array.isArray(json.erstsprachunterricht)) setErstsprachOptionen(json.erstsprachunterricht);
         }
       } catch {}
     })();
@@ -148,7 +150,7 @@ export default function Schueler() {
       'Vorname','Familienname','Geburtsdatum',
       'Klasse 25/26','Stufe 25/26','Besuchsjahr',
       'Muttersprache','Religion','Religion an/ab','Geschlecht',
-      'Schwerpunkte','Frühbetreuung','Angebote',
+      'Schwerpunkte','Frühbetreuung','Angebote','Erstsprachunterricht',
       'Benutzername','Passwort','Anton',
       'Sokrates ID','Familien-ID','Status'
     ];
@@ -344,6 +346,12 @@ export default function Schueler() {
                         <option value=""></option>
                         {sprachenOptionen.map(s => <option key={s} value={s}>{s}</option>)}
                         {displayVal && !sprachenOptionen.includes(String(displayVal)) && <option value={String(displayVal)}>{String(displayVal)}</option>}
+                      </select>
+                    ) : k === 'Erstsprachunterricht' ? (
+                      <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
+                        <option value=""></option>
+                        {erstsprachOptionen.map(s => <option key={s} value={s}>{s}</option>)}
+                        {displayVal && !erstsprachOptionen.includes(String(displayVal)) && <option value={String(displayVal)}>{String(displayVal)}</option>}
                       </select>
                     ) : k === 'Status' ? (
                       <div className="space-y-1">

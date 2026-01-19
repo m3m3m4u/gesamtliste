@@ -18,6 +18,7 @@ export default function HomeClient() {
           <a href="/angebote" className="inline-block bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 rounded-md shadow transition-colors">Angebote</a>
           <a href="/fruehbetreuung" className="inline-block bg-cyan-600 hover:bg-cyan-700 text-white px-8 py-3 rounded-md shadow transition-colors">Frühbetreuung</a>
           <a href="/schwerpunkte" className="inline-block bg-rose-600 hover:bg-rose-700 text-white px-8 py-3 rounded-md shadow transition-colors">Schwerpunkte</a>
+          <a href="/leistungsniveaus" className="inline-block bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-md shadow transition-colors">Leistungsniveaus</a>
           <a href="/deckblaetter" className="inline-block bg-amber-600 hover:bg-amber-700 text-white px-8 py-3 rounded-md shadow transition-colors">Deckblätter</a>
           <a href="/listen" className="inline-block bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-md shadow transition-colors">Listen (Filter)</a>
           <a href="/fehler" className="inline-block bg-orange-600 hover:bg-orange-700 text-white px-8 py-3 rounded-md shadow transition-colors">Fehler melden</a>
