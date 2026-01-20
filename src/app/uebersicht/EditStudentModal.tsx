@@ -39,7 +39,6 @@ export function InlineEditRow({
   
   const [klasse, setKlasse] = useState(String(rec[klasseFeld] || ''));
   const [stufe, setStufe] = useState(String(rec[stufeFeld] || ''));
-  const [besuchsjahr, setBesuchsjahr] = useState(String(rec[besuchsjahrFeld] || ''));
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -48,7 +47,6 @@ export function InlineEditRow({
       const body: Record<string, string> = {
         [klasseFeld]: klasse,
         [stufeFeld]: stufe,
-        [besuchsjahrFeld]: besuchsjahr,
       };
       
       const res = await fetch(`/api/students/${student._id}`, {
@@ -95,6 +93,7 @@ export function InlineEditRow({
       <td className="px-3 py-1">{index + 1}</td>
       <td className="px-3 py-1">{student.Vorname || ''}</td>
       <td className="px-3 py-1">{String(fam)}</td>
+      {schuljahr === '26/27' && <td className="px-3 py-1">{String(rec['Klasse 25/26'] || '')}</td>}
       <td className="px-3 py-1">
         <select
           value={klasse}
@@ -122,18 +121,7 @@ export function InlineEditRow({
       <td className={`px-3 py-1 ${getGeschlechtColor(geschlecht)}`}>{geschlecht}</td>
       <td className="px-3 py-1">{String(rec['Religion'] || '')}</td>
       <td className="px-3 py-1">{String(rec['Muttersprache'] || '')}</td>
-      <td className="px-3 py-1">
-        <select
-          value={besuchsjahr}
-          onChange={(e) => setBesuchsjahr(e.target.value)}
-          className="border rounded px-1 py-0.5 text-sm w-14"
-        >
-          <option value="">-</option>
-          {[1,2,3,4,5,6,7,8,9,10].map(j => (
-            <option key={j} value={String(j)}>{j}</option>
-          ))}
-        </select>
-      </td>
+      <td className="px-3 py-1">{String(rec[besuchsjahrFeld] || '')}</td>
     </tr>
   );
 }

@@ -51,12 +51,15 @@ export default function Stufen456Page() {
       setLoading(true);
       const results: Record<string, StudentDoc[]> = {};
       
+      // Für 26/27 auch Klasse 25/26 laden
+      const extraFields = schuljahr === '26/27' ? ',Klasse 25/26' : '';
+      
       for (const klasse of filteredKlassen) {
         try {
           const params = new URLSearchParams({ 
             klasse, 
             limit: '500',
-            fields: `Vorname,Familienname,Nachname,${stufeFeld},Geschlecht,Religion,Muttersprache,${besuchsjahrFeld}`,
+            fields: `Vorname,Familienname,Nachname,${stufeFeld},Geschlecht,Religion,Muttersprache,${besuchsjahrFeld}${extraFields}`,
             schuljahr
           });
           const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
@@ -73,6 +76,24 @@ export default function Stufen456Page() {
       setLoading(false);
     })();
   }, [filteredKlassen, stufeFeld, besuchsjahrFeld, schuljahr, reloadTrigger]);
+
+  // Statistik pro Stufe berechnen (Anzahl m/w)
+  const getStufeStats = (students: StudentDoc[]) => {
+    const stats: Record<string, { total: number; m: number; w: number }> = {};
+    for (const s of students) {
+      const rec = s as Record<string, unknown>;
+      const stufe = String(rec[stufeFeld] || '?');
+      const geschlecht = String(rec['Geschlecht'] || '').toLowerCase();
+      if (!stats[stufe]) stats[stufe] = { total: 0, m: 0, w: 0 };
+      stats[stufe].total++;
+      if (geschlecht === 'm') stats[stufe].m++;
+      if (geschlecht === 'w') stats[stufe].w++;
+    }
+    return Object.entries(stats)
+      .sort((a, b) => a[0].localeCompare(b[0], 'de', { numeric: true }))
+      .map(([stufe, { total, m, w }]) => `St${stufe}: ${total} (${m}m/${w}w)`)
+      .join(', ');
+  };
 
   const handleReload = useCallback(() => {
     setReloadTrigger(prev => prev + 1);
@@ -154,7 +175,10 @@ export default function Stufen456Page() {
         <div key={klasse} className="border rounded bg-white shadow-sm">
           <div className="bg-lime-100 px-4 py-2 font-semibold border-b flex justify-between items-center">
             <span>Klasse {klasse}</span>
-            <span className="text-sm text-gray-600">{studentsByKlasse[klasse]?.length || 0} Schüler</span>
+            <span className="text-sm text-gray-600">
+              {studentsByKlasse[klasse]?.length || 0} Schüler
+              {studentsByKlasse[klasse]?.length ? ` | ${getStufeStats(studentsByKlasse[klasse])}` : ''}
+            </span>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -164,6 +188,7 @@ export default function Stufen456Page() {
                   <th className="text-left px-3 py-2 font-semibold w-12">Nr.</th>
                   <th className="text-left px-3 py-2 font-semibold">Vorname</th>
                   <th className="text-left px-3 py-2 font-semibold">Familienname</th>
+                  {schuljahr === '26/27' && <th className="text-left px-3 py-2 font-semibold">Klasse 25/26</th>}
                   <th className="text-left px-3 py-2 font-semibold">Klasse</th>
                   <th className="text-left px-3 py-2 font-semibold">Stufe</th>
                   <th className="text-left px-3 py-2 font-semibold">Geschlecht</th>
@@ -216,6 +241,7 @@ export default function Stufen456Page() {
                         <td className="px-3 py-1">{i + 1}</td>
                         <td className="px-3 py-1">{student.Vorname || ''}</td>
                         <td className="px-3 py-1">{String(fam)}</td>
+                        {schuljahr === '26/27' && <td className="px-3 py-1">{String(rec['Klasse 25/26'] || '')}</td>}
                         <td className="px-3 py-1">{String(rec[klasseFeld] || '')}</td>
                         <td className="px-3 py-1">{stufe}</td>
                         <td className={`px-3 py-1 ${getGeschlechtColor(geschlecht)}`}>{geschlecht}</td>
@@ -227,7 +253,7 @@ export default function Stufen456Page() {
                   })}
                 {(!studentsByKlasse[klasse] || studentsByKlasse[klasse].length === 0) && (
                   <tr>
-                    <td colSpan={10} className="px-3 py-4 text-center text-gray-500 text-xs">
+                    <td colSpan={schuljahr === '26/27' ? 11 : 10} className="px-3 py-4 text-center text-gray-500 text-xs">
                       Keine Schüler
                     </td>
                   </tr>
