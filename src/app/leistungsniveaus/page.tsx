@@ -48,14 +48,14 @@ export default function LeistungsniveausPage() {
           ? json.klassen.map((v: string) => v.trim()).filter((v: string) => v.length > 0)
           : [];
         
-        // Filtern: nicht A0*, A1*, B0*, C0*, B1*
+        // Filtern: nicht A0*, A1*, B0*, C0*, B10*
         const filtered = arr.filter(k => {
           const upper = k.toUpperCase();
           if (upper.startsWith('A0')) return false;
           if (upper.startsWith('A1')) return false;
           if (upper.startsWith('B0')) return false;
           if (upper.startsWith('C0')) return false;
-          if (upper.startsWith('B1')) return false;
+          if (upper.startsWith('B10')) return false;
           // Nur reguläre Klassen (A, B, C gefolgt von Zahlen)
           return /^[ABC]\d/.test(upper);
         });

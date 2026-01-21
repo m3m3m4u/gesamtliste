@@ -27,9 +27,9 @@ function normalizeSchwerpunkt(name: string): string {
 function normalizeAngebot(name: string): string {
   // Klammern entfernen
   let result = name.replace(/\s*\([^)]*\)/g, '').trim();
-  // "Freies Werken DI" / "Freies Werken MI" -> "Freies Werken"
+  // "Freies Werken DI" / "Freies Werken MI" -> "Kreatives Werken"
   if (result.match(/^Freies Werken\s+(DI|MI)$/i)) {
-    return 'Freies Werken';
+    return 'Kreatives Werken';
   }
   return result;
 }
