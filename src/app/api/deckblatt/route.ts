@@ -31,6 +31,10 @@ function normalizeAngebot(name: string): string {
   if (result.match(/^Freies Werken\s+(DI|MI)$/i)) {
     return 'Kreatives Werken';
   }
+  // "in 80 Tönen" -> "In 80 Tönen um die Welt"
+  if (result.toLowerCase() === 'in 80 tönen') {
+    return 'In 80 Tönen um die Welt';
+  }
   return result;
 }
 
