@@ -1,0 +1,394 @@
+GEBURTSDATEN - STARKE ABWEICHUNGEN (> 1 Tag)
+Erstellt: 22.1.2026, 11:05:24
+======================================================================
+
+Diese Fälle müssen manuell geprüft werden:
+
+Baldauf Marie (?)
+  Excel-Datum:  2018-07-01
+  DB-Datum:     2015-12-24
+  Differenz:    920 Tage
+--------------------------------------------------
+Begic Muhamed (?)
+  Excel-Datum:  2017-02-02
+  DB-Datum:     2009-12-13
+  Differenz:    2608 Tage
+--------------------------------------------------
+Dürr Mailin (?)
+  Excel-Datum:  2017-12-24
+  DB-Datum:     2015-12-04
+  Differenz:    751 Tage
+--------------------------------------------------
+Dürr Noemi (?)
+  Excel-Datum:  2017-12-24
+  DB-Datum:     2011-09-26
+  Differenz:    2281 Tage
+--------------------------------------------------
+Hartmann Rosa (?)
+  Excel-Datum:  2018-01-10
+  DB-Datum:     2012-03-15
+  Differenz:    2127 Tage
+--------------------------------------------------
+Juen Leah Belinay (?)
+  Excel-Datum:  2018-01-20
+  DB-Datum:     2010-12-15
+  Differenz:    2593 Tage
+--------------------------------------------------
+Türken Minel (?)
+  Excel-Datum:  2016-07-27
+  DB-Datum:     2010-10-16
+  Differenz:    2111 Tage
+--------------------------------------------------
+Fessler Leonie (?)
+  Excel-Datum:  2018-05-09
+  DB-Datum:     2014-08-27
+  Differenz:    1351 Tage
+--------------------------------------------------
+Lanza Luca (?)
+  Excel-Datum:  2017-05-18
+  DB-Datum:     2015-01-18
+  Differenz:    851 Tage
+--------------------------------------------------
+Russo Massimo (?)
+  Excel-Datum:  2015-12-11
+  DB-Datum:     2012-02-26
+  Differenz:    1384 Tage
+--------------------------------------------------
+Schwärzler Lorena (?)
+  Excel-Datum:  2017-03-09
+  DB-Datum:     2016-06-30
+  Differenz:    252 Tage
+--------------------------------------------------
+Tumler Felicia (?)
+  Excel-Datum:  2017-02-06
+  DB-Datum:     2016-01-09
+  Differenz:    394 Tage
+--------------------------------------------------
+Mock Nora (?)
+  Excel-Datum:  2016-10-25
+  DB-Datum:     2011-09-21
+  Differenz:    1861 Tage
+--------------------------------------------------
+Rak Justin Angelo (?)
+  Excel-Datum:  2017-09-17
+  DB-Datum:     2014-05-25
+  Differenz:    1211 Tage
+--------------------------------------------------
+Schmid Mathilda (?)
+  Excel-Datum:  2017-04-15
+  DB-Datum:     2011-12-05
+  Differenz:    1958 Tage
+--------------------------------------------------
+Forster Mia (?)
+  Excel-Datum:  2016-07-11
+  DB-Datum:     2012-07-18
+  Differenz:    1454 Tage
+--------------------------------------------------
+Taher Pelin (?)
+  Excel-Datum:  2016-03-22
+  DB-Datum:     2011-11-03
+  Differenz:    1601 Tage
+--------------------------------------------------
+Ye Jiajia (?)
+  Excel-Datum:  2017-06-21
+  DB-Datum:     2012-01-22
+  Differenz:    1977 Tage
+--------------------------------------------------
+Yilmaz Zümra (?)
+  Excel-Datum:  2015-12-26
+  DB-Datum:     2012-04-13
+  Differenz:    1352 Tage
+--------------------------------------------------
+Bereuter Sarah (?)
+  Excel-Datum:  2018-02-23
+  DB-Datum:     2014-02-25
+  Differenz:    1459 Tage
+--------------------------------------------------
+Eberharter Ilvy (?)
+  Excel-Datum:  2017-08-01
+  DB-Datum:     2015-03-16
+  Differenz:    869 Tage
+--------------------------------------------------
+Gross Matteo (?)
+  Excel-Datum:  2017-10-06
+  DB-Datum:     2015-02-04
+  Differenz:    975 Tage
+--------------------------------------------------
+Hannesson Jón (?)
+  Excel-Datum:  2016-06-28
+  DB-Datum:     2011-09-26
+  Differenz:    1737 Tage
+--------------------------------------------------
+Russo Illary (?)
+  Excel-Datum:  2018-01-02
+  DB-Datum:     2014-01-10
+  Differenz:    1453 Tage
+--------------------------------------------------
+Wolfgang Liron (?)
+  Excel-Datum:  2015-10-09
+  DB-Datum:     2011-07-06
+  Differenz:    1556 Tage
+--------------------------------------------------
+Hartmann Jeremia (?)
+  Excel-Datum:  2017-08-28
+  DB-Datum:     2015-08-25
+  Differenz:    734 Tage
+--------------------------------------------------
+Harvey Vincent (?)
+  Excel-Datum:  2017-02-16
+  DB-Datum:     2015-03-30
+  Differenz:    689 Tage
+--------------------------------------------------
+Hofer Laurenz Josef Kurt (?)
+  Excel-Datum:  2018-02-26
+  DB-Datum:     2015-02-14
+  Differenz:    1108 Tage
+--------------------------------------------------
+Isa Norcan (?)
+  Excel-Datum:  2018-01-20
+  DB-Datum:     2011-08-31
+  Differenz:    2334 Tage
+--------------------------------------------------
+Schneider Felix (?)
+  Excel-Datum:  2018-03-05
+  DB-Datum:     2017-08-19
+  Differenz:    198 Tage
+--------------------------------------------------
+Greussing Annabelle (?)
+  Excel-Datum:  2015-12-18
+  DB-Datum:     2016-06-18
+  Differenz:    183 Tage
+--------------------------------------------------
+Motter Justus (?)
+  Excel-Datum:  2016-05-20
+  DB-Datum:     2012-08-01
+  Differenz:    1388 Tage
+--------------------------------------------------
+Woitsche Felix (?)
+  Excel-Datum:  2015-10-26
+  DB-Datum:     2014-08-15
+  Differenz:    437 Tage
+--------------------------------------------------
+Lanza Luis (?)
+  Excel-Datum:  2015-01-19
+  DB-Datum:     2012-09-05
+  Differenz:    866 Tage
+--------------------------------------------------
+Marte Linus (?)
+  Excel-Datum:  2015-02-22
+  DB-Datum:     2013-04-24
+  Differenz:    669 Tage
+--------------------------------------------------
+Demir Zeynep (?)
+  Excel-Datum:  2014-10-14
+  DB-Datum:     2012-07-22
+  Differenz:    814 Tage
+--------------------------------------------------
+Dürrwanger Mika (?)
+  Excel-Datum:  2016-02-24
+  DB-Datum:     2012-02-20
+  Differenz:    1465 Tage
+--------------------------------------------------
+Mündlein Janes (?)
+  Excel-Datum:  2015-10-18
+  DB-Datum:     2010-05-13
+  Differenz:    1984 Tage
+--------------------------------------------------
+Bachmann Laura (?)
+  Excel-Datum:  2017-04-29
+  DB-Datum:     2012-09-02
+  Differenz:    1700 Tage
+--------------------------------------------------
+Fischer Romy (?)
+  Excel-Datum:  2018-04-10
+  DB-Datum:     2016-02-16
+  Differenz:    784 Tage
+--------------------------------------------------
+Fitz Paul (?)
+  Excel-Datum:  2017-01-17
+  DB-Datum:     2013-01-08
+  Differenz:    1470 Tage
+--------------------------------------------------
+Fürst Laura (?)
+  Excel-Datum:  2018-08-16
+  DB-Datum:     2015-01-11
+  Differenz:    1313 Tage
+--------------------------------------------------
+Kitzmantel Theo (?)
+  Excel-Datum:  2016-12-03
+  DB-Datum:     2013-11-29
+  Differenz:    1100 Tage
+--------------------------------------------------
+Schneider Laura (?)
+  Excel-Datum:  2017-08-20
+  DB-Datum:     2013-08-21
+  Differenz:    1460 Tage
+--------------------------------------------------
+Düzgören Eylem (?)
+  Excel-Datum:  2017-07-24
+  DB-Datum:     2012-02-29
+  Differenz:    1972 Tage
+--------------------------------------------------
+Iscen Arya (?)
+  Excel-Datum:  2017-10-28
+  DB-Datum:     2017-04-07
+  Differenz:    204 Tage
+--------------------------------------------------
+Tim Maya (?)
+  Excel-Datum:  2016-09-10
+  DB-Datum:     2015-03-16
+  Differenz:    544 Tage
+--------------------------------------------------
+Tumler Atchara (?)
+  Excel-Datum:  2016-01-10
+  DB-Datum:     2017-02-05
+  Differenz:    392 Tage
+--------------------------------------------------
+Becker Lina (?)
+  Excel-Datum:  2015-09-06
+  DB-Datum:     2017-09-07
+  Differenz:    732 Tage
+--------------------------------------------------
+Gül Melis (?)
+  Excel-Datum:  2015-01-26
+  DB-Datum:     2011-05-14
+  Differenz:    1353 Tage
+--------------------------------------------------
+Prossliner Laura (?)
+  Excel-Datum:  2015-05-07
+  DB-Datum:     2011-11-03
+  Differenz:    1281 Tage
+--------------------------------------------------
+Rak Nick (?)
+  Excel-Datum:  2016-01-27
+  DB-Datum:     2012-08-17
+  Differenz:    1258 Tage
+--------------------------------------------------
+Yıldırım Efe (?)
+  Excel-Datum:  2015-01-21
+  DB-Datum:     2016-10-04
+  Differenz:    622 Tage
+--------------------------------------------------
+Fischer Till (?)
+  Excel-Datum:  2016-02-17
+  DB-Datum:     2015-07-17
+  Differenz:    215 Tage
+--------------------------------------------------
+Schwärzler Helena (?)
+  Excel-Datum:  2016-07-01
+  DB-Datum:     2017-03-08
+  Differenz:    250 Tage
+--------------------------------------------------
+Aydoğmuş Musab (?)
+  Excel-Datum:  2017-06-01
+  DB-Datum:     2013-05-12
+  Differenz:    1481 Tage
+--------------------------------------------------
+Garić Violeta (?)
+  Excel-Datum:  2016-08-18
+  DB-Datum:     2014-11-20
+  Differenz:    637 Tage
+--------------------------------------------------
+Heda Enuar (?)
+  Excel-Datum:  2017-04-14
+  DB-Datum:     2014-06-01
+  Differenz:    1048 Tage
+--------------------------------------------------
+Kloser Giulia (?)
+  Excel-Datum:  2018-04-03
+  DB-Datum:     2017-05-29
+  Differenz:    309 Tage
+--------------------------------------------------
+Necan Verda (?)
+  Excel-Datum:  2017-03-28
+  DB-Datum:     2011-11-07
+  Differenz:    1968 Tage
+--------------------------------------------------
+Yilmaz Ömer Halis (?)
+  Excel-Datum:  2017-10-07
+  DB-Datum:     2010-10-03
+  Differenz:    2561 Tage
+--------------------------------------------------
+Al Khattab Mais Alreem (?)
+  Excel-Datum:  2015-08-20
+  DB-Datum:     2011-01-14
+  Differenz:    1679 Tage
+--------------------------------------------------
+Becker Mara (?)
+  Excel-Datum:  2017-09-08
+  DB-Datum:     2015-09-05
+  Differenz:    734 Tage
+--------------------------------------------------
+Greußing Maximilian (?)
+  Excel-Datum:  2016-06-19
+  DB-Datum:     2015-12-17
+  Differenz:    185 Tage
+--------------------------------------------------
+Heiss Lou-Sophie (?)
+  Excel-Datum:  2017-04-06
+  DB-Datum:     2011-04-03
+  Differenz:    2195 Tage
+--------------------------------------------------
+Al Khattab Lana (?)
+  Excel-Datum:  2018-01-01
+  DB-Datum:     2011-12-31
+  Differenz:    2193 Tage
+--------------------------------------------------
+Nagel Tobias (?)
+  Excel-Datum:  2017-11-19
+  DB-Datum:     2014-02-09
+  Differenz:    1379 Tage
+--------------------------------------------------
+Stadelmann Valeria (?)
+  Excel-Datum:  2018-07-17
+  DB-Datum:     2015-07-05
+  Differenz:    1108 Tage
+--------------------------------------------------
+Tim Ibraheem (?)
+  Excel-Datum:  2015-03-17
+  DB-Datum:     2016-09-09
+  Differenz:    542 Tage
+--------------------------------------------------
+Yıldırım Ömer (?)
+  Excel-Datum:  2016-10-05
+  DB-Datum:     2015-01-20
+  Differenz:    624 Tage
+--------------------------------------------------
+Roganović Neven (?)
+  Excel-Datum:  2015-12-26
+  DB-Datum:     2014-07-28
+  Differenz:    516 Tage
+--------------------------------------------------
+Dür Marie (?)
+  Excel-Datum:  2016-07-26
+  DB-Datum:     2014-10-14
+  Differenz:    651 Tage
+--------------------------------------------------
+Rädler Sophie (?)
+  Excel-Datum:  2015-11-13
+  DB-Datum:     2010-09-27
+  Differenz:    1873 Tage
+--------------------------------------------------
+Garić Bojana (?)
+  Excel-Datum:  2014-11-21
+  DB-Datum:     2016-08-17
+  Differenz:    635 Tage
+--------------------------------------------------
+
+======================================================================
+NICHT IN DATENBANK GEFUNDEN (14):
+======================================================================
+Dür Vincent (Excel-Datum: 2013-05-20)
+Kainz Paul (Excel-Datum: 2015-06-05)
+Yilmaz Fatma (Excel-Datum: 2013-07-18)
+Bahl Ilva (Excel-Datum: 2012-05-30)
+Brun Maximilian (Excel-Datum: 2011-06-29)
+Gutschi Sarah (Excel-Datum: 2012-06-27)
+Hartmann Annalena (Excel-Datum: 2012-03-16)
+Lässer Lotta (Excel-Datum: 2012-12-05)
+Rak Kevin (Excel-Datum: 2012-06-25)
+Waltersdorfer Maria (Excel-Datum: 2012-06-07)
+Wohlgenannt Lea (Excel-Datum: 2012-10-25)
+Wurzenrainer Jana (Excel-Datum: 2011-09-17)
+Al Bkerat Ibrahim (Excel-Datum: 2011-01-01)
+Choura Sham (Excel-Datum: 2012-01-09)
