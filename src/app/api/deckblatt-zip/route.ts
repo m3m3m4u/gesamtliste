@@ -30,7 +30,22 @@ function normalizeAngebot(name: string): string {
   if (result.match(/^Freies Werken\s+(DI|MI)$/i)) {
     return 'Kreatives Werken';
   }
+  if (result.toLowerCase() === 'in 80 tönen') {
+    return 'In 80 Tönen um die Welt';
+  }
   return result;
+}
+
+// Hilfsfunktion: Prüft ob ein Angebot in der erlaubten Liste ist
+function isErlaubtesAngebot(angebot: string, erlaubteAngebote: string[]): boolean {
+  const normalized = normalizeAngebot(angebot).toLowerCase();
+  return erlaubteAngebote.some(e => normalizeAngebot(e).toLowerCase() === normalized);
+}
+
+// Hilfsfunktion: Prüft ob ein Schwerpunkt in der erlaubten Liste ist
+function isErlaubterSchwerpunkt(schwerpunkt: string, erlaubteSchwerpunkte: string[]): boolean {
+  const normalized = normalizeSchwerpunkt(SCHWERPUNKT_MAP[schwerpunkt] || schwerpunkt).toLowerCase();
+  return erlaubteSchwerpunkte.some(s => normalizeSchwerpunkt(s).toLowerCase() === normalized);
 }
 
 // Hilfsfunktion: Geburtsdatum formatieren
@@ -55,7 +70,7 @@ function formatGeburtsdatum(geb: unknown): string {
 }
 
 // Hilfsfunktion: Schwerpunkt-Satz generieren
-function buildSchwerpunktSatz(student: Record<string, unknown>): string {
+function buildSchwerpunktSatz(student: Record<string, unknown>, erlaubteSchwerpunkte: string[]): string {
   // Schwerpunkte können als Array (Schwerpunkte) oder String (Schwerpunkt) gespeichert sein
   let schwerpunktRaw: string | undefined;
   
@@ -85,6 +100,9 @@ function buildSchwerpunktSatz(student: Record<string, unknown>): string {
   
   if (!schwerpunktRaw) return '';
   
+  // Prüfen ob dieser Schwerpunkt in der erlaubten Liste ist
+  if (!isErlaubterSchwerpunkt(schwerpunktRaw, erlaubteSchwerpunkte)) return '';
+  
   // Erst Mapping anwenden, dann normalisieren
   let schwerpunktName = SCHWERPUNKT_MAP[schwerpunktRaw] || schwerpunktRaw;
   schwerpunktName = normalizeSchwerpunkt(schwerpunktName);
@@ -95,12 +113,16 @@ function buildSchwerpunktSatz(student: Record<string, unknown>): string {
 
 // Hilfsfunktion: Angebote-Satz generieren
 // hatSchwerpunkt: wenn true, wird "Er/Sie" statt Vorname verwendet
-function buildAngeboteSatz(student: Record<string, unknown>, hatSchwerpunkt: boolean): string {
+function buildAngeboteSatz(student: Record<string, unknown>, hatSchwerpunkt: boolean, erlaubteAngebote: string[]): string {
   const angeboteRaw = student.Angebote as string[] | undefined;
   if (!angeboteRaw || !Array.isArray(angeboteRaw) || angeboteRaw.length === 0) return '';
   
+  // Nur Angebote verwenden, die in der erlaubten Liste (aus /optionen) vorkommen
+  const erlaubte = angeboteRaw.filter(a => isErlaubtesAngebot(a, erlaubteAngebote));
+  if (erlaubte.length === 0) return '';
+  
   // Normalisieren (Klammern entfernen, DI/MI entfernen) und Duplikate entfernen
-  const angebote = [...new Set(angeboteRaw.map(normalizeAngebot).filter(a => a.length > 0))];
+  const angebote = [...new Set(erlaubte.map(normalizeAngebot).filter(a => a.length > 0))];
   if (angebote.length === 0) return '';
   
   // Subjekt: Vorname oder Er/Sie je nachdem ob Schwerpunkt vorhanden
@@ -225,6 +247,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Keine Schüler in dieser Klasse gefunden' }, { status: 404 });
     }
 
+    // Erlaubte Angebote und Schwerpunkte aus Optionen laden
+    const configCol = db.collection('config');
+    const optionen = await configCol.findOne({ _id: 'optionen' as unknown as import('mongodb').ObjectId });
+    const erlaubteAngebote: string[] = Array.isArray(optionen?.angebote) ? optionen.angebote : [];
+    const erlaubteSchwerpunkte: string[] = Array.isArray(optionen?.schwerpunkte) ? optionen.schwerpunkte : [];
+
     // Vorlage laden (neue blaue Vorlage)
     const templatePath = path.join(process.cwd(), 'public', 'Vorlagen', 'Deckblatt blau.docx');
     const templateContent = fs.readFileSync(templatePath, 'binary');
@@ -267,9 +295,9 @@ export async function GET(request: Request) {
       let docBuffer = doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 
       // Nachbearbeitung: #Schwerpunkt und #Angebote ersetzen
-      const schwerpunktSatz = buildSchwerpunktSatz(student as unknown as Record<string, unknown>);
+      const schwerpunktSatz = buildSchwerpunktSatz(student as unknown as Record<string, unknown>, erlaubteSchwerpunkte);
       const hatSchwerpunkt = schwerpunktSatz.length > 0;
-      const angeboteSatz = buildAngeboteSatz(student as unknown as Record<string, unknown>, hatSchwerpunkt);
+      const angeboteSatz = buildAngeboteSatz(student as unknown as Record<string, unknown>, hatSchwerpunkt, erlaubteAngebote);
       const leistungsniveauSatz = buildLeistungsniveauSatz(student as unknown as Record<string, unknown>);
 
       const generatedZip = new PizZip(docBuffer);

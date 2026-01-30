@@ -33,6 +33,18 @@ function normalizeAngebot(name: string): string {
   return result;
 }
 
+// Hilfsfunktion: Prüft ob ein Angebot in der erlaubten Liste ist
+function isErlaubtesAngebot(angebot: string, erlaubteAngebote: string[]): boolean {
+  const normalized = normalizeAngebot(angebot).toLowerCase();
+  return erlaubteAngebote.some(e => normalizeAngebot(e).toLowerCase() === normalized);
+}
+
+// Hilfsfunktion: Prüft ob ein Schwerpunkt in der erlaubten Liste ist
+function isErlaubterSchwerpunkt(schwerpunkt: string, erlaubteSchwerpunkte: string[]): boolean {
+  const normalized = normalizeSchwerpunkt(SCHWERPUNKT_MAP[schwerpunkt] || schwerpunkt).toLowerCase();
+  return erlaubteSchwerpunkte.some(s => normalizeSchwerpunkt(s).toLowerCase() === normalized);
+}
+
 // Hilfsfunktion: Geburtsdatum formatieren
 function formatGeburtsdatum(geb: unknown): string {
   if (!geb) return '';
@@ -55,7 +67,7 @@ function formatGeburtsdatum(geb: unknown): string {
 }
 
 // Hilfsfunktion: Schwerpunkt-Satz generieren
-function buildSchwerpunktSatz(student: Record<string, unknown>): string {
+function buildSchwerpunktSatz(student: Record<string, unknown>, erlaubteSchwerpunkte: string[]): string {
   let schwerpunktRaw: string | undefined;
   
   const schwerpunkte = student['Schwerpunkte'] as string[] | string | undefined;
@@ -81,6 +93,9 @@ function buildSchwerpunktSatz(student: Record<string, unknown>): string {
   
   if (!schwerpunktRaw) return '';
   
+  // Prüfen ob dieser Schwerpunkt in der erlaubten Liste ist
+  if (!isErlaubterSchwerpunkt(schwerpunktRaw, erlaubteSchwerpunkte)) return '';
+  
   let schwerpunktName = SCHWERPUNKT_MAP[schwerpunktRaw] || schwerpunktRaw;
   schwerpunktName = normalizeSchwerpunkt(schwerpunktName);
   const vorname = student.Vorname as string || '';
@@ -89,11 +104,15 @@ function buildSchwerpunktSatz(student: Record<string, unknown>): string {
 }
 
 // Hilfsfunktion: Angebote-Satz generieren
-function buildAngeboteSatz(student: Record<string, unknown>, hatSchwerpunkt: boolean): string {
+function buildAngeboteSatz(student: Record<string, unknown>, hatSchwerpunkt: boolean, erlaubteAngebote: string[]): string {
   const angeboteRaw = student.Angebote as string[] | undefined;
   if (!angeboteRaw || !Array.isArray(angeboteRaw) || angeboteRaw.length === 0) return '';
   
-  const angebote = [...new Set(angeboteRaw.map(normalizeAngebot).filter(a => a.length > 0))];
+  // Nur Angebote verwenden, die in der erlaubten Liste (aus /optionen) vorkommen
+  const erlaubte = angeboteRaw.filter(a => isErlaubtesAngebot(a, erlaubteAngebote));
+  if (erlaubte.length === 0) return '';
+  
+  const angebote = [...new Set(erlaubte.map(normalizeAngebot).filter(a => a.length > 0))];
   if (angebote.length === 0) return '';
   
   const geschlecht = student['m/w'] as string || student.Geschlecht as string || '';
@@ -186,7 +205,9 @@ function buildErstsprachunterrichtSatz(student: Record<string, unknown>): string
 // Generiert ein einzelnes Deckblatt und gibt das XML zurück
 function generateDeckblattXml(
   templateContent: string, 
-  student: Record<string, unknown>
+  student: Record<string, unknown>,
+  erlaubteAngebote: string[],
+  erlaubteSchwerpunkte: string[]
 ): string {
   const zip = new PizZip(templateContent);
   const doc = new Docxtemplater(zip, {
@@ -215,9 +236,9 @@ function generateDeckblattXml(
 
   let docBuffer = doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 
-  const schwerpunktSatz = buildSchwerpunktSatz(student);
+  const schwerpunktSatz = buildSchwerpunktSatz(student, erlaubteSchwerpunkte);
   const hatSchwerpunkt = schwerpunktSatz.length > 0;
-  const angeboteSatz = buildAngeboteSatz(student, hatSchwerpunkt);
+  const angeboteSatz = buildAngeboteSatz(student, hatSchwerpunkt, erlaubteAngebote);
   const leistungsniveauSatz = buildLeistungsniveauSatz(student);
 
   const generatedZip = new PizZip(docBuffer);
@@ -305,12 +326,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Keine Schüler in dieser Klasse gefunden' }, { status: 404 });
     }
 
+    // Erlaubte Angebote und Schwerpunkte aus Optionen laden
+    const configCol = db.collection('config');
+    const optionen = await configCol.findOne({ _id: 'optionen' as unknown as import('mongodb').ObjectId });
+    const erlaubteAngebote: string[] = Array.isArray(optionen?.angebote) ? optionen.angebote : [];
+    const erlaubteSchwerpunkte: string[] = Array.isArray(optionen?.schwerpunkte) ? optionen.schwerpunkte : [];
+
     // Vorlage laden
     const templatePath = path.join(process.cwd(), 'public', 'Vorlagen', 'Deckblatt blau.docx');
     const templateContent = fs.readFileSync(templatePath, 'binary');
 
     // Erstes Dokument als Basis verwenden
-    const firstStudentXml = generateDeckblattXml(templateContent, students[0] as unknown as Record<string, unknown>);
+    const firstStudentXml = generateDeckblattXml(templateContent, students[0] as unknown as Record<string, unknown>, erlaubteAngebote, erlaubteSchwerpunkte);
     
     // Basis-ZIP erstellen vom ersten Dokument
     const baseZip = new PizZip(templateContent);
@@ -341,7 +368,7 @@ export async function GET(request: Request) {
     const allBodies: string[] = [];
     
     for (let i = 0; i < students.length; i++) {
-      const studentXml = generateDeckblattXml(templateContent, students[i] as unknown as Record<string, unknown>);
+      const studentXml = generateDeckblattXml(templateContent, students[i] as unknown as Record<string, unknown>, erlaubteAngebote, erlaubteSchwerpunkte);
       const bodyContent = extractBodyContent(studentXml);
       
       if (i > 0) {
