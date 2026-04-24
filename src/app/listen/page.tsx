@@ -3,7 +3,7 @@
 import React from 'react';
 import BackLink from '../statistik/BackLink';
 import { exportExcel, exportPDF, exportWord } from '@/lib/exporters';
-import { SchuljahresWechsler } from '@/lib/schuljahr';
+import { SchuljahresWechsler, useSchuljahr } from '@/lib/schuljahr';
 
 export default function ListenPage() {
   return (
@@ -126,6 +126,7 @@ function MultiSelect({ label, options, values, onChange, renderOption, className
 }
 
 function FilterForm() {
+  const { schuljahr, stufeFeld, klasseFeld, besuchsjahrFeld } = useSchuljahr();
   const [stufe, setStufe] = React.useState<string[]>([]);
   const [status, setStatus] = React.useState<string[]>([]);
   const [jahr, setJahr] = React.useState<string[]>([]);
@@ -171,6 +172,7 @@ function FilterForm() {
   religionAnAb.forEach(r => p.append('religionAnAb', r));
   klassen.forEach(k => p.append('klasse', k));
       p.set('limit', '2000');
+      p.set('schuljahr', schuljahr);
       const res = await fetch(`/api/students?${p.toString()}`, { cache: 'no-store' });
       if (!res.ok) {
         const msg = await res.text().catch(()=> 'Fehler beim Laden');
@@ -192,7 +194,7 @@ function FilterForm() {
     } finally {
       setLoading(false);
     }
-  }, [stufe, status, jahr, religion, religionAnAb, klassen]);
+  }, [stufe, status, jahr, religion, religionAnAb, klassen, schuljahr]);
 
   React.useEffect(() => { void onSearch(); }, [onSearch]);
 
@@ -200,7 +202,7 @@ function FilterForm() {
   React.useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/students/distincts', { cache: 'no-store' });
+        const res = await fetch(`/api/students/distincts?schuljahr=${schuljahr}`, { cache: 'no-store' });
         const d = await res.json();
         setStufenOpt(d.stufen || []);
         setStatusOpt(d.status || []);
@@ -219,7 +221,7 @@ function FilterForm() {
         } catch {}
       } catch {}
     })();
-  }, []);
+  }, [schuljahr]);
 
   const doExport = (kind: 'excel' | 'pdf' | 'word') => {
     setExporting(kind);
@@ -244,9 +246,10 @@ function FilterForm() {
     switch (key) {
       case 'Vorname': v = it.Vorname; break;
       case 'Familienname': v = it.Familienname ?? it.Nachname; break;
-      case 'Klasse': v = it['Klasse 25/26'] ?? it.Klasse; break;
-      case 'Stufe': v = it['Stufe 25/26']; break;
-      case 'Besuchsjahr': v = it.Besuchsjahr; break;
+      case 'Klasse': v = (it as Record<string, unknown>)[klasseFeld] ?? it.Klasse; break;
+      case 'Stufe': v = (it as Record<string, unknown>)[stufeFeld]; break;
+      case 'Besuchsjahr': v = (it as Record<string, unknown>)[besuchsjahrFeld] ?? it.Besuchsjahr; break;
+
       default: v = rec[key];
     }
     if (key === 'Religion an/ab') {

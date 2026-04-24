@@ -33,6 +33,12 @@ export default function UebersichtPage() {
           >
             Stufen 7, 8
           </a>
+          <a 
+            href="/uebersicht/sonstige" 
+            className="inline-block bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 rounded-md shadow transition-colors"
+          >
+            Sonstige (w…)
+          </a>
         </div>
         <div className="pt-4">
           <Link href="/" className="text-gray-500 hover:text-gray-700 text-sm">← Zurück zum Hauptmenü</Link>

@@ -2,6 +2,19 @@ import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
+// Verbotene Begriffe, die nie in Angeboten/Schwerpunkten vorkommen dürfen
+const FORBIDDEN_TERMS = ['kunstturnen', 'sportakademie kunstturnen'];
+function isForbidden(term: string): boolean {
+  const lower = term.toLowerCase().trim();
+  return FORBIDDEN_TERMS.some(f => lower === f || lower.includes('kunstturnen'));
+}
+
+// Filtert verbotene Begriffe aus einem Array
+function filterForbiddenFromArray(arr: unknown): unknown {
+  if (!Array.isArray(arr)) return arr;
+  return arr.filter(x => !isForbidden(String(x ?? '')));
+}
+
 // PATCH /api/students/:id
 // Next.js RouteContext erwartet params u.U. als Promise
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -12,6 +25,22 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const body: Record<string, unknown> = await request.json();
   delete body._id;
   delete body.createdAt;
+  
+  // Verbotene Begriffe aus Angeboten und Schwerpunkten filtern
+  if (body.Angebote !== undefined) {
+    body.Angebote = filterForbiddenFromArray(body.Angebote);
+  }
+  if (body.Schwerpunkte !== undefined) {
+    body.Schwerpunkte = filterForbiddenFromArray(body.Schwerpunkte);
+  }
+  if (body.Schwerpunkt !== undefined) {
+    if (typeof body.Schwerpunkt === 'string' && isForbidden(body.Schwerpunkt)) {
+      body.Schwerpunkt = '';
+    } else if (Array.isArray(body.Schwerpunkt)) {
+      body.Schwerpunkt = filterForbiddenFromArray(body.Schwerpunkt);
+    }
+  }
+  
   // Klasse-Feld-Synchronisierung: wenn 'Klasse 25/26' geändert wird, auch kanonisches Feld '25/26' setzen
   if (Object.prototype.hasOwnProperty.call(body, 'Klasse 25/26')) {
     const rawK = body['Klasse 25/26'];

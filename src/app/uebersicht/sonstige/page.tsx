@@ -4,10 +4,10 @@ import type { StudentDoc } from '@/lib/mongodb';
 import { useSchuljahr, SchuljahresWechsler } from '@/lib/schuljahr';
 import { InlineEditRow } from '../EditStudentModal';
 
-// Präfixe für Stufen 7, 8
-const KLASSEN_PREFIXES = ['B2', 'C2'];
+// Präfixe für Sonstige (z.B. Klasse "w")
+const KLASSEN_PREFIXES = ['w'];
 
-export default function Stufen78Page() {
+export default function SonstigePage() {
   const { schuljahr, stufeFeld, klasseFeld, besuchsjahrFeld, schuljahrLabel } = useSchuljahr();
   const [allKlassen, setAllKlassen] = useState<string[]>([]);
   const [studentsByKlasse, setStudentsByKlasse] = useState<Record<string, StudentDoc[]>>({});
@@ -19,7 +19,7 @@ export default function Stufen78Page() {
   // Gefilterte Klassen nach Präfix
   const filteredKlassen = useMemo(() => {
     return allKlassen
-      .filter(k => KLASSEN_PREFIXES.some(p => k.startsWith(p)))
+      .filter(k => KLASSEN_PREFIXES.some(p => k.toLowerCase().startsWith(p.toLowerCase())))
       .sort((a, b) => a.localeCompare(b, 'de'));
   }, [allKlassen]);
 
@@ -30,8 +30,8 @@ export default function Stufen78Page() {
         const res = await fetch(`/api/students/distincts?schuljahr=${schuljahr}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('Fehler beim Laden der Klassen');
         const json = await res.json();
-        const klassen = Array.isArray(json.klassen) 
-          ? json.klassen.map((v: string) => v.trim()).filter((v: string) => v.length > 0) 
+        const klassen = Array.isArray(json.klassen)
+          ? json.klassen.map((v: string) => v.trim()).filter((v: string) => v.length > 0)
           : [];
         setAllKlassen(klassen);
       } catch (e) {
@@ -46,18 +46,18 @@ export default function Stufen78Page() {
       setLoading(false);
       return;
     }
-    
+
     (async () => {
       setLoading(true);
       const results: Record<string, StudentDoc[]> = {};
-      
+
       // Für 26/27 auch Klasse 25/26 laden
       const extraFields = schuljahr === '26/27' ? ',Klasse 25/26' : '';
-      
+
       for (const klasse of filteredKlassen) {
         try {
-          const params = new URLSearchParams({ 
-            klasse, 
+          const params = new URLSearchParams({
+            klasse,
             limit: '500',
             fields: `Vorname,Familienname,Nachname,${stufeFeld},Geschlecht,Religion,Muttersprache,${besuchsjahrFeld}${extraFields}`,
             schuljahr
@@ -71,7 +71,7 @@ export default function Stufen78Page() {
           console.error(`Fehler beim Laden von ${klasse}:`, e);
         }
       }
-      
+
       setStudentsByKlasse(results);
       setLoading(false);
     })();
@@ -99,35 +99,29 @@ export default function Stufen78Page() {
     setReloadTrigger(prev => prev + 1);
   }, []);
 
-  const getName = (s: StudentDoc) => {
-    const rec = s as Record<string, unknown>;
-    const fam = rec['Familienname'] ?? rec['Nachname'] ?? '';
-    return `${s.Vorname || ''} ${fam}`.trim();
-  };
-
   const sortStudents = (a: StudentDoc, b: StudentDoc) => {
     const recA = a as Record<string, unknown>;
     const recB = b as Record<string, unknown>;
-    
+
     // 1. Nach Stufe
     const stufeA = String(recA[stufeFeld] || '0');
     const stufeB = String(recB[stufeFeld] || '0');
     const stufeCmp = stufeA.localeCompare(stufeB, 'de', { numeric: true });
     if (stufeCmp !== 0) return stufeCmp;
-    
+
     // 2. Nach Geschlecht
     const geschA = String(recA['Geschlecht'] || '');
     const geschB = String(recB['Geschlecht'] || '');
     const geschCmp = geschA.localeCompare(geschB, 'de');
     if (geschCmp !== 0) return geschCmp;
-    
+
     // 3. Nach Familienname
     const famA = String(recA['Familienname'] ?? recA['Nachname'] ?? '');
     const famB = String(recB['Familienname'] ?? recB['Nachname'] ?? '');
     return famA.localeCompare(famB, 'de');
   };
 
-  // Hintergrundfarbe je Stufe (dezente, kontrastreiche Farben)
+  // Hintergrundfarbe je Stufe
   const getStufeColor = (stufe: string) => {
     const s = String(stufe).trim();
     switch (s) {
@@ -155,26 +149,26 @@ export default function Stufen78Page() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Übersicht Stufen 7, 8</h1>
+        <h1 className="text-2xl font-bold">Übersicht Sonstige</h1>
         <div className="flex items-center gap-4">
           <SchuljahresWechsler />
           <button onClick={handleReload} className="text-sm text-gray-600 border rounded px-2 py-1 hover:bg-gray-100" title="Neu laden">↺ Neu laden</button>
           <a href="/uebersicht" className="text-sm text-blue-600 underline">← Zurück</a>
         </div>
       </div>
-      
-      <p className="text-gray-600 text-sm">Klassen: {KLASSEN_PREFIXES.join(', ')} | Schuljahr {schuljahrLabel}</p>
+
+      <p className="text-gray-600 text-sm">Klassen: {KLASSEN_PREFIXES.join(', ')}… | Schuljahr {schuljahrLabel}</p>
 
       {loading && <div className="text-sm">Lade Klassenlisten…</div>}
       {error && <div className="text-sm text-red-600">{error}</div>}
-      
+
       {!loading && !error && filteredKlassen.length === 0 && (
         <div className="text-gray-500">Keine Klassen gefunden.</div>
       )}
 
       {!loading && !error && filteredKlassen.map(klasse => (
         <div key={klasse} className="border rounded bg-white shadow-sm">
-          <div className="bg-violet-100 px-4 py-2 font-semibold border-b flex justify-between items-center">
+          <div className="bg-orange-100 px-4 py-2 font-semibold border-b flex justify-between items-center">
             <span>Klasse {klasse}</span>
             <span className="text-sm text-gray-600">
               {studentsByKlasse[klasse]?.length || 0} Schüler
@@ -206,7 +200,7 @@ export default function Stufen78Page() {
                     const fam = rec['Familienname'] ?? rec['Nachname'] ?? '';
                     const stufe = String(rec[stufeFeld] || '');
                     const geschlecht = String(rec['Geschlecht'] || '');
-                    
+
                     if (editingId === student._id) {
                       return (
                         <InlineEditRow
@@ -225,7 +219,7 @@ export default function Stufen78Page() {
                         />
                       );
                     }
-                    
+
                     return (
                       <tr key={student._id || i} className={getStufeColor(stufe)}>
                         <td className="px-3 py-1">

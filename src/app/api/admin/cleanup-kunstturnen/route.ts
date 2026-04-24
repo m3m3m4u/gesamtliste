@@ -2,14 +2,19 @@ import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 
 /*
-  Entfernt alle Vorkommen von "Kunstturnen" (inkl. Varianten mit unterschiedlicher Groß-/Kleinschreibung)
-  aus den Feldern "Angebote", "Schwerpunkte", "Schwerpunkt" bei allen Schüler-Dokumenten.
+  Entfernt alle Vorkommen von "Kunstturnen" und "Sportakademie Kunstturnen" 
+  (inkl. Varianten mit unterschiedlicher Groß-/Kleinschreibung)
+  aus den Feldern "Angebote", "Schwerpunkte", "Schwerpunkt" bei allen Schüler-Dokumenten
+  sowie aus der Options-Collection (erlaubte Listen).
 
   Aufruf (einmalig ausführen, z.B. in DevTools Konsole):
     fetch('/api/admin/cleanup-kunstturnen', { method: 'POST' }).then(r=>r.json()).then(console.log)
 
   Sicherheitsmechanik: Nur POST erlaubt; GET liefert Hinweis.
 */
+
+// Verbotene Begriffe (alles lowercase für Vergleich)
+const FORBIDDEN_TERMS = ['kunstturnen', 'sportakademie kunstturnen'];
 
 const TARGET_FIELDS = ['Angebote','Schwerpunkte','Schwerpunkt'] as const;
 type FieldName = typeof TARGET_FIELDS[number];
@@ -38,13 +43,19 @@ function rebuild(original: unknown, filtered: string[]): unknown {
 }
 
 export async function GET() {
-  return NextResponse.json({ info: 'Nur POST. Entfernt alle Vorkommen von "Kunstturnen" aus Schülerdaten.' }, { status: 400 });
+  return NextResponse.json({ info: 'Nur POST. Entfernt alle Vorkommen von "Kunstturnen" und "Sportakademie Kunstturnen" aus Schülerdaten und Optionen.' }, { status: 400 });
+}
+
+// Prüft ob ein Begriff verboten ist
+function isForbidden(term: string): boolean {
+  const lower = term.toLowerCase().trim();
+  return FORBIDDEN_TERMS.some(f => lower === f || lower.includes('kunstturnen'));
 }
 
 export async function POST() {
   const client = await clientPromise; const db = client.db(); const col = db.collection<StudentCleanupDoc>('students');
 
-  const needle = 'kunstturnen';
+  // Regex für alle Kunstturnen-Varianten
   const regex = /kunstturnen/i;
   const query: { $or: Array<Record<FieldName, { $regex: RegExp }>> } = {
     $or: TARGET_FIELDS.map(f => ({ [f]: { $regex: regex } })) as Array<Record<FieldName, { $regex: RegExp }>>
@@ -62,7 +73,7 @@ export async function POST() {
       const original = (doc as StudentCleanupDoc)[field];
       if (original === undefined) continue;
       const list = normalizeList(original);
-      const filtered = list.filter(x => x.toLowerCase() !== needle);
+      const filtered = list.filter(x => !isForbidden(x));
       if (filtered.length !== list.length) {
         const rebuilt = rebuild(original, filtered);
         // Nach-Reinigung: Wenn komplett leer -> Feld entfernen statt leeres Konstrukt zu lassen
@@ -91,5 +102,27 @@ export async function POST() {
     }
   }
   if (bulk.length) await col.bulkWrite(bulk);
-  return NextResponse.json({ ok: true, modified });
+
+  // Auch aus Options-Collection entfernen (angebote, schwerpunkte)
+  let optionsModified = false;
+  const configCol = db.collection('config');
+  const optDoc = await configCol.findOne({ _id: 'optionen' as unknown as ObjectId });
+  if (optDoc) {
+    const updates: Record<string, string[]> = {};
+    for (const listField of ['angebote', 'schwerpunkte'] as const) {
+      const arr = optDoc[listField];
+      if (Array.isArray(arr)) {
+        const filtered = arr.filter((x: unknown) => !isForbidden(String(x ?? '')));
+        if (filtered.length !== arr.length) {
+          updates[listField] = filtered;
+          optionsModified = true;
+        }
+      }
+    }
+    if (optionsModified) {
+      await configCol.updateOne({ _id: 'optionen' as unknown as ObjectId }, { $set: updates });
+    }
+  }
+
+  return NextResponse.json({ ok: true, studentsModified: modified, optionsModified });
 }

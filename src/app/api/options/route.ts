@@ -65,14 +65,23 @@ export async function GET(){
   return NextResponse.json(out);
 }
 
+// Verbotene Begriffe, die nie in Angeboten/Schwerpunkten vorkommen dürfen
+const FORBIDDEN_TERMS = ['kunstturnen', 'sportakademie kunstturnen'];
+function isForbidden(term: string): boolean {
+  const lower = term.toLowerCase().trim();
+  return FORBIDDEN_TERMS.some(f => lower === f || lower.includes('kunstturnen'));
+}
+
 export async function PUT(request: Request){
   try {
     const body: Partial<OptionenDoc> = await request.json();
+    // Normalisieren und verbotene Begriffe herausfiltern
     const norm = (v: unknown): string[] => Array.isArray(v) ? v.map(x=>String(x)).filter(x=>x.length>0) : [];
+    const filterForbidden = (arr: string[]): string[] => arr.filter(x => !isForbidden(x));
     const doc = {
       _id: 'optionen',
-      angebote: norm(body.angebote),
-      schwerpunkte: norm(body.schwerpunkte),
+      angebote: filterForbidden(norm(body.angebote)),
+      schwerpunkte: filterForbidden(norm(body.schwerpunkte)),
       fruehbetreuung: norm(body.fruehbetreuung),
       status: norm(body.status),
       religionen: norm(body.religionen),

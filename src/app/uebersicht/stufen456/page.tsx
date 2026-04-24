@@ -158,6 +158,7 @@ export default function Stufen456Page() {
         <h1 className="text-2xl font-bold">Übersicht Stufen 4, 5, 6</h1>
         <div className="flex items-center gap-4">
           <SchuljahresWechsler />
+          <button onClick={handleReload} className="text-sm text-gray-600 border rounded px-2 py-1 hover:bg-gray-100" title="Neu laden">↺ Neu laden</button>
           <a href="/uebersicht" className="text-sm text-blue-600 underline">← Zurück</a>
         </div>
       </div>
@@ -219,7 +220,7 @@ export default function Stufen456Page() {
                           availableKlassen={allKlassen}
                           getStufeColor={getStufeColor}
                           getGeschlechtColor={getGeschlechtColor}
-                          onSave={() => { setEditingId(null); handleReload(); }}
+                          onSave={() => { setEditingId(null); }}
                           onCancel={() => setEditingId(null)}
                         />
                       );
