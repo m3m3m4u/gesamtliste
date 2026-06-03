@@ -214,7 +214,7 @@ export default function SonstigePage() {
                           availableKlassen={allKlassen}
                           getStufeColor={getStufeColor}
                           getGeschlechtColor={getGeschlechtColor}
-                          onSave={() => { setEditingId(null); }}
+                          onSave={() => { setEditingId(null); handleReload(); }}
                           onCancel={() => setEditingId(null)}
                         />
                       );

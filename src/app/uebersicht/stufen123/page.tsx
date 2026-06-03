@@ -220,7 +220,7 @@ export default function Stufen123Page() {
                           availableKlassen={allKlassen}
                           getStufeColor={getStufeColor}
                           getGeschlechtColor={getGeschlechtColor}
-                          onSave={() => { setEditingId(null); }}
+                          onSave={() => { setEditingId(null); handleReload(); }}
                           onCancel={() => setEditingId(null)}
                         />
                       );
