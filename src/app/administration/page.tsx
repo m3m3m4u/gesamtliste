@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import BackLink from '../statistik/BackLink';
 import { SchuljahresWechsler } from '@/lib/schuljahr';
+import SchuelerImport from './SchuelerImport';
 
 const ADMIN_CODE = '872020';
 const STORAGE_KEY = 'admin_authenticated';
@@ -11,6 +12,7 @@ export default function AdministrationPage() {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(true);
+  const [showImport, setShowImport] = useState(false);
 
   // Prüfen ob bereits authentifiziert (Session Storage)
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function AdministrationPage() {
 
   if (!authenticated) {
     return (
-      <div className="p-6 w-full max-w-md">
+      <div className="w-full max-w-4xl mx-auto p-6 pt-10">
         <div className="flex items-center justify-between mb-4">
           <BackLink />
         </div>
@@ -72,18 +74,25 @@ export default function AdministrationPage() {
   }
 
   return (
-    <div className="p-6 w-full max-w-md">
+    <div className="w-full max-w-4xl mx-auto p-6 pt-10">
       <div className="flex items-center justify-between mb-4">
         <BackLink />
         <SchuljahresWechsler />
       </div>
       <h1 className="text-2xl font-bold mb-6">Administration</h1>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 max-w-xs">
         <a href="/uebersicht" className="inline-block bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center">Übersicht</a>
         <a href="/frage?next=%2Fschueler" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center">Suchen & Bearbeiten</a>
         <a href="/frage?next=%2Foptionen" className="inline-block bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center">Optionen</a>
         <a href="/frage?next=%2Fmeldungen" className="inline-block bg-slate-600 hover:bg-slate-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center">Eingegangene Meldungen</a>
+        <button
+          onClick={() => setShowImport((v) => !v)}
+          className="inline-block bg-orange-600 hover:bg-orange-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center"
+        >
+          {showImport ? 'Import ausblenden' : 'Schüler importieren'}
+        </button>
       </div>
+      {showImport && <SchuelerImport />}
     </div>
   );
 }
