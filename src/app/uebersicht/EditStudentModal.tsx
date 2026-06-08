@@ -121,6 +121,7 @@ export function InlineEditRow({
       <td className={`px-3 py-1 ${getGeschlechtColor(geschlecht)}`}>{geschlecht}</td>
       <td className="px-3 py-1">{String(rec['Religion'] || '')}</td>
       <td className="px-3 py-1">{String(rec['Muttersprache'] || '')}</td>
+      <td className="px-3 py-1">{String(rec['Status'] || '')}</td>
       <td className="px-3 py-1">{String(rec[besuchsjahrFeld] || '')}</td>
     </tr>
   );

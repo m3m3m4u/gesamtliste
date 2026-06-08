@@ -15,6 +15,10 @@ export default function Stufen123Page() {
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkKlasse, setBulkKlasse] = useState('');
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   // Gefilterte Klassen nach Präfix
   const filteredKlassen = useMemo(() => {
@@ -59,7 +63,7 @@ export default function Stufen123Page() {
           const params = new URLSearchParams({ 
             klasse, 
             limit: '500',
-            fields: `Vorname,Familienname,Nachname,${stufeFeld},Geschlecht,Religion,Muttersprache,${besuchsjahrFeld}${extraFields}`,
+            fields: `Vorname,Familienname,Nachname,${stufeFeld},Geschlecht,Religion,Muttersprache,Status,${besuchsjahrFeld}${extraFields}`,
             schuljahr
           });
           const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
@@ -98,6 +102,42 @@ export default function Stufen123Page() {
   const handleReload = useCallback(() => {
     setReloadTrigger(prev => prev + 1);
   }, []);
+
+  const toggleMultiSelect = useCallback(() => {
+    setMultiSelectMode(prev => !prev);
+    setSelectedIds(new Set());
+    setBulkKlasse('');
+  }, []);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleBulkSave = async () => {
+    if (!bulkKlasse || selectedIds.size === 0) return;
+    setBulkSaving(true);
+    try {
+      await Promise.all([...selectedIds].map(id =>
+        fetch(`/api/students/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [klasseFeld]: bulkKlasse }),
+        })
+      ));
+      setSelectedIds(new Set());
+      setBulkKlasse('');
+      setMultiSelectMode(false);
+      handleReload();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBulkSaving(false);
+    }
+  };
 
   const getName = (s: StudentDoc) => {
     const rec = s as Record<string, unknown>;
@@ -153,11 +193,17 @@ export default function Stufen123Page() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className={`p-6 max-w-6xl mx-auto space-y-6${selectedIds.size > 0 ? ' pb-20' : ''}`}>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Übersicht Stufen 1, 2, 3</h1>
         <div className="flex items-center gap-4">
           <SchuljahresWechsler />
+          <button
+            onClick={toggleMultiSelect}
+            className={`text-sm border rounded px-2 py-1 ${multiSelectMode ? 'bg-blue-100 text-blue-700 border-blue-300' : 'text-gray-600 hover:bg-gray-100'}`}
+          >
+            {multiSelectMode ? 'Auswahl beenden' : 'Mehrfachauswahl'}
+          </button>
           <button onClick={handleReload} className="text-sm text-gray-600 border rounded px-2 py-1 hover:bg-gray-100" title="Neu laden">↺ Neu laden</button>
           <a href="/uebersicht" className="text-sm text-blue-600 underline">← Zurück</a>
         </div>
@@ -185,7 +231,24 @@ export default function Stufen123Page() {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="text-left px-3 py-2 font-semibold w-10"></th>
+                  <th className="text-left px-3 py-2 font-semibold w-10">
+                    {multiSelectMode && (
+                      <input
+                        type="checkbox"
+                        className="cursor-pointer"
+                        checked={(studentsByKlasse[klasse] || []).length > 0 && (studentsByKlasse[klasse] || []).every(s => s._id && selectedIds.has(s._id))}
+                        onChange={(e) => {
+                          const ids = (studentsByKlasse[klasse] || []).map(s => s._id).filter(Boolean) as string[];
+                          setSelectedIds(prev => {
+                            const next = new Set(prev);
+                            if (e.target.checked) ids.forEach(id => next.add(id));
+                            else ids.forEach(id => next.delete(id));
+                            return next;
+                          });
+                        }}
+                      />
+                    )}
+                  </th>
                   <th className="text-left px-3 py-2 font-semibold w-12">Nr.</th>
                   <th className="text-left px-3 py-2 font-semibold">Vorname</th>
                   <th className="text-left px-3 py-2 font-semibold">Familienname</th>
@@ -195,6 +258,7 @@ export default function Stufen123Page() {
                   <th className="text-left px-3 py-2 font-semibold">Geschlecht</th>
                   <th className="text-left px-3 py-2 font-semibold">Religion</th>
                   <th className="text-left px-3 py-2 font-semibold">Muttersprache</th>
+                  <th className="text-left px-3 py-2 font-semibold">Status</th>
                   <th className="text-left px-3 py-2 font-semibold">SBJ</th>
                 </tr>
               </thead>
@@ -229,15 +293,24 @@ export default function Stufen123Page() {
                     return (
                       <tr key={student._id || i} className={getStufeColor(stufe)}>
                         <td className="px-3 py-1">
-                          <button
-                            onClick={() => setEditingId(student._id || null)}
-                            className="text-gray-500 hover:text-blue-600"
-                            title="Bearbeiten"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                            </svg>
-                          </button>
+                          {multiSelectMode ? (
+                            <input
+                              type="checkbox"
+                              className="cursor-pointer"
+                              checked={selectedIds.has(student._id || '')}
+                              onChange={() => toggleSelect(student._id || '')}
+                            />
+                          ) : (
+                            <button
+                              onClick={() => setEditingId(student._id || null)}
+                              className="text-gray-500 hover:text-blue-600"
+                              title="Bearbeiten"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                              </svg>
+                            </button>
+                          )}
                         </td>
                         <td className="px-3 py-1">{i + 1}</td>
                         <td className="px-3 py-1">{student.Vorname || ''}</td>
@@ -248,13 +321,14 @@ export default function Stufen123Page() {
                         <td className={`px-3 py-1 ${getGeschlechtColor(geschlecht)}`}>{geschlecht}</td>
                         <td className="px-3 py-1">{String(rec['Religion'] || '')}</td>
                         <td className="px-3 py-1">{String(rec['Muttersprache'] || '')}</td>
+                        <td className="px-3 py-1">{String(rec['Status'] || '')}</td>
                         <td className="px-3 py-1">{String(rec[besuchsjahrFeld] || '')}</td>
                       </tr>
                     );
                   })}
                 {(!studentsByKlasse[klasse] || studentsByKlasse[klasse].length === 0) && (
                   <tr>
-                    <td colSpan={schuljahr === '26/27' ? 11 : 10} className="px-3 py-4 text-center text-gray-500 text-xs">
+                    <td colSpan={schuljahr === '26/27' ? 12 : 11} className="px-3 py-4 text-center text-gray-500 text-xs">
                       Keine Schüler
                     </td>
                   </tr>
@@ -264,6 +338,32 @@ export default function Stufen123Page() {
           </div>
         </div>
       ))}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-3 flex items-center gap-3 z-50">
+          <span className="text-sm font-medium">{selectedIds.size} Schüler ausgewählt</span>
+          <select
+            value={bulkKlasse}
+            onChange={e => setBulkKlasse(e.target.value)}
+            className="border rounded px-2 py-1 text-sm"
+          >
+            <option value="">Klasse wählen…</option>
+            {allKlassen.map(k => <option key={k} value={k}>{k}</option>)}
+          </select>
+          <button
+            onClick={handleBulkSave}
+            disabled={!bulkKlasse || bulkSaving}
+            className="px-3 py-1 bg-blue-600 text-white text-sm rounded disabled:opacity-50"
+          >
+            {bulkSaving ? 'Speichert…' : 'Klasse übernehmen'}
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="px-3 py-1 border text-sm rounded text-gray-600 hover:bg-gray-100"
+          >
+            Auswahl aufheben
+          </button>
+        </div>
+      )}
     </div>
   );
 }

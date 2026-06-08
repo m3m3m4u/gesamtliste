@@ -8,6 +8,7 @@ import { useSchuljahr, SchuljahresWechsler } from '@/lib/schuljahr';
 interface Option { value: string; label: string; }
 
 export default function KlassenListePage() {
+  const { schuljahr } = useSchuljahr();
   const [klasse, setKlasse] = useState('');
   const [availableKlassen, setAvailableKlassen] = useState<Option[]>([]);
   const [selectedFields, setSelectedFields] = useState<string[]>(['Vorname','Familienname','Stufe 25/26','Geschlecht','Benutzername','Passwort']);
@@ -50,12 +51,12 @@ export default function KlassenListePage() {
     return '';
   };
 
-  // Klassen-Liste aus DB laden (einmal)
+  // Klassen-Liste aus DB laden (bei Schuljahr-Wechsel neu laden)
   useEffect(() => {
+    setKlasse(''); // Auswahl zurücksetzen, da Klassen sich je Schuljahr unterscheiden
     (async () => {
       try {
-        // Hole alle unterschiedlichen Werte aus Klasse 25/26 wie bei Listen (Filter)
-        const res = await fetch('/api/students/distincts', { cache: 'no-store' });
+        const res = await fetch(`/api/students/distincts?schuljahr=${encodeURIComponent(schuljahr)}`, { cache: 'no-store' });
         if(!res.ok) return;
         const json = await res.json();
         const arr = Array.isArray(json.klassen) ? json.klassen.map((v:string)=>v.trim()).filter((v:string)=>v.length>0) : [];
@@ -73,16 +74,16 @@ export default function KlassenListePage() {
         } catch {}
       } catch(e){ console.error(e); }
     })();
-  }, []);
+  }, [schuljahr]);
   const load = useCallback(async () => {
     if (!klasse) { setData([]); return; }
     setLoading(true); setError(null);
     try {
-      const params = new URLSearchParams({ klasse, limit: '2000' });
+      const params = new URLSearchParams({ klasse, schuljahr, limit: '2000' });
       if (selectedFields.length) {
-        // '25/26' immer mit abfragen, damit Filterung funktioniert
+        // Schuljahr-Feld immer mit abfragen, damit Filterung funktioniert
         // Außerdem immer Benutzername/Passwort/Anton laden, damit Accounts-PDF funktioniert
-        const fields = [...selectedFields.filter(f=>f!=='Nr.'), '25/26', 'Benutzername', 'Passwort', 'Anton'];
+        const fields = [...selectedFields.filter(f=>f!=='Nr.'), schuljahr, 'Benutzername', 'Passwort', 'Anton'];
         params.set('fields', Array.from(new Set(fields)).join(','));
       }
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
@@ -94,9 +95,9 @@ export default function KlassenListePage() {
       setError(e instanceof Error ? e.message : 'Fehler');
       setData([]);
     } finally { setLoading(false); }
-  }, [klasse, selectedFields]);
+  }, [klasse, schuljahr, selectedFields]);
   const depsKey = useMemo(()=>selectedFields.join('|'),[selectedFields]);
-  useEffect(() => { load(); }, [load, klasse, depsKey]);
+  useEffect(() => { load(); }, [load, klasse, schuljahr, depsKey]);
 
   function toggleField(f: string) {
     setSelectedFields(prev => {
