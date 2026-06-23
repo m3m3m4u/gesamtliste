@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
 
     const toInsert = students.map((raw) => {
-      const s = { ...raw, createdAt: now, updatedAt: now };
+      const s: Record<string, unknown> = { ...raw, createdAt: now, updatedAt: now };
 
       // Klasse-Feld-Synchronisierung (analog zu POST /api/students)
       for (const key of Object.keys(s)) {
