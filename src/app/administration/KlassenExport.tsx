@@ -39,8 +39,11 @@ export default function KlassenExport() {
     'Nr.', 'Vorname', 'Familienname', klasseFeld
   ]);
 
-  // Layout & format options
+  // Layout, sorting & format options
   const [onePagePerClass, setOnePagePerClass] = useState<boolean>(true);
+  const [sortBy, setSortBy] = useState<string>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [groupByClass, setGroupByClass] = useState<boolean>(true);
   
   // UI States
   const [loading, setLoading] = useState(false);
@@ -261,39 +264,86 @@ export default function KlassenExport() {
         }
       });
 
-      // Sort students in each class alphabetically by name
-      selectedClasses.forEach(c => {
-        studentsByClass[c].sort((a, b) => {
-          const famA = String(a.Familienname ?? a.Nachname ?? '').toLowerCase();
-          const famB = String(b.Familienname ?? b.Nachname ?? '').toLowerCase();
-          if (famA !== famB) return famA.localeCompare(famB, 'de');
-          const vorA = String(a.Vorname ?? '').toLowerCase();
-          const vorB = String(b.Vorname ?? '').toLowerCase();
-          return vorA.localeCompare(vorB, 'de');
-        });
-      });
+      // Sorting helper values
+      const getSortValue = (s: any, field: string): string => {
+        if (field === 'name') {
+          return `${s.Familienname ?? s.Nachname ?? ''} ${s.Vorname ?? ''}`.trim().toLowerCase();
+        }
+        if (field === 'vorname') {
+          return String(s.Vorname ?? '').toLowerCase();
+        }
+        if (field === 'geburtsdatum') {
+          const d = s.Geburtsdatum;
+          if (typeof d === 'string') {
+            const m = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (m) return m[1] + m[2] + m[3];
+            const m2 = d.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+            if (m2) return m2[3] + m2[2] + m2[1];
+          }
+          return String(d ?? '').toLowerCase();
+        }
+        if (field === 'geschlecht') {
+          return String(s.Geschlecht ?? s['m/w'] ?? '').toLowerCase();
+        }
+        return '';
+      };
+
+      const compareStudents = (a: any, b: any) => {
+        const valA = getSortValue(a, sortBy);
+        const valB = getSortValue(b, sortBy);
+        
+        if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+        
+        // Tie-breaker: name, then vorname
+        const famA = String(a.Familienname ?? a.Nachname ?? '').toLowerCase();
+        const famB = String(b.Familienname ?? b.Nachname ?? '').toLowerCase();
+        if (famA !== famB) return famA.localeCompare(famB, 'de');
+        
+        const vorA = String(a.Vorname ?? '').toLowerCase();
+        const vorB = String(b.Vorname ?? '').toLowerCase();
+        return vorA.localeCompare(vorB, 'de');
+      };
 
       // Headers construction (put 'Nr.' at the beginning if checked)
       const headersAll = selectedFields.slice();
       const hasNr = headersAll.includes('Nr.');
       const headers = hasNr ? ['Nr.', ...headersAll.filter(h => h !== 'Nr.')] : headersAll;
 
-      // Map classes into export structure
-      const exportClasses = selectedClasses
-        .filter(c => studentsByClass[c].length > 0) // only include classes with students
-        .map(c => {
-          const classStudents = studentsByClass[c];
-          const rows = classStudents.map((student, idx) => 
-            headers.map(h => h === 'Nr.' ? String(idx + 1) : getCellValue(student, h))
-          );
-          
-          return {
-            className: c,
-            title: `Klassenliste ${c}`,
-            headers,
-            rows
-          };
-        });
+      let exportClasses;
+      if (onePagePerClass || groupByClass) {
+        // Group students by class and sort them
+        exportClasses = selectedClasses
+          .filter(c => studentsByClass[c].length > 0) // only include classes with students
+          .map(c => {
+            const classStudents = [...studentsByClass[c]];
+            classStudents.sort(compareStudents);
+            const rows = classStudents.map((student, idx) => 
+              headers.map(h => h === 'Nr.' ? String(idx + 1) : getCellValue(student, h))
+            );
+            
+            return {
+              className: c,
+              title: `Klassenliste ${c}`,
+              headers,
+              rows
+            };
+          });
+      } else {
+        // Sort all students globally across selected classes
+        const allSortedStudents = [...students];
+        allSortedStudents.sort(compareStudents);
+        const rows = allSortedStudents.map((student, idx) => 
+          headers.map(h => h === 'Nr.' ? String(idx + 1) : getCellValue(student, h))
+        );
+        
+        exportClasses = [{
+          className: 'Gesamt',
+          title: `Klassenliste Gesamt`,
+          headers,
+          rows
+        }];
+      }
 
       if (exportClasses.length === 0) {
         throw new Error('Keine Schülerdaten in den ausgewählten Klassen vorhanden.');
@@ -446,41 +496,85 @@ export default function KlassenExport() {
             </div>
           </div>
 
-          {/* 3. Layout Selection */}
+          {/* 3. Layout & Sortierung */}
           <div>
-            <h3 className="text-sm font-bold text-gray-700 mb-2">3. Layout-Einstellung</h3>
-            <div className="flex flex-col sm:flex-row gap-4 bg-gray-50 p-4 border rounded-md">
-              <label className="flex items-start space-x-3 cursor-pointer p-2 rounded-md hover:bg-white transition flex-1">
-                <input
-                  type="radio"
-                  name="layout"
-                  checked={onePagePerClass}
-                  onChange={() => setOnePagePerClass(true)}
-                  className="mt-1 border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <div>
-                  <span className="block text-sm font-medium text-gray-700">Eine Seite pro Klasse</span>
-                  <span className="block text-xs text-gray-500">
-                    PDF/Word erzeugen einen Seitenumbruch nach jeder Klasse. Excel speichert jede Klasse in einem eigenen Tab (Worksheet).
-                  </span>
-                </div>
-              </label>
+            <h3 className="text-sm font-bold text-gray-700 mb-2">3. Layout & Sortierung</h3>
+            <div className="border rounded-md bg-gray-50 p-4 space-y-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <label className="flex items-start space-x-3 cursor-pointer p-2 rounded-md hover:bg-white transition flex-1">
+                  <input
+                    type="radio"
+                    name="layout"
+                    checked={onePagePerClass}
+                    onChange={() => setOnePagePerClass(true)}
+                    className="mt-1 border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="block text-sm font-medium text-gray-700">Eine Seite pro Klasse</span>
+                    <span className="block text-xs text-gray-500">
+                      PDF/Word erzeugen einen Seitenumbruch nach jeder Klasse. Excel speichert jede Klasse in einem eigenen Tab (Worksheet).
+                    </span>
+                  </div>
+                </label>
 
-              <label className="flex items-start space-x-3 cursor-pointer p-2 rounded-md hover:bg-white transition flex-1">
-                <input
-                  type="radio"
-                  name="layout"
-                  checked={!onePagePerClass}
-                  onChange={() => setOnePagePerClass(false)}
-                  className="mt-1 border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
+                <label className="flex items-start space-x-3 cursor-pointer p-2 rounded-md hover:bg-white transition flex-1">
+                  <input
+                    type="radio"
+                    name="layout"
+                    checked={!onePagePerClass}
+                    onChange={() => setOnePagePerClass(false)}
+                    className="mt-1 border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="block text-sm font-medium text-gray-700">Alles am Stück</span>
+                    <span className="block text-xs text-gray-500">
+                      Alle Klassen werden in einer einzigen, durchgehenden Gesamtliste exportiert.
+                    </span>
+                  </div>
+                </label>
+              </div>
+              
+              <div className="border-t pt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
-                  <span className="block text-sm font-medium text-gray-700">Alles am Stück</span>
-                  <span className="block text-xs text-gray-500">
-                    Alle Klassen werden in einer einzigen, durchgehenden Gesamtliste exportiert.
-                  </span>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Sortieren nach</label>
+                  <select
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value)}
+                    className="w-full border rounded px-2.5 py-1.5 bg-white text-xs"
+                  >
+                    <option value="name">Familienname, Vorname</option>
+                    <option value="vorname">Vorname</option>
+                    <option value="geburtsdatum">Geburtsdatum</option>
+                    <option value="geschlecht">Geschlecht</option>
+                  </select>
                 </div>
-              </label>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Reihenfolge</label>
+                  <select
+                    value={sortOrder}
+                    onChange={e => setSortOrder(e.target.value as 'asc' | 'desc')}
+                    className="w-full border rounded px-2.5 py-1.5 bg-white text-xs"
+                  >
+                    <option value="asc">Aufsteigend (A-Z / Älteste zuerst)</option>
+                    <option value="desc">Absteigend (Z-A / Jüngste zuerst)</option>
+                  </select>
+                </div>
+
+                {!onePagePerClass && (
+                  <div className="flex items-center pt-5">
+                    <label className="flex items-center space-x-2 cursor-pointer text-xs text-gray-700 select-none">
+                      <input
+                        type="checkbox"
+                        checked={groupByClass}
+                        onChange={e => setGroupByClass(e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>Nach Klassen gruppieren</span>
+                    </label>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
