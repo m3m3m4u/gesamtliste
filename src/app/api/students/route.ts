@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   const onlyNames = searchParams.has('onlyNames');
   const schwerpunkt = (searchParams.get('schwerpunkt') || '').trim();
   const fields = (searchParams.get('fields') || '').trim(); // Kommagetrennte Feldliste
-  const limit = Math.min(Number(searchParams.get('limit') || 50), 200);
+  const limit = Math.min(Number(searchParams.get('limit') || 50), 5000);
   const skip = Number(searchParams.get('skip') || 0);
   const client = await clientPromise;
   const db = client.db();

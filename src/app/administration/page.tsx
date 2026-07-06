@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import BackLink from '../statistik/BackLink';
 import { SchuljahresWechsler } from '@/lib/schuljahr';
 import SchuelerImport from './SchuelerImport';
+import KlassenExport from './KlassenExport';
 
 const ADMIN_CODE = '872020';
 const STORAGE_KEY = 'admin_authenticated';
@@ -13,6 +14,7 @@ export default function AdministrationPage() {
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(true);
   const [showImport, setShowImport] = useState(false);
+  const [showExport, setShowExport] = useState(false);
 
   // Prüfen ob bereits authentifiziert (Session Storage)
   useEffect(() => {
@@ -86,13 +88,26 @@ export default function AdministrationPage() {
         <a href="/frage?next=%2Foptionen" className="inline-block bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center">Optionen</a>
         <a href="/frage?next=%2Fmeldungen" className="inline-block bg-slate-600 hover:bg-slate-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center">Eingegangene Meldungen</a>
         <button
-          onClick={() => setShowImport((v) => !v)}
+          onClick={() => {
+            setShowImport((v) => !v);
+            setShowExport(false);
+          }}
           className="inline-block bg-orange-600 hover:bg-orange-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center"
         >
           {showImport ? 'Import ausblenden' : 'Schüler importieren'}
         </button>
+        <button
+          onClick={() => {
+            setShowExport((v) => !v);
+            setShowImport(false);
+          }}
+          className="inline-block bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center"
+        >
+          {showExport ? 'Export ausblenden' : 'Klassenlisten exportieren'}
+        </button>
       </div>
       {showImport && <SchuelerImport />}
+      {showExport && <KlassenExport />}
     </div>
   );
 }

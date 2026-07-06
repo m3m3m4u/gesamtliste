@@ -2,7 +2,7 @@
 import { utils, writeFile as writeXlsxFile, WorkBook } from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType, AlignmentType, PageOrientation, BorderStyle } from 'docx';
+import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType, AlignmentType, PageOrientation, BorderStyle, PageBreak } from 'docx';
 
 // Zentrale Unicode-Säuberung / Normalisierung für PDF-Ausgaben
 // Ziel: Entfernt problematische Steuer-/Unsichtbar-Zeichen, vereinheitlicht Sonderformen (Anführungen, Bindestriche, NBSP)
@@ -332,6 +332,218 @@ export async function exportWord({ filenameBase, headers, rows, title, word }: E
       }
     ]
   });
+  const blob = await Packer.toBlob(doc);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filenameBase + '.docx';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+export function exportMultipleExcel(
+  classes: { className: string; title: string; headers: string[]; rows: (string | number | boolean | null | undefined)[][] }[],
+  filenameBase: string,
+  onePagePerClass: boolean
+) {
+  const wb: WorkBook = utils.book_new();
+  
+  if (onePagePerClass) {
+    classes.forEach(c => {
+      const norm = c.rows.map(r => r.map(cell => cell == null ? '' : String(cell)));
+      const aoa: string[][] = [];
+      if (c.title) aoa.push([c.title]);
+      aoa.push(c.headers);
+      aoa.push(...norm);
+      const ws = utils.aoa_to_sheet(aoa);
+      if (c.title) {
+        (ws['!merges'] = ws['!merges'] || []).push({ s: { r: 0, c: 0 }, e: { r: 0, c: c.headers.length - 1 } });
+      }
+      const safeSheetName = c.className.replace(/[:\\/?*\[\]]/g, '_').slice(0, 31) || 'Klasse';
+      utils.book_append_sheet(wb, ws, safeSheetName);
+    });
+  } else {
+    const aoa: string[][] = [];
+    let headers: string[] = [];
+    if (classes.length > 0) {
+      headers = classes[0].headers;
+      aoa.push([`Klassenliste Gesamt`]);
+      aoa.push(headers);
+    }
+    
+    classes.forEach(c => {
+      const norm = c.rows.map(r => r.map(cell => cell == null ? '' : String(cell)));
+      aoa.push(...norm);
+    });
+    
+    const ws = utils.aoa_to_sheet(aoa);
+    if (headers.length > 0) {
+      (ws['!merges'] = ws['!merges'] || []).push({ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } });
+    }
+    utils.book_append_sheet(wb, ws, 'Gesamtliste');
+  }
+  
+  writeXlsxFile(wb, filenameBase + '.xlsx');
+}
+
+export async function exportMultiplePDF(
+  classes: { className: string; title: string; headers: string[]; rows: (string | number | boolean | null | undefined)[][] }[],
+  filenameBase: string,
+  onePagePerClass: boolean
+) {
+  const doc = new jsPDF({ orientation: 'landscape' });
+  const unicode = await ensureUnicodeFont(doc, true);
+  const sanitize = (v: unknown) => sanitizeUnicode(v, { debugTag: 'table' });
+  
+  if (unicode) doc.setFont('NotoSans', 'normal'); else doc.setFont('helvetica', 'normal');
+  
+  if (onePagePerClass) {
+    classes.forEach((c, idx) => {
+      if (idx > 0) doc.addPage();
+      
+      doc.setFontSize(14);
+      if (unicode) doc.setFont('NotoSans', 'normal'); else doc.setFont('helvetica', 'bold');
+      doc.text(sanitize(c.title), 14, 16);
+      if (!unicode) doc.setFont('helvetica', 'normal');
+      
+      autoTable(doc, {
+        startY: 22,
+        head: [c.headers.map(h => sanitize(h))],
+        body: c.rows.map(r => r.map(cell => sanitize(cell))),
+        styles: { font: unicode ? 'NotoSans' : 'helvetica', fontSize: 10 },
+        headStyles: { fontStyle: unicode ? 'normal' : 'bold', font: unicode ? 'NotoSans' : 'helvetica' }
+      });
+    });
+  } else {
+    doc.setFontSize(14);
+    const combinedTitle = `Klassenliste Gesamt`;
+    if (unicode) doc.setFont('NotoSans', 'normal'); else doc.setFont('helvetica', 'bold');
+    doc.text(sanitize(combinedTitle), 14, 16);
+    if (!unicode) doc.setFont('helvetica', 'normal');
+    
+    const allHeaders = classes.length > 0 ? classes[0].headers : [];
+    const allRows: any[][] = [];
+    classes.forEach(c => {
+      allRows.push(...c.rows);
+    });
+    
+    autoTable(doc, {
+      startY: 22,
+      head: [allHeaders.map(h => sanitize(h))],
+      body: allRows.map(r => r.map(cell => sanitize(cell))),
+      styles: { font: unicode ? 'NotoSans' : 'helvetica', fontSize: 10 },
+      headStyles: { fontStyle: unicode ? 'normal' : 'bold', font: unicode ? 'NotoSans' : 'helvetica' }
+    });
+  }
+  
+  doc.save(filenameBase + '.pdf');
+}
+
+export async function exportMultipleWord(
+  classes: { className: string; title: string; headers: string[]; rows: (string | number | boolean | null | undefined)[][] }[],
+  filenameBase: string,
+  onePagePerClass: boolean
+) {
+  const sectionChildren: (Paragraph | Table)[] = [];
+  const fontSize = 10;
+  const headerFontSize = fontSize + 1;
+  const headerBg = 'd9d9d9';
+  
+  if (onePagePerClass) {
+    classes.forEach((c, idx) => {
+      if (idx > 0) {
+        sectionChildren.push(new Paragraph({ children: [new PageBreak()] }));
+      }
+      
+      if (c.title) {
+        sectionChildren.push(new Paragraph({ 
+          alignment: AlignmentType.CENTER, 
+          spacing: { after: 200 },
+          children: [new TextRun({ text: c.title, size: (headerFontSize + 4) * 2, bold: true })] 
+        }));
+      }
+      
+      const tableRows: TableRow[] = [];
+      tableRows.push(new TableRow({ children: c.headers.map(h => new TableCell({
+        shading: { fill: headerBg },
+        children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, size: headerFontSize * 2 })] })]
+      })) }));
+      
+      c.rows.forEach((r, rowIdx) => {
+        const zebra = rowIdx % 2 === 1;
+        tableRows.push(new TableRow({ children: r.map(cell => new TableCell({
+          shading: zebra ? { fill: 'f5f5f5' } : undefined,
+          children: [new Paragraph({ children: [new TextRun({ text: String(cell ?? ''), size: fontSize * 2 })] })]
+        })) }));
+      });
+      
+      const table = new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: tableRows,
+        borders: {
+          top: { style: BorderStyle.SINGLE, size: 4, color: 'cccccc' },
+          bottom: { style: BorderStyle.SINGLE, size: 4, color: 'cccccc' },
+          left: { style: BorderStyle.SINGLE, size: 4, color: 'cccccc' },
+          right: { style: BorderStyle.SINGLE, size: 4, color: 'cccccc' },
+          insideHorizontal: { style: BorderStyle.SINGLE, size: 4, color: 'eeeeee' },
+          insideVertical: { style: BorderStyle.SINGLE, size: 4, color: 'eeeeee' }
+        }
+      });
+      
+      sectionChildren.push(table);
+    });
+  } else {
+    const combinedTitle = `Klassenliste Gesamt`;
+    sectionChildren.push(new Paragraph({ 
+      alignment: AlignmentType.CENTER, 
+      spacing: { after: 200 },
+      children: [new TextRun({ text: combinedTitle, size: (headerFontSize + 4) * 2, bold: true })] 
+    }));
+    
+    const tableRows: TableRow[] = [];
+    const allHeaders = classes.length > 0 ? classes[0].headers : [];
+    
+    tableRows.push(new TableRow({ children: allHeaders.map(h => new TableCell({
+      shading: { fill: headerBg },
+      children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, size: headerFontSize * 2 })] })]
+    })) }));
+    
+    let rowIdx = 0;
+    classes.forEach(c => {
+      c.rows.forEach(r => {
+        const zebra = rowIdx % 2 === 1;
+        tableRows.push(new TableRow({ children: r.map(cell => new TableCell({
+          shading: zebra ? { fill: 'f5f5f5' } : undefined,
+          children: [new Paragraph({ children: [new TextRun({ text: String(cell ?? ''), size: fontSize * 2 })] })]
+        })) }));
+        rowIdx++;
+      });
+    });
+    
+    const table = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: tableRows,
+      borders: {
+        top: { style: BorderStyle.SINGLE, size: 4, color: 'cccccc' },
+        bottom: { style: BorderStyle.SINGLE, size: 4, color: 'cccccc' },
+        left: { style: BorderStyle.SINGLE, size: 4, color: 'cccccc' },
+        right: { style: BorderStyle.SINGLE, size: 4, color: 'cccccc' },
+        insideHorizontal: { style: BorderStyle.SINGLE, size: 4, color: 'eeeeee' },
+        insideVertical: { style: BorderStyle.SINGLE, size: 4, color: 'eeeeee' }
+      }
+    });
+    
+    sectionChildren.push(table);
+  }
+  
+  const doc = new Document({
+    sections: [
+      {
+        properties: { page: { size: { orientation: PageOrientation.LANDSCAPE } } },
+        children: sectionChildren
+      }
+    ]
+  });
+  
   const blob = await Packer.toBlob(doc);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
