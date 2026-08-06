@@ -15,6 +15,11 @@ export default function KlassenExport() {
   const [availableClasses, setAvailableClasses] = useState<ClassOption[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   
+  const spFeld = schuljahr === '25/26' ? 'Schwerpunkte' : `Schwerpunkte ${schuljahr}`;
+  const fruehFeld = schuljahr === '25/26' ? 'Frühbetreuung' : `Frühbetreuung ${schuljahr}`;
+  const angFeld = schuljahr === '25/26' ? 'Angebote' : `Angebote ${schuljahr}`;
+  const sjKey = schuljahr.replace('/', '');
+
   // State for selected fields
   const FIELD_OPTIONS = [
     'Nr.',
@@ -30,9 +35,9 @@ export default function KlassenExport() {
     'Religion an/ab',
     'Benutzername',
     'Passwort',
-    'Angebote',
-    'Frühbetreuung',
-    'Schwerpunkte',
+    angFeld,
+    fruehFeld,
+    spFeld,
     'Anton'
   ];
   const [selectedFields, setSelectedFields] = useState<string[]>([
@@ -79,9 +84,12 @@ export default function KlassenExport() {
         const optRes = await fetch('/api/options', { cache: 'no-store' });
         if (optRes.ok) {
           const ov = await optRes.json();
-          setOptAngebote(Array.isArray(ov.angebote) ? ov.angebote : []);
-          setOptFrueh(Array.isArray(ov.fruehbetreuung) ? ov.fruehbetreuung : []);
-          setOptSchwerpunkte(Array.isArray(ov.schwerpunkte) ? ov.schwerpunkte : []);
+          const angKey = `angebote_${sjKey}`;
+          const fruehKey = `fruehbetreuung_${sjKey}`;
+          const spKey = `schwerpunkte_${sjKey}`;
+          setOptAngebote(Array.isArray(ov[angKey]) ? ov[angKey] : Array.isArray(ov.angebote) ? ov.angebote : []);
+          setOptFrueh(Array.isArray(ov[fruehKey]) ? ov[fruehKey] : Array.isArray(ov.fruehbetreuung) ? ov.fruehbetreuung : []);
+          setOptSchwerpunkte(Array.isArray(ov[spKey]) ? ov[spKey] : Array.isArray(ov.schwerpunkte) ? ov.schwerpunkte : []);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Klassen konnten nicht geladen werden.');
@@ -171,16 +179,16 @@ export default function KlassenExport() {
     if (field === 'Religion an/ab') {
       return getRelAnAb(rec);
     }
-    if (field === 'Angebote' || field === 'Frühbetreuung') {
+    if (field === angFeld || field === fruehFeld) {
       const val = rec[field];
-      const allowed = field === 'Angebote' ? allowedAngebote : allowedFrueh;
+      const allowed = field === angFeld ? allowedAngebote : allowedFrueh;
       const arr = toArr(val);
       const filtered = allowed.size ? arr.filter(v => allowed.has(v.toLowerCase())) : arr;
       return filtered.join(', ');
     }
-    if (field === 'Schwerpunkte') {
-      let val = rec['Schwerpunkte'];
-      if (val == null || (Array.isArray(val) && val.length === 0)) {
+    if (field === spFeld) {
+      let val = rec[spFeld];
+      if (schuljahr === '25/26' && (val == null || (Array.isArray(val) && val.length === 0))) {
         val = rec['Schwerpunkt'];
       }
       const arr = toArr(val);

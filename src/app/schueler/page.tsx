@@ -211,9 +211,15 @@ export default function Schueler() {
         // Split bei gängigen Separatoren
         return s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean);
       };
-      clone[angFeld]  = toArr(clone[angFeld]  ?? clone.Angebote);
-      clone[spFeld]   = toArr(clone[spFeld]   ?? clone.Schwerpunkte ?? clone.Schwerpunkt);
-      clone[fruehFeld] = toArr(clone[fruehFeld] ?? clone['Frühbetreuung']);
+      if (schuljahr === '25/26') {
+        clone['Angebote'] = toArr(clone['Angebote']);
+        clone['Schwerpunkte'] = toArr(clone['Schwerpunkte'] ?? clone['Schwerpunkt']);
+        clone['Frühbetreuung'] = toArr(clone['Frühbetreuung']);
+      } else {
+        clone[angFeld] = toArr(clone[angFeld]);
+        clone[spFeld] = toArr(clone[spFeld]);
+        clone[fruehFeld] = toArr(clone[fruehFeld]);
+      }
       // Religion an/ab auf zulässige Werte normalisieren und Schreibvarianten (inkl. Tippfehler) konsolidieren
       // 1) Varianten finden, ggf. Wert auf kanonisches Feld migrieren, Varianten löschen
       const keys = Object.keys(clone);
