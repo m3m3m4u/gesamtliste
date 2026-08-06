@@ -4,8 +4,28 @@ import clientPromise from '@/lib/mongodb';
 
 // Single-Dokument-Konfiguration der erlaubten Listenwerte
 // _id: 'optionen', Felder: { angebote: string[], schwerpunkte: string[], fruehbetreuung: string[] }
+// Neu: jahresspezifische Felder angebote_2526, angebote_2627 etc.
 
-interface OptionenDoc { _id: string; angebote: string[]; schwerpunkte: string[]; fruehbetreuung: string[]; status?: string[]; religionen?: string[]; klassen?: string[]; sprachen?: string[]; updatedAt?: string }
+interface OptionenDoc {
+  _id: string;
+  // Legacy (werden als Fallback für 25/26 verwendet)
+  angebote: string[];
+  schwerpunkte: string[];
+  fruehbetreuung: string[];
+  // Jahresspezifisch
+  angebote_2526: string[];
+  angebote_2627: string[];
+  schwerpunkte_2526: string[];
+  schwerpunkte_2627: string[];
+  fruehbetreuung_2526: string[];
+  fruehbetreuung_2627: string[];
+  // Weitere Optionen
+  status?: string[];
+  religionen?: string[];
+  klassen?: string[];
+  sprachen?: string[];
+  updatedAt?: string;
+}
 
 async function loadDoc(){
   const client = await clientPromise; const db = client.db(); const col = db.collection<OptionenDoc>('config');
@@ -15,10 +35,36 @@ async function loadDoc(){
 
 export async function GET(){
   const { doc } = await loadDoc();
+
+  // Legacy-Felder als Fallback für 25/26
+  const legacyAngebote = Array.isArray(doc?.angebote) ? doc!.angebote : [];
+  const legacySchwerpunkte = Array.isArray(doc?.schwerpunkte) ? doc!.schwerpunkte : [];
+  const legacyFrueh = Array.isArray(doc?.fruehbetreuung) ? doc!.fruehbetreuung : [];
+
+  // Jahresspezifische Felder – bei Leerheit aus Legacy befüllen (einmalige Migration)
+  const angebote_2526 = Array.isArray(doc?.angebote_2526) && doc!.angebote_2526.length > 0
+    ? doc!.angebote_2526 : legacyAngebote;
+  const angebote_2627 = Array.isArray(doc?.angebote_2627) ? doc!.angebote_2627 : [];
+  const schwerpunkte_2526 = Array.isArray(doc?.schwerpunkte_2526) && doc!.schwerpunkte_2526.length > 0
+    ? doc!.schwerpunkte_2526 : legacySchwerpunkte;
+  const schwerpunkte_2627 = Array.isArray(doc?.schwerpunkte_2627) ? doc!.schwerpunkte_2627 : [];
+  const fruehbetreuung_2526 = Array.isArray(doc?.fruehbetreuung_2526) && doc!.fruehbetreuung_2526.length > 0
+    ? doc!.fruehbetreuung_2526 : legacyFrueh;
+  const fruehbetreuung_2627 = Array.isArray(doc?.fruehbetreuung_2627) ? doc!.fruehbetreuung_2627 : [];
+
   const out: OptionenDoc = {
-    angebote: Array.isArray(doc?.angebote) ? doc!.angebote : [],
-    schwerpunkte: Array.isArray(doc?.schwerpunkte) ? doc!.schwerpunkte : [],
-    fruehbetreuung: Array.isArray(doc?.fruehbetreuung) ? doc!.fruehbetreuung : [],
+    // Legacy-Felder (zur Rückwärtskompatibilität)
+    angebote: legacyAngebote,
+    schwerpunkte: legacySchwerpunkte,
+    fruehbetreuung: legacyFrueh,
+    // Jahresspezifisch
+    angebote_2526,
+    angebote_2627,
+    schwerpunkte_2526,
+    schwerpunkte_2627,
+    fruehbetreuung_2526,
+    fruehbetreuung_2627,
+    // Weitere
     status: Array.isArray(doc?.status) ? doc!.status : [],
     religionen: Array.isArray(doc?.religionen) ? doc!.religionen : [],
     klassen: Array.isArray(doc?.klassen) ? doc!.klassen : [],
@@ -80,9 +126,18 @@ export async function PUT(request: Request){
     const filterForbidden = (arr: string[]): string[] => arr.filter(x => !isForbidden(x));
     const doc = {
       _id: 'optionen',
-      angebote: filterForbidden(norm(body.angebote)),
-      schwerpunkte: filterForbidden(norm(body.schwerpunkte)),
-      fruehbetreuung: norm(body.fruehbetreuung),
+      // Legacy-Felder mitschreiben (Rückwärtskompatibilität: aus 2526-Feldern ableiten)
+      angebote: filterForbidden(norm(body.angebote_2526 ?? body.angebote)),
+      schwerpunkte: filterForbidden(norm(body.schwerpunkte_2526 ?? body.schwerpunkte)),
+      fruehbetreuung: norm(body.fruehbetreuung_2526 ?? body.fruehbetreuung),
+      // Jahresspezifisch
+      angebote_2526: filterForbidden(norm(body.angebote_2526)),
+      angebote_2627: filterForbidden(norm(body.angebote_2627)),
+      schwerpunkte_2526: filterForbidden(norm(body.schwerpunkte_2526)),
+      schwerpunkte_2627: filterForbidden(norm(body.schwerpunkte_2627)),
+      fruehbetreuung_2526: norm(body.fruehbetreuung_2526),
+      fruehbetreuung_2627: norm(body.fruehbetreuung_2627),
+      // Weitere
       status: norm(body.status),
       religionen: norm(body.religionen),
       klassen: norm(body.klassen),

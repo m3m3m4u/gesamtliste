@@ -3,16 +3,13 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { exportExcel, exportPDF, exportWord } from '@/lib/exporters';
 import type { StudentDoc } from '@/lib/mongodb';
-import { SchuljahresWechsler } from '@/lib/schuljahr';
+import { SchuljahresWechsler, useSchuljahr } from '@/lib/schuljahr';
 type Student = StudentDoc;
 type Row = Student & { [key: string]: unknown };
 
 type OptionenResponse = {
-  angebote?: unknown[];
-  schwerpunkte?: unknown[];
+  [key: string]: unknown;
 };
-
-const FIELD_OPTIONS = ['Vorname','Familienname','Benutzername','Geburtsdatum','Klasse 25/26','Stufe 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung','Schwerpunkte'];
 
 function normalizeOptionList(values: unknown[]): string[] {
   const map = new Map<string, string>();
@@ -35,6 +32,21 @@ function splitSchwerpunkteString(str: string): string[] {
 }
 
 export default function SchwerpunktePage() {
+  const { schuljahr } = useSchuljahr();
+
+  // Jahresspezifische Feldnamen
+  const spFeld = schuljahr === '25/26' ? 'Schwerpunkte' : `Schwerpunkte ${schuljahr}`;
+  const angeboteFeld = schuljahr === '25/26' ? 'Angebote' : `Angebote ${schuljahr}`;
+  const sjKey = schuljahr.replace('/', ''); // '2526' oder '2627'
+
+  const FIELD_OPTIONS = useMemo(() => [
+    'Vorname','Familienname','Benutzername','Geburtsdatum',
+    `Klasse ${schuljahr}`,`Stufe ${schuljahr}`,'Status','Muttersprache','Religion','Passwort',
+    angeboteFeld,
+    schuljahr === '25/26' ? 'Frühbetreuung' : `Frühbetreuung ${schuljahr}`,
+    spFeld,
+  ], [schuljahr, angeboteFeld, spFeld]);
+
   const [schwerpunkt, setSchwerpunkt] = useState('');
   const [stufe, setStufe] = useState('');
   const [liste, setListe] = useState<string[]>([]);
@@ -48,28 +60,40 @@ export default function SchwerpunktePage() {
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc');
 
+  // Optionen und Schwerpunkte je nach Schuljahr laden
   useEffect(() => {
+    setSchwerpunkt(''); // Reset bei Schuljahreswechsel
     (async () => {
       try {
+        const spFieldKey = `schwerpunkte_${sjKey}`;
+        const angFieldKey = `angebote_${sjKey}`;
+
         const [optRes, studentsRes] = await Promise.all([
           fetch('/api/options', { cache: 'no-store' }),
-          fetch('/api/students?limit=3000&fields=Schwerpunkte,Schwerpunkt')
+          // Für 26/27 gibt es ggf. noch keine Schüler mit Schwerpunkten → kein Fallback nötig
+          schuljahr === '25/26'
+            ? fetch('/api/students?limit=3000&fields=Schwerpunkte,Schwerpunkt')
+            : Promise.resolve(null)
         ]);
 
         const optJson: OptionenResponse | null = optRes.ok ? await optRes.json() : null;
-        const studentJson: { items?: Student[] } = studentsRes.ok ? await studentsRes.json() : { items: [] };
+        const studentJson: { items?: Student[] } = (studentsRes && studentsRes.ok)
+          ? await studentsRes.json() : { items: [] };
 
         const angebotSet = new Set<string>();
-        optJson?.angebote?.forEach((s) => {
+        const angArr = Array.isArray(optJson?.[angFieldKey]) ? optJson![angFieldKey] as unknown[] : [];
+        angArr.forEach((s) => {
           const value = String(s ?? '').trim();
           if (value) angebotSet.add(value.toLowerCase());
         });
         setAllowedAngebote(angebotSet);
 
         let schwerpunkteList: string[] = [];
-        if (optJson?.schwerpunkte && optJson.schwerpunkte.length) {
-          schwerpunkteList = normalizeOptionList(optJson.schwerpunkte);
-        } else {
+        const spArr = Array.isArray(optJson?.[spFieldKey]) ? optJson![spFieldKey] as unknown[] : [];
+        if (spArr.length) {
+          schwerpunkteList = normalizeOptionList(spArr);
+        } else if (schuljahr === '25/26') {
+          // Fallback: aus Schülerdaten ableiten (nur für 25/26 relevant)
           const tokens: string[] = [];
           for (const s of (studentJson.items || []) as Student[]) {
             if (Array.isArray(s.Schwerpunkte)) {
@@ -93,7 +117,7 @@ export default function SchwerpunktePage() {
         /* ignore */
       }
     })();
-  }, []);
+  }, [sjKey, schuljahr]);
 
   useEffect(() => {
     if (schwerpunkt && !liste.includes(schwerpunkt)) {
@@ -125,21 +149,21 @@ export default function SchwerpunktePage() {
     }
     return v;
   }
+
   const extractSchwerpunkteTokens = useCallback((row: Student): string[] => {
     const tokens: string[] = [];
     const addFrom = (val: unknown) => {
       if (!val) return;
-      if (Array.isArray(val)) {
-        val.forEach(addFrom);
-        return;
-      }
+      if (Array.isArray(val)) { val.forEach(addFrom); return; }
       const str = String(val ?? '');
       if (!str) return;
       tokens.push(...splitSchwerpunkteString(str));
     };
     const r = row as Row;
-    addFrom(r.Schwerpunkte);
-    addFrom(r.Schwerpunkt);
+    // Lese aus dem jahresspezifischen Feld
+    addFrom(r[spFeld]);
+    // Für 25/26: auch altes Singular-Feld berücksichtigen
+    if (schuljahr === '25/26') addFrom(r['Schwerpunkt']);
     const map = new Map<string, string>();
     tokens.forEach(tok => {
       const cleaned = tok.trim().replace(/\s{2,}/g, ' ');
@@ -152,17 +176,28 @@ export default function SchwerpunktePage() {
       values = values.filter(v => allowedSchwerpunkteSet.has(v.toLowerCase()));
     }
     return values;
-  }, [allowedSchwerpunkteSet]);
+  }, [allowedSchwerpunkteSet, spFeld, schuljahr]);
 
   const hasAnySchwerpunkt = useCallback((s: Student) => extractSchwerpunkteTokens(s).length > 0, [extractSchwerpunkteTokens]);
-
   const combinedSchwerpunkte = useCallback((row: Student): string => extractSchwerpunkteTokens(row).join(', '), [extractSchwerpunkteTokens]);
+
+  const filterAllowedAngebote = useCallback((val: unknown): string => {
+    if (!allowedAngebote.size) {
+      if (Array.isArray(val)) return val.map(v=>String(v)).filter(Boolean).join(', ');
+      if (typeof val === 'string') return val;
+      return '';
+    }
+    const parts: string[] = [];
+    if (Array.isArray(val)) parts.push(...val.map(v=>String(v)));
+    else if (typeof val === 'string') parts.push(...val.split(/[,;/\n\r\t]+/));
+    return parts.map(p=>p.trim()).filter(p=>p && allowedAngebote.has(p.toLowerCase())).join(', ');
+  }, [allowedAngebote]);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-  const baseFields = new Set<string>([...selectedFields,'Schwerpunkte','Schwerpunkt']);
-      const params = new URLSearchParams({ limit: '3000', fields: Array.from(baseFields).join(',') });
+      const baseFields = new Set<string>([...selectedFields, spFeld, 'Schwerpunkt']);
+      const params = new URLSearchParams({ limit: '3000', fields: Array.from(baseFields).join(','), schuljahr });
       if (schwerpunkt) params.set('schwerpunkt', schwerpunkt);
       if (stufe) params.set('stufe', stufe);
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
@@ -174,7 +209,7 @@ export default function SchwerpunktePage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Fehler'); setData([]);
     } finally { setLoading(false); }
-  }, [schwerpunkt, selectedFields, stufe, hasAnySchwerpunkt]);
+  }, [schwerpunkt, selectedFields, stufe, hasAnySchwerpunkt, spFeld, schuljahr]);
   const depsKey = useMemo(()=>selectedFields.join('|'),[selectedFields]);
   useEffect(() => { load(); }, [load, depsKey]);
 
@@ -187,17 +222,7 @@ export default function SchwerpunktePage() {
     }
     return String(val).toLowerCase();
   }
-  const filterAllowedAngebote = useCallback((val: unknown): string => {
-    if (!allowedAngebote.size) {
-      if (Array.isArray(val)) return val.map(v=>String(v)).filter(Boolean).join(', ');
-      if (typeof val === 'string') return val;
-      return '';
-    }
-    const parts: string[] = [];
-    if (Array.isArray(val)) parts.push(...val.map(v=>String(v)));
-    else if (typeof val === 'string') parts.push(...val.split(/[,;/\n\r\t]+/));
-    return parts.map(p=>p.trim()).filter(p=>p && allowedAngebote.has(p.toLowerCase())).join(', ');
-  }, [allowedAngebote]);
+
   const sortedData = useMemo(()=>{
     if (!sortField) return data;
     const copy = [...data];
@@ -207,12 +232,12 @@ export default function SchwerpunktePage() {
       if (sortField === 'Familienname') {
         av = A['Familienname'] ?? A['Nachname'];
         bv = B['Familienname'] ?? B['Nachname'];
-      } else if (sortField === 'Schwerpunkte') {
+      } else if (sortField === spFeld) {
         av = combinedSchwerpunkte(A);
         bv = combinedSchwerpunkte(B);
-      } else if (sortField === 'Angebote') {
-        av = filterAllowedAngebote(A['Angebote']);
-        bv = filterAllowedAngebote(B['Angebote']);
+      } else if (sortField === angeboteFeld) {
+        av = filterAllowedAngebote(A[angeboteFeld]);
+        bv = filterAllowedAngebote(B[angeboteFeld]);
       } else {
         av = A[sortField];
         bv = B[sortField];
@@ -229,10 +254,20 @@ export default function SchwerpunktePage() {
       return vorA.localeCompare(vorB,'de');
     });
     return copy;
-  }, [data, sortField, sortDir, combinedSchwerpunkte, filterAllowedAngebote]);
+  }, [data, sortField, sortDir, combinedSchwerpunkte, filterAllowedAngebote, spFeld, angeboteFeld]);
+
   function toggleSort(field: string) {
     if (sortField !== field) { setSortField(field); setSortDir('asc'); }
     else { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }
+  }
+
+  function getCellValue(row: Row, f: string): string {
+    let v: unknown = row[f];
+    if (f === 'Geburtsdatum') v = fmtDate(v);
+    if (f === angeboteFeld) return filterAllowedAngebote(v);
+    if (f === spFeld) return combinedSchwerpunkte(row as Student);
+    if (Array.isArray(v)) return v.join(', ');
+    return v == null ? '' : String(v);
   }
 
   return (
@@ -274,43 +309,22 @@ export default function SchwerpunktePage() {
         </div>
       </div>
       <div className="flex flex-wrap gap-3 items-center">
-  <div className="text-xs text-gray-500">{data.length ? `${data.length} Einträge` : ''}</div>
-  {data.length > 0 && (
+        <div className="text-xs text-gray-500">{data.length ? `${data.length} Einträge` : ''}</div>
+        {data.length > 0 && (
           <div className="flex gap-2">
             <button onClick={() => {
               const base = sortField ? sortedData : data;
-              const rows = base.map(d => { const row = d as Row; return selectedFields.map(f => {
-                let val: unknown = row[f];
-                if (f === 'Geburtsdatum') val = fmtDate(val);
-                if (f === 'Angebote') return filterAllowedAngebote(val);
-                if (f === 'Schwerpunkte') return combinedSchwerpunkte(d as Student);
-                if (Array.isArray(val)) return val.join(', ');
-                return val == null ? '' : String(val);
-              }); });
+              const rows = base.map(d => { const row = d as Row; return selectedFields.map(f => getCellValue(row, f)); });
               exportExcel({ filenameBase: `schwerpunkt-${schwerpunkt}`, headers: selectedFields, rows });
             }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
             <button onClick={async () => {
               const base = sortField ? sortedData : data;
-              const rows = base.map(d => { const row = d as Row; return selectedFields.map(f => {
-                let val: unknown = row[f];
-                if (f === 'Geburtsdatum') val = fmtDate(val);
-                if (f === 'Angebote') return filterAllowedAngebote(val);
-                if (f === 'Schwerpunkte') return combinedSchwerpunkte(d as Student);
-                if (Array.isArray(val)) return val.join(', ');
-                return val == null ? '' : String(val);
-              }); });
+              const rows = base.map(d => { const row = d as Row; return selectedFields.map(f => getCellValue(row, f)); });
               await exportPDF({ filenameBase: `schwerpunkt-${schwerpunkt}`, headers: selectedFields, rows });
             }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
             <button onClick={() => {
               const base = sortField ? sortedData : data;
-              const rows = base.map(d => { const row = d as Row; return selectedFields.map(f => {
-                let val: unknown = row[f];
-                if (f === 'Geburtsdatum') val = fmtDate(val);
-                if (f === 'Angebote') return filterAllowedAngebote(val);
-                if (f === 'Schwerpunkte') return combinedSchwerpunkte(d as Student);
-        if (Array.isArray(val)) val = val.join(', ');
-                return val == null ? '' : String(val);
-              }); });
+              const rows = base.map(d => { const row = d as Row; return selectedFields.map(f => getCellValue(row, f)); });
               exportWord({ filenameBase: `schwerpunkt-${schwerpunkt}`, headers: selectedFields, rows, title: `Schwerpunkt: ${schwerpunkt}`, word: { zebra: true, orientation: 'landscape' } });
             }} className="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Word</button>
           </div>
@@ -319,12 +333,12 @@ export default function SchwerpunktePage() {
       <div>
         {loading && <div className="text-sm">Lade…</div>}
         {error && <div className="text-sm text-red-600">{error}</div>}
-  {!loading && !error && data.length > 0 && (
+        {!loading && !error && data.length > 0 && (
           <div className="overflow-x-auto border rounded bg-white">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100">
                 <tr>
-                    {selectedFields.map(f => {
+                  {selectedFields.map(f => {
                     const active = sortField === f;
                     return (
                       <th
@@ -345,15 +359,11 @@ export default function SchwerpunktePage() {
               <tbody>
                 {(sortField ? sortedData : data).map((row,i) => { const r = row as Row; return (
                   <tr key={r._id || i} className={i%2? 'bg-gray-50' : ''}>
-                    {selectedFields.map(f => {
-                      let v: unknown = r[f];
-                      if (f === 'Geburtsdatum') v = fmtDate(v);
-                      if (f === 'Angebote') v = filterAllowedAngebote(v);
-                      else if (f === 'Schwerpunkte') v = combinedSchwerpunkte(row as Student);
-                      else if (Array.isArray(v)) v = v.join(', ');
-                      if (v === null || v === undefined) v = '';
-                      return <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{String(v)}</td>;
-                    })}
+                    {selectedFields.map(f => (
+                      <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">
+                        {getCellValue(r, f)}
+                      </td>
+                    ))}
                   </tr>
                 ); })}
                 {data.length === 0 && (
@@ -363,7 +373,7 @@ export default function SchwerpunktePage() {
             </table>
           </div>
         )}
-  {!schwerpunkt && !loading && !error && data.length === 0 && <div className="text-sm text-gray-500">Keine Schüler mit Schwerpunkt gefunden.</div>}
+        {!schwerpunkt && !loading && !error && data.length === 0 && <div className="text-sm text-gray-500">Keine Schüler mit Schwerpunkt gefunden.</div>}
       </div>
     </div>
   );

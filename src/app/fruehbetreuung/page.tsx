@@ -3,15 +3,26 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { exportExcel, exportPDF, exportWord } from '@/lib/exporters';
 import type { StudentDoc } from '@/lib/mongodb';
-import { SchuljahresWechsler } from '@/lib/schuljahr';
+import { SchuljahresWechsler, useSchuljahr } from '@/lib/schuljahr';
 
-// Felder analog zu Angebote/Schwerpunkte-Seiten
-const FIELD_OPTIONS = ['Vorname','Familienname','Benutzername','Geburtsdatum','Klasse 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung','Schwerpunkte'];
-
-// Row Typ für dynamische Feldzugriffe (Index-Signature nur für erlaubte Felder)
 type Row = StudentDoc & { [key: string]: unknown };
 
 export default function FruehbetreuungPage() {
+  const { schuljahr } = useSchuljahr();
+
+  // Jahresspezifische Feldnamen
+  const fruehFeld = schuljahr === '25/26' ? 'Frühbetreuung' : `Frühbetreuung ${schuljahr}`;
+  const angeboteFeld = schuljahr === '25/26' ? 'Angebote' : `Angebote ${schuljahr}`;
+  const sjKey = schuljahr.replace('/', ''); // '2526' oder '2627'
+
+  const FIELD_OPTIONS = useMemo(() => [
+    'Vorname','Familienname','Benutzername','Geburtsdatum',
+    `Klasse ${schuljahr}`,'Status','Muttersprache','Religion','Passwort',
+    angeboteFeld,
+    fruehFeld,
+    schuljahr === '25/26' ? 'Schwerpunkte' : `Schwerpunkte ${schuljahr}`,
+  ], [schuljahr, angeboteFeld, fruehFeld]);
+
   const [slot, setSlot] = useState('');
   const [slots, setSlots] = useState<string[]>([]);
   const [allowedSet, setAllowedSet] = useState<Set<string>>(new Set());
@@ -23,17 +34,37 @@ export default function FruehbetreuungPage() {
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc');
 
-  useEffect(() => { (async () => { try { const r = await fetch('/api/options',{cache:'no-store'}); if(!r.ok) return; const j = await r.json(); const arr: string[] = Array.isArray(j.fruehbetreuung)? j.fruehbetreuung.map((s:string)=>String(s).trim()).filter(Boolean): []; // sortierung wie in optionen-Seite (Wochentage zuerst)
-    const weekdayOrder = ['mo','montag','di','dienstag','mi','mittwoch','do','donnerstag','fr','freitag','sa','samstag','so','sonntag'];
-    const score = (s: string) => { const lc = s.toLowerCase(); for (let i=0;i<weekdayOrder.length;i++){ if(lc.startsWith(weekdayOrder[i])) return i; } return 100 + s.localeCompare(s,'de'); };
-    arr.sort((a,b)=>{ const sa=score(a); const sb=score(b); if (sa!==sb) return sa-sb; return a.localeCompare(b,'de'); });
-    setSlots(arr); setAllowedSet(new Set(arr.map(v=>v.toLowerCase())));
-    if (Array.isArray(j.angebote)) {
-      const set = new Set<string>();
-      j.angebote.forEach((s:string)=>{ const t=String(s).trim(); if(t) set.add(t.toLowerCase()); });
-      setAllowedAngebote(set);
-    }
-  } catch{} })(); }, []);
+  // Slots und Angebote-Liste je nach Schuljahr laden
+  useEffect(() => {
+    setSlot(''); // Reset bei Schuljahreswechsel
+    (async () => {
+      try {
+        const r = await fetch('/api/options', { cache: 'no-store' });
+        if (!r.ok) return;
+        const j = await r.json();
+
+        const fruehKey = `fruehbetreuung_${sjKey}` as keyof typeof j;
+        const angKey = `angebote_${sjKey}` as keyof typeof j;
+
+        const arr: string[] = Array.isArray(j[fruehKey])
+          ? j[fruehKey].map((s: string) => String(s).trim()).filter(Boolean)
+          : [];
+
+        // Sortierung: Wochentage zuerst
+        const weekdayOrder = ['mo','montag','di','dienstag','mi','mittwoch','do','donnerstag','fr','freitag','sa','samstag','so','sonntag'];
+        const score = (s: string) => { const lc = s.toLowerCase(); for (let i=0;i<weekdayOrder.length;i++){ if(lc.startsWith(weekdayOrder[i])) return i; } return 100 + s.localeCompare(s,'de'); };
+        arr.sort((a,b)=>{ const sa=score(a); const sb=score(b); if (sa!==sb) return sa-sb; return a.localeCompare(b,'de'); });
+        setSlots(arr);
+        setAllowedSet(new Set(arr.map(v=>v.toLowerCase())));
+
+        if (Array.isArray(j[angKey])) {
+          const set = new Set<string>();
+          (j[angKey] as string[]).forEach((s: string)=>{ const t=String(s).trim(); if(t) set.add(t.toLowerCase()); });
+          setAllowedAngebote(set);
+        }
+      } catch {}
+    })();
+  }, [sjKey]);
 
   function toggleField(f: string){ setSelectedFields(p=>p.includes(f)? p.filter(x=>x!==f): [...p,f]); }
 
@@ -42,14 +73,34 @@ export default function FruehbetreuungPage() {
   const filterAllowedSlot = useCallback((v: unknown): string => { const arr = toArr(v); if(!allowedSet.size) return arr.join(', '); return arr.filter(x=>allowedSet.has(x.toLowerCase())).join(', '); }, [allowedSet, toArr]);
   const filterAllowedAngebote = useCallback((v: unknown): string => { const arr = toArr(v); if(!allowedAngebote.size) return arr.join(', '); return arr.filter(x=>allowedAngebote.has(x.toLowerCase())).join(', '); }, [allowedAngebote, toArr]);
 
-  const load = useCallback(async () => { if(!slot){ setData([]); return; } setLoading(true); setError(null); try { const params = new URLSearchParams({ fruehbetreuung: slot, limit: '3000', fields: selectedFields.join(',') }); const res = await fetch('/api/students?'+params.toString(), {cache:'no-store'}); if(!res.ok) throw new Error(await res.text()); const json: {items?: StudentDoc[]} = await res.json(); setData(json.items||[]); } catch(e){ setError(e instanceof Error ? e.message : 'Fehler'); setData([]);} finally{ setLoading(false);} }, [slot, selectedFields]);
+  const load = useCallback(async () => {
+    if(!slot){ setData([]); return; }
+    setLoading(true); setError(null);
+    try {
+      const params = new URLSearchParams({ fruehbetreuung: slot, limit: '3000', fields: selectedFields.join(','), schuljahr });
+      const res = await fetch('/api/students?'+params.toString(), { cache:'no-store' });
+      if(!res.ok) throw new Error(await res.text());
+      const json: {items?: StudentDoc[]} = await res.json();
+      setData(json.items||[]);
+    } catch(e){ setError(e instanceof Error ? e.message : 'Fehler'); setData([]);}
+    finally{ setLoading(false);}
+  }, [slot, selectedFields, schuljahr]);
   const depsKey = useMemo(()=>selectedFields.join('|'),[selectedFields]);
   useEffect(()=>{ load(); }, [load, slot, depsKey]);
 
   function normalizeSortVal(val: unknown, field: string): string { if (val==null) return ''; if (Array.isArray(val)) return val.map(v=>String(v)).join(', ').toLowerCase(); if (field==='Geburtsdatum' && typeof val === 'string'){ const iso = val.match(/^(\d{4})-(\d{2})-(\d{2})/); if(iso) return iso[1]+iso[2]+iso[3]; const de = val.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if(de) return de[3]+de[2]+de[1]; } return String(val).toLowerCase(); }
 
-  const sortedData = useMemo(()=>{ if(!sortField) return data; const copy=[...data]; copy.sort((a,b)=>{ const A = a as Row; const B = b as Row; let av: unknown; let bv: unknown; if (sortField==='Familienname'){ av = A['Familienname'] ?? A['Nachname']; bv = B['Familienname'] ?? B['Nachname']; } else if (sortField==='Frühbetreuung'){ av = filterAllowedSlot(A['Frühbetreuung']); bv = filterAllowedSlot(B['Frühbetreuung']); } else if (sortField==='Angebote'){ av = filterAllowedAngebote(A['Angebote']); bv = filterAllowedAngebote(B['Angebote']); } else { av = A[sortField]; bv = B[sortField]; } const AS = normalizeSortVal(av, sortField); const BS = normalizeSortVal(bv, sortField); if (AS<BS) return sortDir==='asc'? -1:1; if (AS>BS) return sortDir==='asc'? 1:-1; const famA = normalizeSortVal(A['Familienname'] ?? A['Nachname'],'Familienname'); const famB = normalizeSortVal(B['Familienname'] ?? B['Nachname'],'Familienname'); if (famA!==famB) return famA.localeCompare(famB,'de'); const vorA = normalizeSortVal(A['Vorname'],'Vorname'); const vorB = normalizeSortVal(B['Vorname'],'Vorname'); return vorA.localeCompare(vorB,'de'); }); return copy; }, [data, sortField, sortDir, filterAllowedSlot, filterAllowedAngebote]);
-  function toggleSort(field: string){ if (sortField !== field){ setSortField(field); setSortDir('asc'); } else { setSortDir(d=> d==='asc' ? 'desc' : 'asc'); } }
+  const sortedData = useMemo(()=>{ if(!sortField) return data; const copy=[...data]; copy.sort((a,b)=>{ const A = a as Row; const B = b as Row; let av: unknown; let bv: unknown; if (sortField==='Familienname'){ av = A['Familienname'] ?? A['Nachname']; bv = B['Familienname'] ?? B['Nachname']; } else if (sortField===fruehFeld){ av = filterAllowedSlot(A[fruehFeld]); bv = filterAllowedSlot(B[fruehFeld]); } else if (sortField===angeboteFeld){ av = filterAllowedAngebote(A[angeboteFeld]); bv = filterAllowedAngebote(B[angeboteFeld]); } else { av = A[sortField]; bv = B[sortField]; } const AS = normalizeSortVal(av, sortField); const BS = normalizeSortVal(bv, sortField); if (AS<BS) return sortDir==='asc'? -1:1; if (AS>BS) return sortDir==='asc'? 1:-1; const famA = normalizeSortVal(A['Familienname'] ?? A['Nachname'],'Familienname'); const famB = normalizeSortVal(B['Familienname'] ?? B['Nachname'],'Familienname'); if (famA!==famB) return famA.localeCompare(famB,'de'); const vorA = normalizeSortVal(A['Vorname'],'Vorname'); const vorB = normalizeSortVal(B['Vorname'],'Vorname'); return vorA.localeCompare(vorB,'de'); }); return copy; }, [data, sortField, sortDir, filterAllowedSlot, filterAllowedAngebote, fruehFeld, angeboteFeld]);
+  function toggleSort(field: string){ if (sortField !== field){ setSortField(field); setSortDir('asc'); } else { setSortDir(d=>d==='asc' ? 'desc' : 'asc'); } }
+
+  function getCellValue(row: Row, f: string): string {
+    let v: unknown = row[f];
+    if (f === 'Geburtsdatum') v = fmtDate(v);
+    if (f === fruehFeld) return filterAllowedSlot(v);
+    if (f === angeboteFeld) return filterAllowedAngebote(v);
+    if (Array.isArray(v)) return v.join(', ');
+    return v == null ? '' : String(v);
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -65,7 +116,7 @@ export default function FruehbetreuungPage() {
           <label className="block text-xs font-semibold mb-1">Frühbetreuung wählen</label>
           <select value={slot} onChange={e=>setSlot(e.target.value)} className="border rounded px-3 py-2 min-w-[220px]">
             <option value="">– Frühbetreuung –</option>
-            {slots.map(a=> <option key={a} value={a}>{a}</option>)}
+            {slots.map(a=><option key={a} value={a}>{a}</option>)}
           </select>
         </div>
         <div>
@@ -84,9 +135,9 @@ export default function FruehbetreuungPage() {
         <div className="text-xs text-gray-500">{slot && (sortField? sortedData : data).length ? `${(sortField? sortedData : data).length} Einträge` : ''}</div>
         {slot && data.length>0 && (
           <div className="flex gap-2">
-            <button onClick={()=>{ const base = sortField? sortedData : data; const rows = base.map(d=>{ const row = d as Row; return selectedFields.map(f=>{ let val: unknown = row[f]; if (f==='Geburtsdatum') val = fmtDate(val); if (f==='Frühbetreuung') return filterAllowedSlot(val); if (f==='Angebote') return filterAllowedAngebote(val); if (Array.isArray(val)) return val.join(', '); return val==null? '' : String(val); }); }); exportExcel({ filenameBase: `fruehbetreuung-${slot}`, headers: selectedFields, rows }); }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
-            <button onClick={async ()=>{ const base = sortField? sortedData : data; const rows = base.map(d=>{ const row = d as Row; return selectedFields.map(f=>{ let val: unknown = row[f]; if (f==='Geburtsdatum') val = fmtDate(val); if (f==='Frühbetreuung') return filterAllowedSlot(val); if (f==='Angebote') return filterAllowedAngebote(val); if (Array.isArray(val)) return val.join(', '); return val==null? '' : String(val); }); }); await exportPDF({ filenameBase: `fruehbetreuung-${slot}`, headers: selectedFields, rows }); }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
-            <button onClick={()=>{ const base = sortField? sortedData : data; const rows = base.map(d=>{ const row = d as Row; return selectedFields.map(f=>{ let val: unknown = row[f]; if (f==='Geburtsdatum') val = fmtDate(val); if (f==='Frühbetreuung') return filterAllowedSlot(val); if (f==='Angebote') return filterAllowedAngebote(val); if (Array.isArray(val)) val = val.join(', '); return val==null? '' : String(val); }); }); exportWord({ filenameBase: `fruehbetreuung-${slot}`, headers: selectedFields, rows, title: `Frühbetreuung: ${slot}`, word: { zebra:true, orientation:'landscape' } }); }} className="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Word</button>
+            <button onClick={()=>{ const base = sortField? sortedData : data; const rows = base.map(d=>{ const row = d as Row; return selectedFields.map(f=>getCellValue(row, f)); }); exportExcel({ filenameBase: `fruehbetreuung-${slot}`, headers: selectedFields, rows }); }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
+            <button onClick={async ()=>{ const base = sortField? sortedData : data; const rows = base.map(d=>{ const row = d as Row; return selectedFields.map(f=>getCellValue(row, f)); }); await exportPDF({ filenameBase: `fruehbetreuung-${slot}`, headers: selectedFields, rows }); }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
+            <button onClick={()=>{ const base = sortField? sortedData : data; const rows = base.map(d=>{ const row = d as Row; return selectedFields.map(f=>getCellValue(row, f)); }); exportWord({ filenameBase: `fruehbetreuung-${slot}`, headers: selectedFields, rows, title: `Frühbetreuung: ${slot}`, word: { zebra:true, orientation:'landscape' } }); }} className="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Word</button>
           </div>
         )}
       </div>
@@ -104,13 +155,18 @@ export default function FruehbetreuungPage() {
                         <span>{f}</span>
                         {active && <span className="text-[10px] opacity-70">{sortDir==='asc'? '▲':'▼'}</span>}
                       </span>
-                    </th> );})}
+                    </th>
+                  );})}
                 </tr>
               </thead>
               <tbody>
                 {(sortField? sortedData : data).map((row,i)=>{ const r = row as Row; return (
                   <tr key={r._id || i} className={i%2? 'bg-gray-50':''}>
-                    {selectedFields.map(f=>{ let v: unknown = r[f]; if (f==='Geburtsdatum') v = fmtDate(v); if (f==='Frühbetreuung') v = filterAllowedSlot(v); else if (f==='Angebote') v = filterAllowedAngebote(v); else if (Array.isArray(v)) v = v.join(', '); if (v==null) v=''; return <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{String(v)}</td>; })}
+                    {selectedFields.map(f=>(
+                      <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">
+                        {getCellValue(r, f)}
+                      </td>
+                    ))}
                   </tr>
                 );})}
                 {(sortField? sortedData : data).length===0 && (

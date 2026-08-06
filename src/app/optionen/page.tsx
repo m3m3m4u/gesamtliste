@@ -1,28 +1,25 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { SchuljahresWechsler } from '@/lib/schuljahr';
+import { SchuljahresWechsler, useSchuljahr } from '@/lib/schuljahr';
 
-type Lists = { angebote: string[]; schwerpunkte: string[]; fruehbetreuung: string[]; status: string[]; religionen: string[]; klassen: string[]; sprachen: string[] };
+type Lists = {
+  angebote: string[]; schwerpunkte: string[]; fruehbetreuung: string[];
+  status: string[]; religionen: string[]; klassen: string[]; sprachen: string[];
+  angebote_2526: string[]; angebote_2627: string[];
+  schwerpunkte_2526: string[]; schwerpunkte_2627: string[];
+  fruehbetreuung_2526: string[]; fruehbetreuung_2627: string[];
+};
 type CountMap = Record<string, number>;
 
 function sortDe(a: string, b: string){ return a.localeCompare(b, 'de', { sensitivity: 'base' }); }
 
-// Spezielle Sortierung für Frühbetreuung: nach Wochentagen (Mo–So), dann Rest alphabetisch
 function weekdayIndexLabel(s: string): { idx: number; rest: string } {
   const v = (s||'').trim().toLowerCase();
   const m = v.match(/^([^\s,;:]+)([\s,;:]+)?(.*)$/);
   const head = m ? m[1] : v;
   const tail = m ? (m[3] || '').trim() : '';
-  const map: Record<string, number> = {
-    mo:0, montag:0,
-    di:1, dienstag:1,
-    mi:2, mittwoch:2,
-    do:3, donnerstag:3,
-    fr:4, freitag:4,
-    sa:5, samstag:5,
-    so:6, sonntag:6,
-  };
+  const map: Record<string, number> = { mo:0, montag:0, di:1, dienstag:1, mi:2, mittwoch:2, do:3, donnerstag:3, fr:4, freitag:4, sa:5, samstag:5, so:6, sonntag:6 };
   for (const [k, idx] of Object.entries(map)) {
     if (head === k || head.startsWith(k)) return { idx, rest: tail };
   }
@@ -30,32 +27,49 @@ function weekdayIndexLabel(s: string): { idx: number; rest: string } {
 }
 function cmpFrueh(a: string, b: string): number {
   const A = weekdayIndexLabel(a); const B = weekdayIndexLabel(b);
-  if (A.idx >= 0 && B.idx >= 0) {
-    if (A.idx !== B.idx) return A.idx - B.idx;
-    return sortDe(A.rest, B.rest);
-  }
-  if (A.idx >= 0) return -1;
-  if (B.idx >= 0) return 1;
+  if (A.idx >= 0 && B.idx >= 0) { if (A.idx !== B.idx) return A.idx - B.idx; return sortDe(A.rest, B.rest); }
+  if (A.idx >= 0) return -1; if (B.idx >= 0) return 1;
   return sortDe(a, b);
 }
-function sortList(cat: keyof Lists, arr: string[]): string[] {
+function sortList(cat: string, arr: string[]): string[] {
   const list = [...arr];
-  if (cat === 'fruehbetreuung') return list.sort(cmpFrueh);
+  if (cat === 'fruehbetreuung' || cat === 'fruehbetreuung_2526' || cat === 'fruehbetreuung_2627') return list.sort(cmpFrueh);
   return list.sort(sortDe);
 }
-
 function uniqueNorm(arr: string[]): string[] {
   const s = new Set<string>();
   for (const v of arr) { const t = (v||'').trim(); if (t) s.add(t); }
   return Array.from(s);
 }
 
+// Mapping: Schuljahr → interne Feldschlüssel
+function getJahresKeys(schuljahr: string) {
+  const sjKey = schuljahr.replace('/', ''); // '2526' oder '2627'
+  return {
+    angeboteKey: `angebote_${sjKey}` as keyof Lists,
+    schwerpunkteKey: `schwerpunkte_${sjKey}` as keyof Lists,
+    fruehKey: `fruehbetreuung_${sjKey}` as keyof Lists,
+  };
+}
+
 export default function OptionenPage(){
-  const [data,setData] = useState<Lists>({ angebote:[], schwerpunkte:[], fruehbetreuung:[], status:[], religionen:[], klassen:[], sprachen:[] });
-  const [counts,setCounts] = useState<{[K in keyof Lists]: CountMap}>({ angebote:{}, schwerpunkte:{}, fruehbetreuung:{}, status:{}, religionen:{}, klassen:{}, sprachen:{} });
-  const [dirty,setDirty] = useState(false);
-  const [saving,setSaving] = useState(false);
-  const [msg,setMsg] = useState<string|null>(null);
+  const { schuljahr } = useSchuljahr();
+  const { angeboteKey, schwerpunkteKey, fruehKey } = useMemo(() => getJahresKeys(schuljahr), [schuljahr]);
+
+  const [data, setData] = useState<Lists>({
+    angebote:[], schwerpunkte:[], fruehbetreuung:[],
+    status:[], religionen:[], klassen:[], sprachen:[],
+    angebote_2526:[], angebote_2627:[],
+    schwerpunkte_2526:[], schwerpunkte_2627:[],
+    fruehbetreuung_2526:[], fruehbetreuung_2627:[],
+  });
+  const [counts, setCounts] = useState<{[K in keyof Lists]: CountMap}>({
+    angebote:{}, schwerpunkte:{}, fruehbetreuung:{}, status:{}, religionen:{}, klassen:{}, sprachen:{},
+    angebote_2526:{}, angebote_2627:{}, schwerpunkte_2526:{}, schwerpunkte_2627:{}, fruehbetreuung_2526:{}, fruehbetreuung_2627:{}
+  });
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string|null>(null);
 
   useEffect(()=>{ (async()=>{
     try {
@@ -73,20 +87,39 @@ export default function OptionenPage(){
         religionen: Array.isArray(opt.religionen)? opt.religionen : [],
         klassen: Array.isArray(opt.klassen)? opt.klassen : [],
         sprachen: Array.isArray(opt.sprachen)? opt.sprachen : [],
+        angebote_2526: Array.isArray(opt.angebote_2526)? opt.angebote_2526 : [],
+        angebote_2627: Array.isArray(opt.angebote_2627)? opt.angebote_2627 : [],
+        schwerpunkte_2526: Array.isArray(opt.schwerpunkte_2526)? opt.schwerpunkte_2526 : [],
+        schwerpunkte_2627: Array.isArray(opt.schwerpunkte_2627)? opt.schwerpunkte_2627 : [],
+        fruehbetreuung_2526: Array.isArray(opt.fruehbetreuung_2526)? opt.fruehbetreuung_2526 : [],
+        fruehbetreuung_2627: Array.isArray(opt.fruehbetreuung_2627)? opt.fruehbetreuung_2627 : [],
       };
-      // Alphabetisch sortieren für stabile Anzeige
       (Object.keys(base) as (keyof Lists)[]).forEach(k=>{ base[k] = sortList(k, uniqueNorm(base[k])); });
       setData(base);
       setCounts({
         angebote: cnt.angebote||{}, schwerpunkte: cnt.schwerpunkte||{}, fruehbetreuung: cnt.fruehbetreuung||{},
-        status: cnt.status||{}, religionen: cnt.religionen||{}, klassen: cnt.klassen||{}, sprachen: cnt.sprachen||{}
+        status: cnt.status||{}, religionen: cnt.religionen||{}, klassen: cnt.klassen||{}, sprachen: cnt.sprachen||{},
+        angebote_2526: cnt.angebote_2526||cnt.angebote||{}, angebote_2627: cnt.angebote_2627||{},
+        schwerpunkte_2526: cnt.schwerpunkte_2526||cnt.schwerpunkte||{}, schwerpunkte_2627: cnt.schwerpunkte_2627||{},
+        fruehbetreuung_2526: cnt.fruehbetreuung_2526||cnt.fruehbetreuung||{}, fruehbetreuung_2627: cnt.fruehbetreuung_2627||{},
       });
     } catch {}
   })(); },[]);
 
   async function refreshCounts(){
-    try { const r = await fetch('/api/students/option-counts',{cache:'no-store'}); if(r.ok){ const j = await r.json(); setCounts({ angebote: j.angebote||{}, schwerpunkte: j.schwerpunkte||{}, fruehbetreuung: j.fruehbetreuung||{}, status: j.status||{}, religionen: j.religionen||{}, klassen: j.klassen||{}, sprachen: j.sprachen||{} }); } }
-    catch {}
+    try {
+      const r = await fetch('/api/students/option-counts',{cache:'no-store'});
+      if(r.ok){
+        const j = await r.json();
+        setCounts({
+          angebote: j.angebote||{}, schwerpunkte: j.schwerpunkte||{}, fruehbetreuung: j.fruehbetreuung||{},
+          status: j.status||{}, religionen: j.religionen||{}, klassen: j.klassen||{}, sprachen: j.sprachen||{},
+          angebote_2526: j.angebote_2526||j.angebote||{}, angebote_2627: j.angebote_2627||{},
+          schwerpunkte_2526: j.schwerpunkte_2526||j.schwerpunkte||{}, schwerpunkte_2627: j.schwerpunkte_2627||{},
+          fruehbetreuung_2526: j.fruehbetreuung_2526||j.fruehbetreuung||{}, fruehbetreuung_2627: j.fruehbetreuung_2627||{},
+        });
+      }
+    } catch {}
   }
 
   function addItem(cat: keyof Lists, value: string){
@@ -100,14 +133,12 @@ export default function OptionenPage(){
   async function renameItem(cat: keyof Lists, oldVal: string, newVal: string){
     const n = newVal.trim(); if(!n || n===oldVal) return;
     setMsg(null);
-    // Nachfrage: auch in Schülerdaten migrieren?
     const currentCount = counts[cat]?.[oldVal] ?? 0;
     const doMigrate = window.confirm(`"${oldVal}" → "${n}"${currentCount>0 ? `\n\nAuch bei ${currentCount} Schüler(n) umbenennen?` : '\n\nAuch in Schülerdaten umbenennen?'}\n(Abbrechen = nur in der Liste ändern)`);
     if (doMigrate) {
       try {
         const res = await fetch('/api/options/migrate', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ category: cat, oldValue: oldVal, newValue: n }) });
         if (!res.ok) throw new Error(await res.text());
-        // Nach Migration: Optionen-Liste lokal anpassen und Zähler aktualisieren
         setData(prev=>{
           const arr = (prev[cat]||[]).filter(x=>x!==oldVal);
           if(!arr.includes(n)) arr.push(n);
@@ -119,7 +150,6 @@ export default function OptionenPage(){
         return;
       } catch(e){ setMsg('Fehler bei Migration: '+((e as Error).message||'')); }
     }
-    // Nur in der Liste ändern (keine Migration)
     setData(prev=>{
       const arr = (prev[cat]||[]).filter(x=>x!==oldVal);
       if(!arr.includes(n)) arr.push(n);
@@ -140,7 +170,10 @@ export default function OptionenPage(){
       const j = await res.json();
       const lists: Lists = {
         angebote: j.angebote||[], schwerpunkte: j.schwerpunkte||[], fruehbetreuung: j.fruehbetreuung||[],
-        status: j.status||[], religionen: j.religionen||[], klassen: j.klassen||[], sprachen: j.sprachen||[]
+        status: j.status||[], religionen: j.religionen||[], klassen: j.klassen||[], sprachen: j.sprachen||[],
+        angebote_2526: j.angebote_2526||[], angebote_2627: j.angebote_2627||[],
+        schwerpunkte_2526: j.schwerpunkte_2526||[], schwerpunkte_2627: j.schwerpunkte_2627||[],
+        fruehbetreuung_2526: j.fruehbetreuung_2526||[], fruehbetreuung_2627: j.fruehbetreuung_2627||[],
       };
       (Object.keys(lists) as (keyof Lists)[]).forEach(k=>{ lists[k] = sortList(k, uniqueNorm(lists[k])); });
       setData(lists);
@@ -153,18 +186,38 @@ export default function OptionenPage(){
   function discard(){
     setDirty(false); setMsg('Verworfen');
     (async()=>{
-      try { const r = await fetch('/api/options',{cache:'no-store'}); if(r.ok){ const j = await r.json(); const lists: Lists = { angebote:j.angebote||[], schwerpunkte:j.schwerpunkte||[], fruehbetreuung:j.fruehbetreuung||[], status:j.status||[], religionen:j.religionen||[], klassen:j.klassen||[], sprachen:j.sprachen||[] }; (Object.keys(lists) as (keyof Lists)[]).forEach(k=>{ lists[k] = sortList(k, uniqueNorm(lists[k])); }); setData(lists); } } catch{} })();
+      try {
+        const r = await fetch('/api/options',{cache:'no-store'});
+        if(r.ok){
+          const j = await r.json();
+          const lists: Lists = {
+            angebote:j.angebote||[], schwerpunkte:j.schwerpunkte||[], fruehbetreuung:j.fruehbetreuung||[],
+            status:j.status||[], religionen:j.religionen||[], klassen:j.klassen||[], sprachen:j.sprachen||[],
+            angebote_2526:j.angebote_2526||[], angebote_2627:j.angebote_2627||[],
+            schwerpunkte_2526:j.schwerpunkte_2526||[], schwerpunkte_2627:j.schwerpunkte_2627||[],
+            fruehbetreuung_2526:j.fruehbetreuung_2526||[], fruehbetreuung_2627:j.fruehbetreuung_2627||[],
+          };
+          (Object.keys(lists) as (keyof Lists)[]).forEach(k=>{ lists[k] = sortList(k, uniqueNorm(lists[k])); });
+          setData(lists);
+        }
+      } catch{}
+    })();
   }
 
-  const categories: { key: keyof Lists; title: string; hint?: string }[] = useMemo(()=>[
-    { key:'schwerpunkte', title:'Schwerpunkte' },
-    { key:'fruehbetreuung', title:'Frühbetreuung' },
-    { key:'angebote', title:'Angebote' },
+  // Jahresspezifische Kategorien je nach aktivem Schuljahr
+  const jahresCategories = useMemo(() => [
+    { key: schwerpunkteKey, title: `Schwerpunkte ${schuljahr}` },
+    { key: fruehKey,        title: `Frühbetreuung ${schuljahr}` },
+    { key: angeboteKey,     title: `Angebote ${schuljahr}` },
+  ], [schuljahr, angeboteKey, schwerpunkteKey, fruehKey]);
+
+  // Schuljahr-unabhängige Kategorien
+  const globalCategories: { key: keyof Lists; title: string }[] = [
     { key:'status', title:'Status' },
     { key:'religionen', title:'Religionen' },
     { key:'klassen', title:'Klassen' },
     { key:'sprachen', title:'Sprachen (Muttersprache)' },
-  ],[]);
+  ];
 
   return (
     <div className="w-full max-w-4xl mx-auto p-6 pt-10 space-y-6">
@@ -177,24 +230,50 @@ export default function OptionenPage(){
           <Link href="/" className="text-sm text-blue-600 underline ml-2">Zurück</Link>
         </div>
       </div>
-      <p className="text-sm text-gray-600">Feste Einträge pro Kategorie. Umbenennen/Löschen über Aktionen. Zähler berücksichtigen nur aktive Schüler (ohne Papierkorb).</p>
+      <p className="text-sm text-gray-600">Feste Einträge pro Kategorie und Schuljahr. Umbenennen/Löschen über Aktionen. Zähler berücksichtigen nur aktive Schüler (ohne Papierkorb).</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-        {categories.map(cat=> (
-          <CategoryCard
-            key={cat.key}
-            title={cat.title}
-            items={(data[cat.key]||[])}
-            counts={counts[cat.key]||{}}
-            onAdd={(v)=>addItem(cat.key, v)}
-            onRename={(oldV,newV)=>renameItem(cat.key, oldV, newV)}
-            onDelete={(v)=>{
-              const n = counts[cat.key]?.[v] ?? 0;
-              const ok = window.confirm(n>0 ? `"${v}" ist ${n} Schüler(n) zugeordnet. Löschen entfernt nur aus der Optionen-Liste. Fortfahren?` : `"${v}" löschen?`);
-              if(ok) deleteItem(cat.key, v);
-            }}
-          />
-        ))}
+      {/* Jahresspezifische Listen */}
+      <div>
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">Schuljahr 20{schuljahr}</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+          {jahresCategories.map(cat=>(
+            <CategoryCard
+              key={cat.key}
+              title={cat.title}
+              items={(data[cat.key as keyof Lists]||[])}
+              counts={counts[cat.key as keyof Lists]||{}}
+              onAdd={(v)=>addItem(cat.key as keyof Lists, v)}
+              onRename={(oldV,newV)=>renameItem(cat.key as keyof Lists, oldV, newV)}
+              onDelete={(v)=>{
+                const n = counts[cat.key as keyof Lists]?.[v] ?? 0;
+                const ok = window.confirm(n>0 ? `"${v}" ist ${n} Schüler(n) zugeordnet. Löschen entfernt nur aus der Optionen-Liste. Fortfahren?` : `"${v}" löschen?`);
+                if(ok) deleteItem(cat.key as keyof Lists, v);
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Schuljahr-unabhängige Listen */}
+      <div>
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">Allgemein (schuljahrunabhängig)</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+          {globalCategories.map(cat=>(
+            <CategoryCard
+              key={cat.key}
+              title={cat.title}
+              items={(data[cat.key]||[])}
+              counts={counts[cat.key]||{}}
+              onAdd={(v)=>addItem(cat.key, v)}
+              onRename={(oldV,newV)=>renameItem(cat.key, oldV, newV)}
+              onDelete={(v)=>{
+                const n = counts[cat.key]?.[v] ?? 0;
+                const ok = window.confirm(n>0 ? `"${v}" ist ${n} Schüler(n) zugeordnet. Löschen entfernt nur aus der Optionen-Liste. Fortfahren?` : `"${v}" löschen?`);
+                if(ok) deleteItem(cat.key, v);
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       {msg && <div className="text-xs text-gray-700">{msg}</div>}

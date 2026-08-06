@@ -3,13 +3,25 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { exportExcel, exportPDF, exportWord } from '@/lib/exporters';
 import type { StudentDoc } from '@/lib/mongodb';
-import { SchuljahresWechsler } from '@/lib/schuljahr';
+import { SchuljahresWechsler, useSchuljahr } from '@/lib/schuljahr';
 
 type Row = StudentDoc & Record<string, unknown>;
 
-const FIELD_OPTIONS = ['Vorname','Familienname','Benutzername','Geburtsdatum','Klasse 25/26','Stufe 25/26','Status','Muttersprache','Religion','Passwort','Angebote','Frühbetreuung','Schwerpunkte'];
-
 export default function AngebotePage() {
+  const { schuljahr } = useSchuljahr();
+
+  // Jahresspezifische Feldnamen
+  const angeboteFeld = schuljahr === '25/26' ? 'Angebote' : `Angebote ${schuljahr}`;
+  const sjKey = schuljahr.replace('/', ''); // '2526' oder '2627'
+
+  const FIELD_OPTIONS = useMemo(() => [
+    'Vorname','Familienname','Benutzername','Geburtsdatum',
+    `Klasse ${schuljahr}`,`Stufe ${schuljahr}`,'Status','Muttersprache','Religion','Passwort',
+    angeboteFeld,
+    schuljahr === '25/26' ? 'Frühbetreuung' : `Frühbetreuung ${schuljahr}`,
+    schuljahr === '25/26' ? 'Schwerpunkte' : `Schwerpunkte ${schuljahr}`,
+  ], [schuljahr, angeboteFeld]);
+
   const [angebot, setAngebot] = useState('');
   const [stufe, setStufe] = useState('');
   const [angeboteList, setAngeboteList] = useState<string[]>([]);
@@ -22,20 +34,22 @@ export default function AngebotePage() {
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
+  // Angebote-Liste aus jahresspezifischem Feld laden
   useEffect(() => {
+    setAngebot(''); // Reset bei Schuljahreswechsel
     (async () => {
       try {
-        // Angebote ausschließlich aus Optionen beziehen
         const r = await fetch('/api/options', { cache: 'no-store' });
         if (!r.ok) return;
         const j = await r.json();
-        const arr = Array.isArray(j.angebote) ? j.angebote.map((s:string)=>String(s).trim()).filter(Boolean) : [];
-        arr.sort((a:string,b:string)=>a.localeCompare(b,'de')); // stabil alfabetisch
+        const fieldKey = `angebote_${sjKey}` as keyof typeof j;
+        const arr = Array.isArray(j[fieldKey]) ? j[fieldKey].map((s:string)=>String(s).trim()).filter(Boolean) : [];
+        arr.sort((a:string,b:string)=>a.localeCompare(b,'de'));
         setAngeboteList(arr);
-  setAllowedSet(new Set(arr.map((s:string)=>s.toLowerCase())));
+        setAllowedSet(new Set(arr.map((s:string)=>s.toLowerCase())));
       } catch {/* ignore */}
     })();
-  }, []);
+  }, [sjKey]);
 
   // Stufen laden
   useEffect(() => {
@@ -72,11 +86,12 @@ export default function AngebotePage() {
     if (!allowedSet.size) return arr.join(', ');
     return arr.filter(x=>allowedSet.has(x.toLowerCase())).join(', ');
   }, [allowedSet, toArr]);
+
   const load = useCallback(async () => {
     if (!angebot) { setData([]); return; }
     setLoading(true); setError(null);
     try {
-      const params = new URLSearchParams({ angebot, limit: '3000', fields: selectedFields.join(',') });
+      const params = new URLSearchParams({ angebot, limit: '3000', fields: selectedFields.join(','), schuljahr });
       if (stufe) params.set('stufe', stufe);
       const res = await fetch('/api/students?' + params.toString(), { cache: 'no-store' });
       if (!res.ok) throw new Error(await res.text());
@@ -85,7 +100,7 @@ export default function AngebotePage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Fehler'); setData([]);
     } finally { setLoading(false); }
-  }, [angebot, selectedFields, stufe]);
+  }, [angebot, selectedFields, stufe, schuljahr]);
   const depsKey = useMemo(()=>selectedFields.join('|'),[selectedFields]);
   useEffect(() => { load(); }, [load, angebot, depsKey]);
 
@@ -107,9 +122,9 @@ export default function AngebotePage() {
       if (sortField === 'Familienname') {
         av = (a as Row)['Familienname'] ?? (a as Row)['Nachname'];
         bv = (b as Row)['Familienname'] ?? (b as Row)['Nachname'];
-      } else if (sortField === 'Angebote') {
-        av = filterAllowedAngebote((a as Row)['Angebote']);
-        bv = filterAllowedAngebote((b as Row)['Angebote']);
+      } else if (sortField === angeboteFeld) {
+        av = filterAllowedAngebote((a as Row)[angeboteFeld]);
+        bv = filterAllowedAngebote((b as Row)[angeboteFeld]);
       } else {
         av = (a as Row)[sortField];
         bv = (b as Row)[sortField];
@@ -126,11 +141,19 @@ export default function AngebotePage() {
       return vorA.localeCompare(vorB,'de');
     });
     return copy;
-  }, [data, sortField, sortDir, filterAllowedAngebote]);
+  }, [data, sortField, sortDir, filterAllowedAngebote, angeboteFeld]);
 
   function toggleSort(field: string) {
     if (sortField !== field) { setSortField(field); setSortDir('asc'); }
     else { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }
+  }
+
+  function getCellValue(row: Row, f: string): string {
+    let v = row[f];
+    if (f === 'Geburtsdatum') v = fmtDate(v);
+    if (f === angeboteFeld) return filterAllowedAngebote(v);
+    if (Array.isArray(v)) return v.join(', ');
+    return v == null ? '' : String(v);
   }
 
   return (
@@ -177,35 +200,17 @@ export default function AngebotePage() {
           <div className="flex gap-2">
             <button onClick={() => {
               const base = sortField ? sortedData : data;
-              const rows = base.map(d => selectedFields.map(f => {
-                let val: unknown = d[f];
-                if (f === 'Geburtsdatum') val = fmtDate(val);
-                if (f === 'Angebote') return filterAllowedAngebote(val);
-                if (Array.isArray(val)) return val.join(', ');
-                return (val == null ? '' : String(val));
-              }));
+              const rows = base.map(d => selectedFields.map(f => getCellValue(d as Row, f)));
               exportExcel({ filenameBase: `angebot-${angebot}`, headers: selectedFields, rows });
             }} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Excel</button>
             <button onClick={async () => {
               const base = sortField ? sortedData : data;
-              const rows = base.map(d => selectedFields.map(f => {
-                let val: unknown = d[f];
-                if (f === 'Geburtsdatum') val = fmtDate(val);
-                if (f === 'Angebote') return filterAllowedAngebote(val);
-                if (Array.isArray(val)) return val.join(', ');
-                return (val == null ? '' : String(val));
-              }));
+              const rows = base.map(d => selectedFields.map(f => getCellValue(d as Row, f)));
               await exportPDF({ filenameBase: `angebot-${angebot}`, headers: selectedFields, rows });
             }} className="px-3 py-1 rounded bg-red-600 text-white text-xs">PDF</button>
             <button onClick={() => {
               const base = sortField ? sortedData : data;
-              const rows = base.map(d => selectedFields.map(f => {
-                let val: unknown = d[f];
-                if (f === 'Geburtsdatum') val = fmtDate(val);
-                if (f === 'Angebote') return filterAllowedAngebote(val);
-                if (Array.isArray(val)) return val.join(', ');
-                return (val == null ? '' : String(val));
-              }));
+              const rows = base.map(d => selectedFields.map(f => getCellValue(d as Row, f)));
               exportWord({ filenameBase: `angebot-${angebot}`, headers: selectedFields, rows, title: `Angebot: ${angebot}`, word: { zebra: true, orientation: 'landscape' } });
             }} className="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Word</button>
           </div>
@@ -240,14 +245,11 @@ export default function AngebotePage() {
               <tbody>
                 {(sortField ? sortedData : data).map((row,i) => (
                   <tr key={row._id || i} className={i%2? 'bg-gray-50' : ''}>
-                    {selectedFields.map(f => {
-                      let v = row[f];
-                      if (f === 'Geburtsdatum') v = fmtDate(v);
-                      if (f === 'Angebote') v = filterAllowedAngebote(v);
-                      else if (Array.isArray(v)) v = v.join(', ');
-                      if (v === null || v === undefined) v = '';
-                      return <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">{String(v)}</td>;
-                    })}
+                    {selectedFields.map(f => (
+                      <td key={f} className="px-3 py-1 whitespace-pre-wrap break-words max-w-[220px]">
+                        {getCellValue(row as Row, f)}
+                      </td>
+                    ))}
                   </tr>
                 ))}
                 {data.length === 0 && (

@@ -82,11 +82,11 @@ export default function AdministrationPage() {
         <SchuljahresWechsler />
       </div>
       <h1 className="text-2xl font-bold mb-6">Administration</h1>
-      <div className="flex flex-col gap-4 max-w-xs">
+      <div className="flex flex-col gap-4 max-w-xs mx-auto">
         <a href="/uebersicht" className="inline-block bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center">Übersicht</a>
-        <a href="/frage?next=%2Fschueler" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center">Suchen & Bearbeiten</a>
-        <a href="/frage?next=%2Foptionen" className="inline-block bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center">Optionen</a>
-        <a href="/frage?next=%2Fmeldungen" className="inline-block bg-slate-600 hover:bg-slate-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center">Eingegangene Meldungen</a>
+        <a href="/schueler" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center">Suchen & Bearbeiten</a>
+        <a href="/optionen" className="inline-block bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center">Optionen</a>
+        <a href="/meldungen" className="inline-block bg-slate-600 hover:bg-slate-700 text-white px-8 py-3 rounded-md shadow transition-colors text-center">Eingegangene Meldungen</a>
         <button
           onClick={() => {
             setShowImport((v) => !v);

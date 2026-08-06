@@ -1,17 +1,26 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 
-type Category = 'angebote'|'schwerpunkte'|'fruehbetreuung'|'status'|'religionen'|'klassen'|'sprachen';
+type Category = 'angebote'|'schwerpunkte'|'fruehbetreuung'|'status'|'religionen'|'klassen'|'sprachen'
+  |'angebote_2526'|'angebote_2627'
+  |'schwerpunkte_2526'|'schwerpunkte_2627'
+  |'fruehbetreuung_2526'|'fruehbetreuung_2627';
 
 // Mapping von Kategorie zu betroffenen Schülerfeldern
 const CAT_FIELDS: Record<Category, string[]> = {
-  angebote: ['Angebote'],
-  schwerpunkte: ['Schwerpunkte','Schwerpunkt','Schwerpunkt 1'],
-  fruehbetreuung: ['Frühbetreuung'],
-  status: ['Status'],
+  angebote:          ['Angebote'],
+  angebote_2526:     ['Angebote'],
+  angebote_2627:     ['Angebote 26/27'],
+  schwerpunkte:      ['Schwerpunkte','Schwerpunkt','Schwerpunkt 1'],
+  schwerpunkte_2526: ['Schwerpunkte','Schwerpunkt','Schwerpunkt 1'],
+  schwerpunkte_2627: ['Schwerpunkte 26/27'],
+  fruehbetreuung:      ['Frühbetreuung'],
+  fruehbetreuung_2526: ['Frühbetreuung'],
+  fruehbetreuung_2627: ['Frühbetreuung 26/27'],
+  status:    ['Status'],
   religionen: ['Religion'],
-  klassen: ['Klasse 25/26','25/26'],
-  sprachen: ['Muttersprache'],
+  klassen:   ['Klasse 25/26','25/26'],
+  sprachen:  ['Muttersprache'],
 };
 
 function normalize(v: unknown){ return String(v ?? '').trim(); }

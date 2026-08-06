@@ -10,6 +10,13 @@ type CountsPayload = {
   religionen: CountMap;
   klassen: CountMap;
   sprachen: CountMap;
+  // Jahresspezifisch
+  angebote_2526: CountMap;
+  angebote_2627: CountMap;
+  schwerpunkte_2526: CountMap;
+  schwerpunkte_2627: CountMap;
+  fruehbetreuung_2526: CountMap;
+  fruehbetreuung_2627: CountMap;
 };
 
 function add(map: CountMap, raw: unknown) {
@@ -58,9 +65,12 @@ export async function GET() {
     const projection = {
       _id: 0,
       Angebote: 1,
+      'Angebote 26/27': 1,
       Schwerpunkte: 1,
       Schwerpunkt: 1,
+      'Schwerpunkte 26/27': 1,
       'Frühbetreuung': 1,
+      'Frühbetreuung 26/27': 1,
       Status: 1,
       Religion: 1,
       'Klasse 25/26': 1,
@@ -77,43 +87,60 @@ export async function GET() {
       religionen: {},
       klassen: {},
       sprachen: {},
+      angebote_2526: {},
+      angebote_2627: {},
+      schwerpunkte_2526: {},
+      schwerpunkte_2627: {},
+      fruehbetreuung_2526: {},
+      fruehbetreuung_2627: {},
     };
 
     for (const d of docs) {
-      // Angebote (Array oder String mit Separatoren)
-      addMany(out.angebote, (d as Record<string, unknown>).Angebote);
+      const doc = d as Record<string, unknown>;
 
-      // Schwerpunkte: nur aus 'Schwerpunkte' und 'Schwerpunkt' sammeln (Schwerpunkt 1 wird ignoriert)
+      // Angebote 25/26 (Legacyfeld)
+      addMany(out.angebote, doc.Angebote);
+      addMany(out.angebote_2526, doc.Angebote);
+
+      // Angebote 26/27
+      addMany(out.angebote_2627, doc['Angebote 26/27']);
+
+      // Schwerpunkte 25/26: aus 'Schwerpunkte' und 'Schwerpunkt' (Schwerpunkt 1 ignoriert)
       const schSet = new Set<string>();
-      for (const k of ['Schwerpunkte','Schwerpunkt'] as const) {
-        const val = (d as Record<string, unknown>)[k];
+      for (const k of ['Schwerpunkte','Schwerpunkt']) {
         const tmp: CountMap = {};
-        addMany(tmp, val);
+        addMany(tmp, doc[k]);
         for (const key of Object.keys(tmp)) schSet.add(key);
       }
-      for (const s of schSet) add(out.schwerpunkte, s);
+      for (const s of schSet) { add(out.schwerpunkte, s); add(out.schwerpunkte_2526, s); }
 
-      // Frühbetreuung
-      addMany(out.fruehbetreuung, (d as Record<string, unknown>)['Frühbetreuung']);
+      // Schwerpunkte 26/27
+      addMany(out.schwerpunkte_2627, doc['Schwerpunkte 26/27']);
 
-      // Status (kann Array oder String sein)
-      addMany(out.status, (d as Record<string, unknown>).Status);
+      // Frühbetreuung 25/26
+      addMany(out.fruehbetreuung, doc['Frühbetreuung']);
+      addMany(out.fruehbetreuung_2526, doc['Frühbetreuung']);
 
-      // Religion (einfaches Feld)
-      add(out.religionen, (d as Record<string, unknown>).Religion);
+      // Frühbetreuung 26/27
+      addMany(out.fruehbetreuung_2627, doc['Frühbetreuung 26/27']);
 
-      // Klassen (mehrere mögliche Felder, pro Dokument deduplizieren)
+      // Status
+      addMany(out.status, doc.Status);
+
+      // Religion
+      add(out.religionen, doc.Religion);
+
+      // Klassen
       const kset = new Set<string>();
-      for (const k of ['Klasse 25/26','25/26'] as const) {
-        const val = (d as Record<string, unknown>)[k];
+      for (const k of ['Klasse 25/26','25/26']) {
         const tmp: CountMap = {};
-        addMany(tmp, val);
+        addMany(tmp, doc[k]);
         for (const key of Object.keys(tmp)) kset.add(key);
       }
       for (const k of kset) add(out.klassen, k);
 
-      // Sprachen (Muttersprache)
-      add(out.sprachen, (d as Record<string, unknown>).Muttersprache);
+      // Sprachen
+      add(out.sprachen, doc.Muttersprache);
     }
 
     return NextResponse.json(out);
