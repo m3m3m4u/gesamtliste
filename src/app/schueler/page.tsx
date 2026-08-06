@@ -13,16 +13,29 @@ import { useSchuljahr } from '@/lib/schuljahr';
 
 // Dynamische Felder für das aktuelle Schuljahr
 function getCreateFields(schuljahr: string) {
+  const spFeld     = schuljahr === '25/26' ? 'Schwerpunkte'  : `Schwerpunkte ${schuljahr}`;
+  const fruehFeld  = schuljahr === '25/26' ? 'Frühbetreuung' : `Frühbetreuung ${schuljahr}`;
+  const angFeld    = schuljahr === '25/26' ? 'Angebote'       : `Angebote ${schuljahr}`;
   return [
     'Vorname','Familienname','Geburtsdatum',
     `Klasse ${schuljahr}`,
     `Stufe ${schuljahr}`,
     schuljahr === '25/26' ? 'Besuchsjahr' : `Besuchsjahr ${schuljahr}`,
     'Muttersprache','Religion','Religion an/ab','Geschlecht',
-    'Schwerpunkte','Frühbetreuung','Angebote','Erstsprachunterricht',
+    spFeld, fruehFeld, angFeld, 'Erstsprachunterricht',
     'Benutzername','Passwort','Anton',
     'Sokrates ID','Familien-ID','Status'
   ];
+}
+
+// Jahresspezifische Feldnamen
+function getJahresFelder(schuljahr: string) {
+  return {
+    spFeld:    schuljahr === '25/26' ? 'Schwerpunkte'  : `Schwerpunkte ${schuljahr}`,
+    fruehFeld: schuljahr === '25/26' ? 'Frühbetreuung' : `Frühbetreuung ${schuljahr}`,
+    angFeld:   schuljahr === '25/26' ? 'Angebote'       : `Angebote ${schuljahr}`,
+    sjKey:     schuljahr.replace('/', ''),
+  };
 }
 
 function ToggleMulti({value, onChange, options, color='green'}: {value: string[]; onChange:(v:string[])=>void; options: string[]; color?: 'green'|'blue'|'emerald'}) {
@@ -53,6 +66,9 @@ function ToggleMulti({value, onChange, options, color='green'}: {value: string[]
 export default function Schueler() {
   const { schuljahr, klasseFeld, stufeFeld } = useSchuljahr();
   const createFields = getCreateFields(schuljahr);
+  const { spFeld, fruehFeld, angFeld, sjKey } = getJahresFelder(schuljahr);
+  const arrayFelder = new Set([spFeld, fruehFeld, angFeld, 'Status']);
+  const colSpanFelder = new Set([spFeld, fruehFeld, angFeld, 'Status']);
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Student[]>([]);
@@ -87,24 +103,39 @@ export default function Schueler() {
     return window.confirm('Es gibt ungespeicherte Änderungen. Trotzdem wechseln?');
   }, [dirty]);
 
+  // Optionen laden – jahresspezifisch aus /api/options
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/students/distincts');
-        if(res.ok){
-          const json = await res.json();
-          if(Array.isArray(json.angebote)) setAngebotOptionen(json.angebote);
-          if(Array.isArray(json.schwerpunkte)) setSchwerpunktOptionen(json.schwerpunkte);
-          if(Array.isArray(json.fruehbetreuung)) setFruehOptionen(json.fruehbetreuung);
-          if(Array.isArray(json.religionen)) setReligionOptionen(json.religionen);
-          if(Array.isArray(json.status)) setStatusOptionen(json.status);
-          if(Array.isArray(json.klassen)) setKlassenOptionen(json.klassen);
-          if(Array.isArray(json.sprachen)) setSprachenOptionen(json.sprachen);
-          if(Array.isArray(json.erstsprachunterricht)) setErstsprachOptionen(json.erstsprachunterricht);
+        const [optRes, distinctsRes] = await Promise.all([
+          fetch('/api/options', { cache: 'no-store' }),
+          fetch('/api/students/distincts'),
+        ]);
+        if (optRes.ok) {
+          const ov = await optRes.json();
+          // Jahresspezifische Listen
+          const angKey  = `angebote_${sjKey}`;
+          const spKey   = `schwerpunkte_${sjKey}`;
+          const fruehKey = `fruehbetreuung_${sjKey}`;
+          if (Array.isArray(ov[angKey]))   setAngebotOptionen(ov[angKey]);
+          else if (Array.isArray(ov.angebote)) setAngebotOptionen(ov.angebote);
+          if (Array.isArray(ov[spKey]))    setSchwerpunktOptionen(ov[spKey]);
+          else if (Array.isArray(ov.schwerpunkte)) setSchwerpunktOptionen(ov.schwerpunkte);
+          if (Array.isArray(ov[fruehKey])) setFruehOptionen(ov[fruehKey]);
+          else if (Array.isArray(ov.fruehbetreuung)) setFruehOptionen(ov.fruehbetreuung);
+          if (Array.isArray(ov.religionen)) setReligionOptionen(ov.religionen);
+          if (Array.isArray(ov.status))    setStatusOptionen(ov.status);
+          if (Array.isArray(ov.klassen))   setKlassenOptionen(ov.klassen);
+          if (Array.isArray(ov.sprachen))  setSprachenOptionen(ov.sprachen);
+        }
+        if (distinctsRes.ok) {
+          const json = await distinctsRes.json();
+          if (Array.isArray(json.erstsprachunterricht)) setErstsprachOptionen(json.erstsprachunterricht);
         }
       } catch {}
     })();
-  }, []);
+  }, [sjKey]);
+
 
   async function loadByQuery(query: string) {
     setLoading(true); setMsg(null);
@@ -148,14 +179,14 @@ export default function Schueler() {
     // Präferenzliste um Reihenfolge beizubehalten (erste Elemente werden oben/links gerendert)
     const pref = [
       'Vorname','Familienname','Geburtsdatum',
-      'Klasse 25/26','Stufe 25/26','Besuchsjahr',
+      klasseFeld, stufeFeld, 'Besuchsjahr',
       'Muttersprache','Religion','Religion an/ab','Geschlecht',
-      'Schwerpunkte','Frühbetreuung','Angebote','Erstsprachunterricht',
+      spFeld, fruehFeld, angFeld, 'Erstsprachunterricht',
       'Benutzername','Passwort','Anton',
       'Sokrates ID','Familien-ID','Status'
     ];
     return [...pref.filter(k=>keys.includes(k)), ...keys.filter(k=>!pref.includes(k))];
-  }, [isRelAnAbVariant]);
+  }, [isRelAnAbVariant, klasseFeld, stufeFeld, spFeld, fruehFeld, angFeld]);
 
   function next() {
     if (!results.length) return;
@@ -180,9 +211,9 @@ export default function Schueler() {
         // Split bei gängigen Separatoren
         return s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean);
       };
-      clone.Angebote = toArr(clone.Angebote);
-      clone.Schwerpunkte = toArr(clone.Schwerpunkte ?? clone.Schwerpunkt);
-      clone['Frühbetreuung'] = toArr(clone['Frühbetreuung']);
+      clone[angFeld]  = toArr(clone[angFeld]  ?? clone.Angebote);
+      clone[spFeld]   = toArr(clone[spFeld]   ?? clone.Schwerpunkte ?? clone.Schwerpunkt);
+      clone[fruehFeld] = toArr(clone[fruehFeld] ?? clone['Frühbetreuung']);
       // Religion an/ab auf zulässige Werte normalisieren und Schreibvarianten (inkl. Tippfehler) konsolidieren
       // 1) Varianten finden, ggf. Wert auf kanonisches Feld migrieren, Varianten löschen
       const keys = Object.keys(clone);
@@ -210,7 +241,7 @@ export default function Schueler() {
   clone.Status = toArr(rawStatus);
       if (current._deleted) {
         getCreateFields(schuljahr).forEach((f: string) => {
-          if (!(f in clone)) (clone as PartialStudent)[f] = (f === 'Angebote' || f==='Schwerpunkte' || f==='Frühbetreuung' || f==='Status') ? [] : '';
+          if (!(f in clone)) (clone as PartialStudent)[f] = arrayFelder.has(f) ? [] : '';
         });
       }
       setDraft(clone as Student);
@@ -222,7 +253,7 @@ export default function Schueler() {
   // Wichtig: Dieser Effekt hängt NICHT von isRelAnAbVariant ab, damit nicht bei jedem Render
   // (durch stabile Callback-Referenzänderungen) die Benutzereingaben in den Multi-Select Feldern
   // (Angebote/Schwerpunkte/Frühbetreuung/Status) überschrieben werden.
-  }, [current]);
+  }, [current, angFeld, spFeld, fruehFeld, schuljahr, arrayFelder]);
 
   // Ensure we display important fields (like Passwort) even when they're missing
   const keysToRender = (creating || (draft && (draft as PartialStudent)._deleted))
@@ -256,9 +287,9 @@ export default function Schueler() {
           setCreating(true);
           const empty = {} as PartialStudent;
           getCreateFields(schuljahr).forEach((f: string)=>{ empty[f] = ''; });
-          empty.Angebote = [];
-          (empty as Record<string, unknown>).Schwerpunkte = [];
-          (empty as Record<string, unknown>)['Frühbetreuung'] = [];
+          (empty as Record<string, unknown>)[angFeld]   = [];
+          (empty as Record<string, unknown>)[spFeld]    = [];
+          (empty as Record<string, unknown>)[fruehFeld] = [];
           (empty as Record<string, unknown>).Status = [];
           (empty as Record<string, unknown>)['Religion an/ab'] = '';
           setDraft(empty as Student);
@@ -293,10 +324,10 @@ export default function Schueler() {
                 const val = (draft as PartialStudent)[k];
               const isObj = typeof val === 'object' && val !== null && !Array.isArray(val);
               const isArray = Array.isArray(val);
-              const displayVal = (k==='Angebote' || k==='Schwerpunkte' || k==='Frühbetreuung' || k==='Status') && isArray ? (val as unknown[]).join(', ') : isObj ? JSON.stringify(val, null, 2) : (val ?? '');
+              const displayVal = arrayFelder.has(k) && isArray ? (val as unknown[]).join(', ') : isObj ? JSON.stringify(val, null, 2) : (val ?? '');
               function update(raw: string) {
                   const next = { ...(draft as PartialStudent) } as PartialStudent;
-                if (k === 'Angebote' || k==='Schwerpunkte' || k==='Frühbetreuung' || k==='Status') {
+                if (arrayFelder.has(k)) {
                   const arr = raw.split(',').map(s=>s.trim()).filter(Boolean);
                   next[k] = arr;
                 } else if (k === 'Geburtsdatum') {
@@ -314,12 +345,12 @@ export default function Schueler() {
                   setDraft(next as Student); setDirty(true);
               }
               return (
-                <div key={k} className={`p-1 ${['Angebote','Frühbetreuung','Schwerpunkte','Status'].includes(k)?'sm:col-span-3':''} ${['Benutzername','Passwort','Anton'].includes(k)?'':''} `}> 
+                <div key={k} className={`p-1 ${colSpanFelder.has(k)?'sm:col-span-3':''}`}> 
                   <div className="font-semibold text-gray-600 mb-1">{k}</div>
                   <div>
                     {k === 'Geburtsdatum' ? (
                       <input type="date" className="w-full border rounded px-2 py-1 font-mono text-xs" value={displayVal ? String(displayVal).slice(0,10) : ''} onChange={e=>update(e.target.value)} />
-                    ) : k.startsWith('Klasse ') ? (
+                    ) : k === klasseFeld ? (
                       <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
                         <option value=""></option>
                         {klassenOptionen.map(c=> <option key={c} value={c}>{c}</option>)}
@@ -360,21 +391,21 @@ export default function Schueler() {
                         }} />
                         {statusOptionen.length===0 && <div className="text-xs text-amber-600">(Noch keine Status-Optionen definiert)</div>}
                       </div>
-                    ) : k === 'Schwerpunkte' ? (
+                    ) : k === spFeld ? (
                       <div className="space-y-1">
                         <ToggleMulti value={Array.isArray(val)? val as string[] : []} options={schwerpunktOptionen} color="green" onChange={(arr)=>{
                           const next = { ...(draft as PartialStudent) } as PartialStudent; next[k] = arr; setDraft(next as Student); setDirty(true);
                         }} />
                         {schwerpunktOptionen.length===0 && <div className="text-xs text-amber-600">(Noch keine Schwerpunkte definiert – später in Optionen ergänzen)</div>}
                       </div>
-                    ) : k === 'Frühbetreuung' ? (
+                    ) : k === fruehFeld ? (
                       <div className="space-y-1">
                         <ToggleMulti value={Array.isArray(val)? val as string[] : []} options={fruehOptionen} color="green" onChange={(arr)=>{
                           const next = { ...(draft as PartialStudent) } as PartialStudent; next[k] = arr; setDraft(next as Student); setDirty(true);
                         }} />
                         {fruehOptionen.length===0 && <div className="text-xs text-amber-600">(Noch keine Frühbetreuungs-Optionen definiert)</div>}
                       </div>
-                    ) : k === 'Angebote' ? (
+                    ) : k === angFeld ? (
                       <div className="space-y-1">
                         <ToggleMulti value={Array.isArray(val)? val as string[] : []} options={angebotOptionen} color="green" onChange={(arr)=>{
                           const next = { ...(draft as PartialStudent) } as PartialStudent; next[k] = arr; setDraft(next as Student); setDirty(true);
