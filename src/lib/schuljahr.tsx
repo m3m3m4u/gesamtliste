@@ -26,15 +26,19 @@ export function SchuljahresProvider({ children }: { children: ReactNode }) {
 
   // Beim Laden aus localStorage wiederherstellen
   useEffect(() => {
-    const saved = localStorage.getItem('schuljahr');
-    if (saved && SCHULJAHRE.includes(saved as Schuljahr)) {
-      setSchuljahr(saved as Schuljahr);
-    }
+    try {
+      const saved = localStorage.getItem('schuljahr');
+      if (saved && SCHULJAHRE.includes(saved as Schuljahr)) {
+        setSchuljahr(saved as Schuljahr);
+      }
+    } catch {}
   }, []);
 
   // Bei Änderung in localStorage speichern
   useEffect(() => {
-    localStorage.setItem('schuljahr', schuljahr);
+    try {
+      localStorage.setItem('schuljahr', schuljahr);
+    } catch {}
   }, [schuljahr]);
 
   const stufeFeld = `Stufe ${schuljahr}`;
