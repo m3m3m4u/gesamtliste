@@ -43,11 +43,11 @@ const normalizeRelAnAbValue = (v: unknown): '' | 'an' | 'ab' => {
   const g = v.trim().toLowerCase();
   return g === 'an' ? 'an' : g === 'ab' ? 'ab' : '';
 };
-const getRelAnAb = (rec: Record<string, unknown>): string => {
-  const canonical = normalizeRelAnAbValue(rec['Religion an/ab']);
+const getRelAnAb = (rec: Record<string, unknown>, relAnAbFeld?: string): string => {
+  const canonical = normalizeRelAnAbValue(relAnAbFeld ? rec[relAnAbFeld] : undefined) || normalizeRelAnAbValue(rec['Religion an/ab']);
   if (canonical) return canonical;
   for (const key of Object.keys(rec)) {
-    if (key !== 'Religion an/ab' && isRelAnAbVariant(key)) {
+    if (key !== 'Religion an/ab' && key !== relAnAbFeld && isRelAnAbVariant(key)) {
       const norm = normalizeRelAnAbValue(rec[key]);
       if (norm) return norm;
     }
@@ -126,7 +126,7 @@ function MultiSelect({ label, options, values, onChange, renderOption, className
 }
 
 function FilterForm() {
-  const { schuljahr, stufeFeld, klasseFeld, besuchsjahrFeld } = useSchuljahr();
+  const { schuljahr, stufeFeld, klasseFeld, besuchsjahrFeld, relAnAbFeld } = useSchuljahr();
   const [stufe, setStufe] = React.useState<string[]>([]);
   const [status, setStatus] = React.useState<string[]>([]);
   const [jahr, setJahr] = React.useState<string[]>([]);
@@ -152,7 +152,7 @@ function FilterForm() {
 
   // Spaltenauswahl wie bei /klassenliste
   const FIELD_OPTIONS: string[] = [
-    'Nr.','Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion','Religion an/ab','Angebote','Schwerpunkte','Benutzername','Passwort','Muttersprache','Geburtsdatum','Anton'
+    'Nr.','Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion',relAnAbFeld,'Angebote','Schwerpunkte','Benutzername','Passwort','Muttersprache','Geburtsdatum','Anton'
   ];
   const [selectedFields, setSelectedFields] = React.useState<string[]>(['Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion']);
   function toggleField(f: string) {
@@ -183,7 +183,7 @@ function FilterForm() {
       const relFilter = new Set(religionAnAb.map(v => v.toLowerCase()));
       const filtered = relFilter.size
         ? rawItems.filter(it => {
-            const val = getRelAnAb(it as unknown as Record<string, unknown>);
+            const val = getRelAnAb(it as unknown as Record<string, unknown>, relAnAbFeld);
             return val ? relFilter.has(val) : relFilter.has('');
           })
         : rawItems;
@@ -252,8 +252,8 @@ function FilterForm() {
 
       default: v = rec[key];
     }
-    if (key === 'Religion an/ab') {
-      return getRelAnAb(rec);
+    if (key === 'Religion an/ab' || key === relAnAbFeld) {
+      return getRelAnAb(rec, relAnAbFeld);
     }
     // Normalisierung + Filter erlaubte Werte für Angebote / Schwerpunkte
     const toArr = (val: unknown): string[] => {

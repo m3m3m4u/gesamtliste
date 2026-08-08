@@ -9,15 +9,15 @@ interface ClassOption {
 }
 
 export default function KlassenExport() {
-  const { schuljahr, stufeFeld, klasseFeld } = useSchuljahr();
+  const { schuljahr, stufeFeld, klasseFeld, relAnAbFeld } = useSchuljahr();
   
   // State for available and selected classes
   const [availableClasses, setAvailableClasses] = useState<ClassOption[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   
-  const spFeld = schuljahr === '25/26' ? 'Schwerpunkte' : `Schwerpunkte ${schuljahr}`;
-  const fruehFeld = schuljahr === '25/26' ? 'Frühbetreuung' : `Frühbetreuung ${schuljahr}`;
-  const angFeld = schuljahr === '25/26' ? 'Angebote' : `Angebote ${schuljahr}`;
+  const spFeld = `Schwerpunkte ${schuljahr}`;
+  const fruehFeld = `Frühbetreuung ${schuljahr}`;
+  const angFeld = `Angebote ${schuljahr}`;
   const sjKey = schuljahr.replace('/', '');
 
   // State for selected fields
@@ -32,7 +32,7 @@ export default function KlassenExport() {
     'Status',
     'Muttersprache',
     'Religion',
-    'Religion an/ab',
+    relAnAbFeld,
     'Benutzername',
     'Passwort',
     angFeld,
@@ -149,10 +149,10 @@ export default function KlassenExport() {
   const isRelAnAbVariant = (k: string) => /^religi?onanab$/.test(normalizeKey(k));
 
   const getRelAnAb = (rec: Record<string, unknown>): string => {
-    let raw: unknown = rec['Religion an/ab'];
+    let raw: unknown = rec[relAnAbFeld] ?? rec['Religion an/ab'];
     if (typeof raw !== 'string') {
       for (const key of Object.keys(rec)) {
-        if (key !== 'Religion an/ab' && isRelAnAbVariant(key)) { raw = rec[key]; break; }
+        if (key !== relAnAbFeld && key !== 'Religion an/ab' && isRelAnAbVariant(key)) { raw = rec[key]; break; }
       }
     }
     if (typeof raw === 'string') {
@@ -176,7 +176,7 @@ export default function KlassenExport() {
     if (field === 'Familienname') {
       return String(rec['Familienname'] ?? rec['Nachname'] ?? '');
     }
-    if (field === 'Religion an/ab') {
+    if (field === relAnAbFeld || field === 'Religion an/ab') {
       return getRelAnAb(rec);
     }
     if (field === angFeld || field === fruehFeld) {

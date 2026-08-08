@@ -13,16 +13,13 @@ import { useSchuljahr } from '@/lib/schuljahr';
 
 // Dynamische Felder für das aktuelle Schuljahr
 function getCreateFields(schuljahr: string) {
-  const spFeld     = schuljahr === '25/26' ? 'Schwerpunkte'  : `Schwerpunkte ${schuljahr}`;
-  const fruehFeld  = schuljahr === '25/26' ? 'Frühbetreuung' : `Frühbetreuung ${schuljahr}`;
-  const angFeld    = schuljahr === '25/26' ? 'Angebote'       : `Angebote ${schuljahr}`;
   return [
     'Vorname','Familienname','Geburtsdatum',
     `Klasse ${schuljahr}`,
     `Stufe ${schuljahr}`,
-    schuljahr === '25/26' ? 'Besuchsjahr' : `Besuchsjahr ${schuljahr}`,
-    'Muttersprache','Religion','Religion an/ab','Geschlecht',
-    spFeld, fruehFeld, angFeld, 'Erstsprachunterricht',
+    `Besuchsjahr ${schuljahr}`,
+    'Muttersprache','Religion',`Religion an/ab ${schuljahr}`,'Geschlecht',
+    `Schwerpunkte ${schuljahr}`, `Frühbetreuung ${schuljahr}`, `Angebote ${schuljahr}`, 'Erstsprachunterricht',
     'Benutzername','Passwort','Anton',
     'Sokrates ID','Familien-ID','Status'
   ];
@@ -31,9 +28,9 @@ function getCreateFields(schuljahr: string) {
 // Jahresspezifische Feldnamen
 function getJahresFelder(schuljahr: string) {
   return {
-    spFeld:    schuljahr === '25/26' ? 'Schwerpunkte'  : `Schwerpunkte ${schuljahr}`,
-    fruehFeld: schuljahr === '25/26' ? 'Frühbetreuung' : `Frühbetreuung ${schuljahr}`,
-    angFeld:   schuljahr === '25/26' ? 'Angebote'       : `Angebote ${schuljahr}`,
+    spFeld:    `Schwerpunkte ${schuljahr}`,
+    fruehFeld: `Frühbetreuung ${schuljahr}`,
+    angFeld:   `Angebote ${schuljahr}`,
     sjKey:     schuljahr.replace('/', ''),
   };
 }
@@ -64,7 +61,8 @@ function ToggleMulti({value, onChange, options, color='green'}: {value: string[]
 }
 
 export default function Schueler() {
-  const { schuljahr, klasseFeld, stufeFeld } = useSchuljahr();
+  const { schuljahr, klasseFeld, stufeFeld, besuchsjahrFeld, relAnAbFeld } = useSchuljahr();
+
   const createFields = getCreateFields(schuljahr);
   const { spFeld, fruehFeld, angFeld, sjKey } = getJahresFelder(schuljahr);
   const arrayFelder = useMemo(() => new Set([spFeld, fruehFeld, angFeld, 'Status']), [spFeld, fruehFeld, angFeld]);
@@ -161,7 +159,24 @@ export default function Schueler() {
 
   const current = results[index];
 
-  const HIDDEN = new Set(['_id','createdAt','updatedAt','deletedAt','_deleted','NormBenutzername','Stufe 24/25','Stufe 24/25_1','Klasse 24/25','Klasse 24/25_1','Schwerpunkt 1','Klasse 22/23','Klasse 23/24','ImportStamp','BJ','m/w','24/25','25/26','25/6','24/25.1']);
+  // Immer versteckte Felder (systemintern, veraltet, oder doppelt)
+  const HIDDEN_ALWAYS = new Set([
+    '_id','createdAt','updatedAt','deletedAt','_deleted','NormBenutzername',
+    'Stufe 24/25','Stufe 24/25_1','Klasse 24/25','Klasse 24/25_1',
+    'Schwerpunkt 1','Schwerpunkt', // alter Singular
+    'Klasse 22/23','Klasse 23/24','ImportStamp','BJ','m/w',
+    '24/25','25/26','25/6','24/25.1',
+    // Bare Felder ohne Jahrgang (nach Migration alle auf *Jahr* umgestellt)
+    'Angebote','Schwerpunkte','Frühbetreuung','Besuchsjahr',
+    // Alte 24/25-spezifische Felder
+    'Kunstwerkstatt','Angebote 24/25','Schwerpunkte 24/25','Frühbetreuung 24/25',
+    'Besuchsjahr 24/25','Klasse 24/25','Stufe 24/25',
+  ]);
+  // Je nach aktivem Schuljahr: Felder des jeweils anderen Jahres ausblenden
+  const HIDDEN_OTHER_YEAR: string[] = schuljahr === '25/26'
+    ? ['Angebote 26/27','Schwerpunkte 26/27','Frühbetreuung 26/27','Besuchsjahr 26/27','Klasse 26/27','Stufe 26/27']
+    : ['Angebote 25/26','Schwerpunkte 25/26','Frühbetreuung 25/26','Besuchsjahr 25/26','Klasse 25/26','Stufe 25/26'];
+  const HIDDEN = new Set([...HIDDEN_ALWAYS, ...HIDDEN_OTHER_YEAR]);
   const orderedKeys = useCallback((s: Student) => {
     // Grundmenge der Schlüssel (ohne versteckte)
     let keys = Object.keys(s || {}).filter(k => !HIDDEN.has(k));
@@ -171,22 +186,24 @@ export default function Schueler() {
     if (hasCanonicalReligion) {
       keys = keys.filter(k => k === 'Religion' || k.toLowerCase() !== 'religion');
     }
-    // Spezialfall: Religion an/ab nur als kanonisches Feld anzeigen (alle Varianten entfernen)
+    // Spezialfall: Religion an/ab nur als jahresspezifisches Feld anzeigen (alle Varianten + bare Felder entfernen)
     const hasRelAnAbVariant = keys.some(k => isRelAnAbVariant(k));
     if (hasRelAnAbVariant) {
-      keys = keys.filter(k => k === 'Religion an/ab' || !isRelAnAbVariant(k));
+      keys = keys.filter(k => k === relAnAbFeld || !isRelAnAbVariant(k));
     }
+    // Bare 'Religion an/ab' (ohne Jahr) immer ausblenden
+    keys = keys.filter(k => k !== 'Religion an/ab');
     // Präferenzliste um Reihenfolge beizubehalten (erste Elemente werden oben/links gerendert)
     const pref = [
       'Vorname','Familienname','Geburtsdatum',
-      klasseFeld, stufeFeld, 'Besuchsjahr',
-      'Muttersprache','Religion','Religion an/ab','Geschlecht',
+      klasseFeld, stufeFeld, besuchsjahrFeld,
+      'Muttersprache','Religion',relAnAbFeld,'Geschlecht',
       spFeld, fruehFeld, angFeld, 'Erstsprachunterricht',
       'Benutzername','Passwort','Anton',
       'Sokrates ID','Familien-ID','Status'
     ];
     return [...pref.filter(k=>keys.includes(k)), ...keys.filter(k=>!pref.includes(k))];
-  }, [isRelAnAbVariant, klasseFeld, stufeFeld, spFeld, fruehFeld, angFeld]);
+  }, [isRelAnAbVariant, klasseFeld, stufeFeld, spFeld, fruehFeld, angFeld, relAnAbFeld, besuchsjahrFeld]);
 
   function next() {
     if (!results.length) return;
@@ -211,37 +228,30 @@ export default function Schueler() {
         // Split bei gängigen Separatoren
         return s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean);
       };
-      if (schuljahr === '25/26') {
-        clone['Angebote'] = toArr(clone['Angebote']);
-        clone['Schwerpunkte'] = toArr(clone['Schwerpunkte'] ?? clone['Schwerpunkt']);
-        clone['Frühbetreuung'] = toArr(clone['Frühbetreuung']);
-      } else {
-        clone[angFeld] = toArr(clone[angFeld]);
-        clone[spFeld] = toArr(clone[spFeld]);
-        clone[fruehFeld] = toArr(clone[fruehFeld]);
-      }
-      // Religion an/ab auf zulässige Werte normalisieren und Schreibvarianten (inkl. Tippfehler) konsolidieren
-      // 1) Varianten finden, ggf. Wert auf kanonisches Feld migrieren, Varianten löschen
+      clone[angFeld] = toArr(clone[angFeld]);
+      clone[spFeld] = toArr(clone[spFeld]);
+      clone[fruehFeld] = toArr(clone[fruehFeld]);
+
+      // Religion an/ab jahresspezifisch normalisieren
+      // Fallback: auch bare 'Religion an/ab' und Tippfehler-Varianten migrieren
       const keys = Object.keys(clone);
-      let canonical = (clone as Record<string, unknown>)['Religion an/ab'];
+      let canonical = (clone as Record<string, unknown>)[relAnAbFeld] ?? (clone as Record<string, unknown>)['Religion an/ab'];
       for (const key of keys) {
-        if (key !== 'Religion an/ab' && isRelAnAbVariant(key)) {
+        if (key !== relAnAbFeld && (key === 'Religion an/ab' || isRelAnAbVariant(key))) {
           const v = (clone as Record<string, unknown>)[key];
-          // Falls kanonisch leer und Variante einen String hat, übernehmen
           if ((typeof canonical !== 'string' || !canonical) && typeof v === 'string' && v.trim()) {
             canonical = v;
           }
           delete (clone as Record<string, unknown>)[key];
         }
       }
-      (clone as Record<string, unknown>)['Religion an/ab'] = canonical;
-      const relAAraw = (clone as Record<string, unknown>)['Religion an/ab'];
+      const relAAraw = canonical;
       let relAA = '';
       if (typeof relAAraw === 'string') {
         const g = relAAraw.trim().toLowerCase();
         relAA = g === 'an' ? 'an' : g === 'ab' ? 'ab' : '';
       }
-      (clone as Record<string, unknown>)['Religion an/ab'] = relAA;
+      (clone as Record<string, unknown>)[relAnAbFeld] = relAA;
   // Status robust extrahieren ohne any
   const rawStatus: unknown = (clone as Record<string, unknown>)['Status'];
   clone.Status = toArr(rawStatus);
@@ -299,7 +309,7 @@ export default function Schueler() {
           (empty as Record<string, unknown>)[spFeld]    = [];
           (empty as Record<string, unknown>)[fruehFeld] = [];
           (empty as Record<string, unknown>).Status = [];
-          (empty as Record<string, unknown>)['Religion an/ab'] = '';
+          (empty as Record<string, unknown>)[relAnAbFeld] = '';
           setDraft(empty as Student);
           setDirty(false);
           setMsg(null);
@@ -374,7 +384,7 @@ export default function Schueler() {
                         <option value=""></option>
                         {religionOptionen.map(r => <option key={r} value={r}>{r}</option>)}
                       </select>
-                    ) : k === 'Religion an/ab' ? (
+                    ) : k === relAnAbFeld ? (
                       <select className="w-full border rounded px-2 py-1 font-mono text-xs" value={String(displayVal)} onChange={e=>update(e.target.value)}>
                         <option value=""></option>
                         <option value="an">an</option>
@@ -453,12 +463,12 @@ export default function Schueler() {
                         payload[k] = '';
                       }
                     });
-                    // Sicherheit: Nur gültige Werte für "Religion an/ab"
-                    if (typeof payload['Religion an/ab'] === 'string') {
-                      const t = String(payload['Religion an/ab']).trim().toLowerCase();
-                      payload['Religion an/ab'] = t === 'an' ? 'an' : t === 'ab' ? 'ab' : '';
+                    // Sicherheit: Nur gültige Werte für Religion an/ab
+                    if (typeof payload[relAnAbFeld] === 'string') {
+                      const t = String(payload[relAnAbFeld]).trim().toLowerCase();
+                      payload[relAnAbFeld] = t === 'an' ? 'an' : t === 'ab' ? 'ab' : '';
                     }
-                    if(!Array.isArray(payload.Angebote)) payload.Angebote = [];
+                    if(!Array.isArray(payload[angFeld])) payload[angFeld] = [];
                     if(!Array.isArray(payload.Status)) payload.Status = [];
                     const res = await fetch('/api/students', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
                     if(!res.ok) throw new Error(await res.text());
@@ -478,10 +488,10 @@ export default function Schueler() {
                   try {
                     const payload: Record<string, unknown> = {};
                     for (const k of orderedKeys(draft as Student)) payload[k] = (draft as PartialStudent)[k];
-                    // Sicherheit: Nur gültige Werte für "Religion an/ab"
-                    if (typeof payload['Religion an/ab'] === 'string') {
-                      const t = String(payload['Religion an/ab']).trim().toLowerCase();
-                      payload['Religion an/ab'] = t === 'an' ? 'an' : t === 'ab' ? 'ab' : '';
+                    // Sicherheit: Nur gültige Werte für Religion an/ab
+                    if (typeof payload[relAnAbFeld] === 'string') {
+                      const t = String(payload[relAnAbFeld]).trim().toLowerCase();
+                      payload[relAnAbFeld] = t === 'an' ? 'an' : t === 'ab' ? 'ab' : '';
                     }
                     const res = await fetch(`/api/students/${current._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                     if (!res.ok) throw new Error(await res.text());

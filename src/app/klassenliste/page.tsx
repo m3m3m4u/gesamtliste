@@ -8,17 +8,17 @@ import { useSchuljahr, SchuljahresWechsler } from '@/lib/schuljahr';
 interface Option { value: string; label: string; }
 
 export default function KlassenListePage() {
-  const { schuljahr } = useSchuljahr();
+  const { schuljahr, stufeFeld, relAnAbFeld } = useSchuljahr();
   const [klasse, setKlasse] = useState('');
   const [availableKlassen, setAvailableKlassen] = useState<Option[]>([]);
-  const [selectedFields, setSelectedFields] = useState<string[]>(['Vorname','Familienname','Stufe 25/26','Geschlecht','Benutzername','Passwort']);
+  const [selectedFields, setSelectedFields] = useState<string[]>(['Vorname','Familienname',`Stufe ${schuljahr}`,'Geschlecht','Benutzername','Passwort']);
   const [data, setData] = useState<StudentDoc[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Felder die auswählbar sind (kann erweitert werden)
   const FIELD_OPTIONS: string[] = [
-    'Nr.','Vorname','Familienname','Stufe 25/26','Geschlecht','Benutzername','Geburtsdatum','Status','Muttersprache','Religion','Religion an/ab','Passwort','Angebote','Frühbetreuung','Schwerpunkte'
+    'Nr.','Vorname','Familienname',`Stufe ${schuljahr}`,'Geschlecht','Benutzername','Geburtsdatum','Status','Muttersprache','Religion',relAnAbFeld,'Passwort','Angebote','Frühbetreuung','Schwerpunkte'
   ];
 
   const [sortField, setSortField] = useState<string | null>(null);
@@ -37,11 +37,11 @@ export default function KlassenListePage() {
     .toLowerCase()
     .replace(/[^a-z]/g, '');
   const isRelAnAbVariant = (k: string) => /^religi?onanab$/.test(normalizeKey(k));
-  const getRelAnAb = (rec: Record<string, unknown>): string => {
-    let raw: unknown = rec['Religion an/ab'];
+  const getRelAnAb = useCallback((rec: Record<string, unknown>): string => {
+    let raw: unknown = rec[relAnAbFeld] ?? rec['Religion an/ab'];
     if (typeof raw !== 'string') {
       for (const key of Object.keys(rec)) {
-        if (key !== 'Religion an/ab' && isRelAnAbVariant(key)) { raw = rec[key]; break; }
+        if (key !== relAnAbFeld && key !== 'Religion an/ab' && isRelAnAbVariant(key)) { raw = rec[key]; break; }
       }
     }
     if (typeof raw === 'string') {
@@ -49,7 +49,7 @@ export default function KlassenListePage() {
       return g === 'an' ? 'an' : g === 'ab' ? 'ab' : '';
     }
     return '';
-  };
+  }, [relAnAbFeld]);
 
   // Klassen-Liste aus DB laden (bei Schuljahr-Wechsel neu laden)
   useEffect(() => {
@@ -128,7 +128,7 @@ export default function KlassenListePage() {
     const copy = [...data];
     copy.sort((a,b)=>{
       let av: string; let bv: string;
-      if (sortField === 'Religion an/ab') {
+      if (sortField === relAnAbFeld || sortField === 'Religion an/ab') {
         av = getRelAnAb(a as unknown as Record<string, unknown>);
         bv = getRelAnAb(b as unknown as Record<string, unknown>);
       } else {
@@ -170,7 +170,7 @@ export default function KlassenListePage() {
   // Fallback für Familienname: falls nur 'Nachname' im Dokument vorhanden ist
   const rec = d as Record<string, unknown>; // generischer Zugriff ohne any
   let val: unknown = f === 'Familienname' ? (rec['Familienname'] ?? rec['Nachname']) : rec[f];
-    if (f === 'Religion an/ab') {
+    if (f === relAnAbFeld || f === 'Religion an/ab') {
       return getRelAnAb(rec);
     }
     // Anzeige von Angebote/Frühbetreuung auf erlaubte Optionen beschränken

@@ -111,14 +111,14 @@ export async function GET(request: Request) {
   if (angebot) {
     // Exakte (case-insensitive) Übereinstimmung – jahresspezifisches Feld
     const escaped = angebot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const angebotFeld = schuljahr === '25/26' ? 'Angebote' : `Angebote ${schuljahr}`;
+    const angebotFeld = `Angebote ${schuljahr}`;
     const angebotFilter = { [angebotFeld]: { $regex: `^${escaped}$`, $options: 'i' } };
     filter = Object.keys(filter).length ? { $and: [filter, angebotFilter] } : angebotFilter;
   }
   if (fruehParam) {
     // Exakte (case-insensitive) Übereinstimmung – jahresspezifisches Feld
     const escaped = fruehParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const fruehFeld = schuljahr === '25/26' ? 'Frühbetreuung' : `Frühbetreuung ${schuljahr}`;
+    const fruehFeld = `Frühbetreuung ${schuljahr}`;
     const fruehFilter = { [fruehFeld]: { $regex: `^${escaped}$`, $options: 'i' } };
     filter = Object.keys(filter).length ? { $and: [filter, fruehFilter] } : fruehFilter;
   }
@@ -152,7 +152,8 @@ export async function GET(request: Request) {
     filter = Object.keys(filter).length ? { $and: [filter, religionFilter] } : religionFilter;
   }
   if (religionAnAbParams.length) {
-    const ors = religionAnAbParams.map(s => ({ 'Religion an/ab': { $regex: `^${s}$`, $options: 'i' } }));
+    const relAnAbFeld = `Religion an/ab ${schuljahr}`;
+    const ors = religionAnAbParams.map(s => ({ [relAnAbFeld]: { $regex: `^${s}$`, $options: 'i' } }));
     const relAnAbFilter = { $or: ors };
     filter = Object.keys(filter).length ? { $and: [filter, relAnAbFilter] } : relAnAbFilter;
   }

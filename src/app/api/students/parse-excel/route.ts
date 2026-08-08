@@ -117,7 +117,7 @@ export async function POST(request: Request) {
           const g = strVal.toLowerCase();
           student[header] = g === 'm' ? 'm' : g === 'w' ? 'w' : strVal || '';
           if (strVal) hasContent = true;
-        } else if (header === 'Religion an/ab') {
+        } else if (header.startsWith('Religion an/ab')) {
           const t = strVal.toLowerCase();
           student[header] = t === 'an' ? 'an' : t === 'ab' ? 'ab' : strVal || '';
           if (strVal) hasContent = true;

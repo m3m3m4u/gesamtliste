@@ -60,9 +60,17 @@ export async function GET(request: Request) {
     .filter(s => s !== '')
     .sort((a, b) => a.localeCompare(b, 'de'));
   const relAnAbValues: string[] = [];
+  const relAnAbFeld = `Religion an/ab ${schuljahr}`;
   try {
-    const rawRelAnAb = await col.distinct('Religion an/ab', baseFilter);
+    const rawRelAnAb = await col.distinct(relAnAbFeld, baseFilter);
     for (const item of rawRelAnAb as unknown[]) {
+      const norm = normalizeRelAnAbValue(item);
+      if (norm) relAnAbValues.push(norm);
+    }
+  } catch {}
+  try {
+    const rawRelAnAbLegacy = await col.distinct('Religion an/ab', baseFilter);
+    for (const item of rawRelAnAbLegacy as unknown[]) {
       const norm = normalizeRelAnAbValue(item);
       if (norm) relAnAbValues.push(norm);
     }
