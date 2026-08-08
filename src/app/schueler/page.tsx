@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // Erzwinge dynamisches Rendering (verhindert mögliche Static 404s nach Client-Redirect)
 export const dynamic = "force-dynamic";
 import Link from 'next/link';
@@ -67,8 +67,8 @@ export default function Schueler() {
   const { schuljahr, klasseFeld, stufeFeld } = useSchuljahr();
   const createFields = getCreateFields(schuljahr);
   const { spFeld, fruehFeld, angFeld, sjKey } = getJahresFelder(schuljahr);
-  const arrayFelder = new Set([spFeld, fruehFeld, angFeld, 'Status']);
-  const colSpanFelder = new Set([spFeld, fruehFeld, angFeld, 'Status']);
+  const arrayFelder = useMemo(() => new Set([spFeld, fruehFeld, angFeld, 'Status']), [spFeld, fruehFeld, angFeld]);
+  const colSpanFelder = useMemo(() => new Set([spFeld, fruehFeld, angFeld, 'Status']), [spFeld, fruehFeld, angFeld]);
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Student[]>([]);
@@ -259,7 +259,9 @@ export default function Schueler() {
   // Wichtig: Dieser Effekt hängt NICHT von isRelAnAbVariant ab, damit nicht bei jedem Render
   // (durch stabile Callback-Referenzänderungen) die Benutzereingaben in den Multi-Select Feldern
   // (Angebote/Schwerpunkte/Frühbetreuung/Status) überschrieben werden.
-  }, [current, angFeld, spFeld, fruehFeld, schuljahr, arrayFelder]);
+  // arrayFelder NICHT hier eintragen: es ist via useMemo stabil, aber spFeld/fruehFeld/angFeld
+  // decken alle dynamischen Anteile bereits ab.
+  }, [current, angFeld, spFeld, fruehFeld, schuljahr]);
 
   // Ensure we display important fields (like Passwort) even when they're missing
   const keysToRender = (creating || (draft && (draft as PartialStudent)._deleted))
