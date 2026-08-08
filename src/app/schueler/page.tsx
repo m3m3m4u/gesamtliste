@@ -174,8 +174,8 @@ export default function Schueler() {
   ]);
   // Je nach aktivem Schuljahr: Felder des jeweils anderen Jahres ausblenden
   const HIDDEN_OTHER_YEAR: string[] = schuljahr === '25/26'
-    ? ['Angebote 26/27','Schwerpunkte 26/27','Frühbetreuung 26/27','Besuchsjahr 26/27','Klasse 26/27','Stufe 26/27']
-    : ['Angebote 25/26','Schwerpunkte 25/26','Frühbetreuung 25/26','Besuchsjahr 25/26','Klasse 25/26','Stufe 25/26'];
+    ? ['Angebote 26/27','Schwerpunkte 26/27','Frühbetreuung 26/27','Besuchsjahr 26/27','Klasse 26/27','Stufe 26/27','Religion an/ab 26/27']
+    : ['Angebote 25/26','Schwerpunkte 25/26','Frühbetreuung 25/26','Besuchsjahr 25/26','Klasse 25/26','Stufe 25/26','Religion an/ab 25/26'];
   const HIDDEN = new Set([...HIDDEN_ALWAYS, ...HIDDEN_OTHER_YEAR]);
   const orderedKeys = useCallback((s: Student) => {
     // Grundmenge der Schlüssel (ohne versteckte)
