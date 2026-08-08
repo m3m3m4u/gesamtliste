@@ -18,9 +18,13 @@ export default function AdministrationPage() {
 
   // Prüfen ob bereits authentifiziert (Session Storage)
   useEffect(() => {
-    const stored = sessionStorage.getItem(STORAGE_KEY);
-    if (stored === 'true') {
-      setAuthenticated(true);
+    try {
+      const stored = sessionStorage.getItem(STORAGE_KEY);
+      if (stored === 'true') {
+        setAuthenticated(true);
+      }
+    } catch {
+      // sessionStorage blockiert (z.B. im Cross-Origin-Iframe) → Code immer verlangen
     }
     setChecking(false);
   }, []);
@@ -28,7 +32,7 @@ export default function AdministrationPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (code === ADMIN_CODE) {
-      sessionStorage.setItem(STORAGE_KEY, 'true');
+      try { sessionStorage.setItem(STORAGE_KEY, 'true'); } catch {}
       setAuthenticated(true);
       setError('');
     } else {
