@@ -109,17 +109,35 @@ export async function GET(request: Request) {
     filter = Object.keys(filter).length ? { $and: [filter, klasseFilter] } : klasseFilter;
   }
   if (angebot) {
-    // Exakte (case-insensitive) Übereinstimmung – jahresspezifisches Feld
+    // Exakte (case-insensitive) Übereinstimmung – jahresspezifisches Feld mit Fallback
     const escaped = angebot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const angebotFeld = `Angebote ${schuljahr}`;
-    const angebotFilter = { [angebotFeld]: { $regex: `^${escaped}$`, $options: 'i' } };
+    let angebotFilter: Record<string, unknown>;
+    if (schuljahr === '25/26') {
+      angebotFilter = {
+        $or: [
+          { 'Angebote 25/26': { $regex: `^${escaped}$`, $options: 'i' } },
+          { Angebote: { $regex: `^${escaped}$`, $options: 'i' } }
+        ]
+      };
+    } else {
+      angebotFilter = { [`Angebote ${schuljahr}`]: { $regex: `^${escaped}$`, $options: 'i' } };
+    }
     filter = Object.keys(filter).length ? { $and: [filter, angebotFilter] } : angebotFilter;
   }
   if (fruehParam) {
-    // Exakte (case-insensitive) Übereinstimmung – jahresspezifisches Feld
+    // Exakte (case-insensitive) Übereinstimmung – jahresspezifisches Feld mit Fallback
     const escaped = fruehParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const fruehFeld = `Frühbetreuung ${schuljahr}`;
-    const fruehFilter = { [fruehFeld]: { $regex: `^${escaped}$`, $options: 'i' } };
+    let fruehFilter: Record<string, unknown>;
+    if (schuljahr === '25/26') {
+      fruehFilter = {
+        $or: [
+          { 'Frühbetreuung 25/26': { $regex: `^${escaped}$`, $options: 'i' } },
+          { Frühbetreuung: { $regex: `^${escaped}$`, $options: 'i' } }
+        ]
+      };
+    } else {
+      fruehFilter = { [`Frühbetreuung ${schuljahr}`]: { $regex: `^${escaped}$`, $options: 'i' } };
+    }
     filter = Object.keys(filter).length ? { $and: [filter, fruehFilter] } : fruehFilter;
   }
   if (stufeParams.length) {
@@ -162,9 +180,10 @@ export async function GET(request: Request) {
     const escaped = schwerpunkt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     let schwerpunktFilter: Record<string, unknown>;
     if (schuljahr === '25/26') {
-      // Legacy: zwei mögliche Feldnamen
+      // Legacy: mehrere mögliche Feldnamen
       schwerpunktFilter = {
         $or: [
+          { 'Schwerpunkte 25/26': { $regex: `(^|[,;/\\\s])${escaped}([,;/\\\s]|$)`, $options: 'i' } },
           { Schwerpunkte: { $regex: `(^|[,;/\\\s])${escaped}([,;/\\\s]|$)`, $options: 'i' } },
           { Schwerpunkt: { $regex: `(^|[,;/\\\s])${escaped}([,;/\\\s]|$)`, $options: 'i' } }
         ]
@@ -181,12 +200,11 @@ export async function GET(request: Request) {
   if (fields) {
     // Immer Geschlecht, Legacy 'm/w', '25/26' und 'Klasse 25/26' projizieren
     // Außerdem jahresspezifische Felder für Angebote/Schwerpunkte/Frühbetreuung einbeziehen
-    const sjSuffix = schuljahr === '25/26' ? '' : ` ${schuljahr}`;
     projection = {
       Geschlecht: 1, 'm/w': 1, '25/26': 1, 'Klasse 25/26': 1,
-      [`Angebote${sjSuffix}`]: 1,
-      [`Schwerpunkte${sjSuffix}`]: 1,
-      [`Frühbetreuung${sjSuffix}`]: 1,
+      [`Angebote ${schuljahr}`]: 1, Angebote: 1,
+      [`Schwerpunkte ${schuljahr}`]: 1, Schwerpunkte: 1, Schwerpunkt: 1,
+      [`Frühbetreuung ${schuljahr}`]: 1, Frühbetreuung: 1,
     };
     for (const f of fields.split(',').map(s=>s.trim()).filter(Boolean)) projection[f] = 1;
   }

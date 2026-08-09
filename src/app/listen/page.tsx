@@ -150,9 +150,13 @@ function FilterForm() {
   const allowedAngebote = React.useMemo(()=> new Set(optAngebote.map(s=>s.toLowerCase()).filter(Boolean)), [optAngebote]);
   const allowedSchwerpunkte = React.useMemo(()=> new Set(optSchwerpunkte.map(s=>s.toLowerCase()).filter(Boolean)), [optSchwerpunkte]);
 
+  const angeboteFeld = `Angebote ${schuljahr}`;
+  const fruehFeld = `Frühbetreuung ${schuljahr}`;
+  const spFeld = `Schwerpunkte ${schuljahr}`;
+
   // Spaltenauswahl wie bei /klassenliste
   const FIELD_OPTIONS: string[] = [
-    'Nr.','Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion',relAnAbFeld,'Angebote','Schwerpunkte','Benutzername','Passwort','Muttersprache','Geburtsdatum','Anton'
+    'Nr.','Vorname','Familienname',`Stufe ${schuljahr}`,'Status',`Besuchsjahr ${schuljahr}`,'Religion',relAnAbFeld,angeboteFeld,fruehFeld,spFeld,'Benutzername','Passwort','Muttersprache','Geburtsdatum','Anton'
   ];
   const [selectedFields, setSelectedFields] = React.useState<string[]>(['Vorname','Familienname','Klasse','Stufe','Status','Besuchsjahr','Religion']);
   function toggleField(f: string) {
@@ -246,27 +250,30 @@ function FilterForm() {
     switch (key) {
       case 'Vorname': v = it.Vorname; break;
       case 'Familienname': v = it.Familienname ?? it.Nachname; break;
-      case 'Klasse': v = (it as Record<string, unknown>)[klasseFeld] ?? it.Klasse; break;
-      case 'Stufe': v = (it as Record<string, unknown>)[stufeFeld]; break;
-      case 'Besuchsjahr': v = (it as Record<string, unknown>)[besuchsjahrFeld] ?? it.Besuchsjahr; break;
-
-      default: v = rec[key];
+      case 'Klasse': case klasseFeld: v = rec[klasseFeld] ?? it.Klasse; break;
+      case 'Stufe': case stufeFeld: v = rec[stufeFeld]; break;
+      case 'Besuchsjahr': case besuchsjahrFeld: v = rec[besuchsjahrFeld] ?? it.Besuchsjahr; break;
+      default:
+        if (key === angeboteFeld) v = rec[angeboteFeld] ?? rec['Angebote'];
+        else if (key === fruehFeld) v = rec[fruehFeld] ?? rec['Frühbetreuung'];
+        else if (key === spFeld) v = rec[spFeld] ?? rec['Schwerpunkte'] ?? rec['Schwerpunkt'];
+        else v = rec[key];
     }
     if (key === 'Religion an/ab' || key === relAnAbFeld) {
       return getRelAnAb(rec, relAnAbFeld);
     }
-    // Normalisierung + Filter erlaubte Werte für Angebote / Schwerpunkte
+    // Normalisierung + Filter erlaubte Werte für Angebote / Schwerpunkte / Frühbetreuung
     const toArr = (val: unknown): string[] => {
       if (Array.isArray(val)) return val.map(x=>String(x).trim()).filter(Boolean);
       if (val == null) return [];
       const s = String(val).trim(); if(!s) return [];
       return s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean);
     };
-    if (key === 'Angebote') {
+    if (key === angeboteFeld || key === 'Angebote' || key === fruehFeld || key === 'Frühbetreuung') {
       const list = toArr(v).filter(x=>!allowedAngebote.size || allowedAngebote.has(x.toLowerCase()));
       return list.join(', ');
     }
-    if (key === 'Schwerpunkte') {
+    if (key === spFeld || key === 'Schwerpunkte') {
       const list = toArr(v).filter(x=>!allowedSchwerpunkte.size || allowedSchwerpunkte.has(x.toLowerCase()));
       return list.join(', ');
     }

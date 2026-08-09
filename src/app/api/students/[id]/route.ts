@@ -56,11 +56,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
   // updatedAt setzen
   body.updatedAt = new Date().toISOString();
-  // Passwort jetzt nur im Klartext speichern; kein Hash mehr
+  // Passwort im Klartext speichern (darf auch leer sein)
   if (typeof body.Passwort === 'string') {
-    if (!(body.Passwort as string).trim()) {
-      delete body.Passwort; // leere Eingabe ignorieren
-    }
+    body.Passwort = body.Passwort.trim();
   }
   // Geburtsdatum normalisieren auf YYYY-MM-DD falls Datum
   if (typeof body.Geburtsdatum === 'string' && (body.Geburtsdatum as string).length >= 10) {

@@ -11,8 +11,9 @@ export default function FruehbetreuungPage() {
   const { schuljahr } = useSchuljahr();
 
   // Jahresspezifische Feldnamen
-  const fruehFeld = schuljahr === '25/26' ? 'Frühbetreuung' : `Frühbetreuung ${schuljahr}`;
-  const angeboteFeld = schuljahr === '25/26' ? 'Angebote' : `Angebote ${schuljahr}`;
+  const fruehFeld = `Frühbetreuung ${schuljahr}`;
+  const angeboteFeld = `Angebote ${schuljahr}`;
+  const spFeld = `Schwerpunkte ${schuljahr}`;
   const sjKey = schuljahr.replace('/', ''); // '2526' oder '2627'
 
   const FIELD_OPTIONS = useMemo(() => [
@@ -20,8 +21,8 @@ export default function FruehbetreuungPage() {
     `Klasse ${schuljahr}`,'Status','Muttersprache','Religion','Passwort',
     angeboteFeld,
     fruehFeld,
-    schuljahr === '25/26' ? 'Schwerpunkte' : `Schwerpunkte ${schuljahr}`,
-  ], [schuljahr, angeboteFeld, fruehFeld]);
+    spFeld,
+  ], [schuljahr, angeboteFeld, fruehFeld, spFeld]);
 
   const [slot, setSlot] = useState('');
   const [slots, setSlots] = useState<string[]>([]);
@@ -95,6 +96,9 @@ export default function FruehbetreuungPage() {
 
   function getCellValue(row: Row, f: string): string {
     let v: unknown = row[f];
+    if (f === fruehFeld && v == null) v = row['Frühbetreuung'];
+    if (f === angeboteFeld && v == null) v = row['Angebote'];
+    if (f === spFeld && v == null) v = row['Schwerpunkte'] ?? row['Schwerpunkt'];
     if (f === 'Geburtsdatum') v = fmtDate(v);
     if (f === fruehFeld) return filterAllowedSlot(v);
     if (f === angeboteFeld) return filterAllowedAngebote(v);

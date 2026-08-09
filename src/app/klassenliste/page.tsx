@@ -16,9 +16,13 @@ export default function KlassenListePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const angeboteFeld = `Angebote ${schuljahr}`;
+  const fruehFeld = `Frühbetreuung ${schuljahr}`;
+  const spFeld = `Schwerpunkte ${schuljahr}`;
+
   // Felder die auswählbar sind (kann erweitert werden)
   const FIELD_OPTIONS: string[] = [
-    'Nr.','Vorname','Familienname',`Stufe ${schuljahr}`,'Geschlecht','Benutzername','Geburtsdatum','Status','Muttersprache','Religion',relAnAbFeld,'Passwort','Angebote','Frühbetreuung','Schwerpunkte'
+    'Nr.','Vorname','Familienname',`Stufe ${schuljahr}`,'Geschlecht','Benutzername','Geburtsdatum','Status','Muttersprache','Religion',relAnAbFeld,'Passwort',angeboteFeld,fruehFeld,spFeld
   ];
 
   const [sortField, setSortField] = useState<string | null>(null);
@@ -170,11 +174,15 @@ export default function KlassenListePage() {
   // Fallback für Familienname: falls nur 'Nachname' im Dokument vorhanden ist
   const rec = d as Record<string, unknown>; // generischer Zugriff ohne any
   let val: unknown = f === 'Familienname' ? (rec['Familienname'] ?? rec['Nachname']) : rec[f];
+    if (f === angeboteFeld && val == null) val = rec['Angebote'];
+    if (f === fruehFeld && val == null) val = rec['Frühbetreuung'];
+    if (f === spFeld && val == null) val = rec['Schwerpunkte'] ?? rec['Schwerpunkt'];
+
     if (f === relAnAbFeld || f === 'Religion an/ab') {
       return getRelAnAb(rec);
     }
     // Anzeige von Angebote/Frühbetreuung auf erlaubte Optionen beschränken
-    if (f === 'Angebote' || f === 'Frühbetreuung') {
+    if (f === angeboteFeld || f === 'Angebote' || f === fruehFeld || f === 'Frühbetreuung') {
       const toArr = (v: unknown): string[] => {
         if (Array.isArray(v)) return v.map(x=>String(x).trim()).filter(Boolean);
         if (v == null) return [];
@@ -182,12 +190,12 @@ export default function KlassenListePage() {
         if (!s) return [];
         return s.split(/[,;/\n\r\t]+/).map(x=>x.trim()).filter(Boolean);
       };
-      const allowed = f === 'Angebote' ? allowedAngebote : allowedFrueh;
+      const allowed = (f === angeboteFeld || f === 'Angebote') ? allowedAngebote : allowedFrueh;
       const arr = toArr(val);
       const filtered = allowed.size ? arr.filter(v=>allowed.has(v.toLowerCase())) : arr;
       return filtered.join(', ');
     }
-    if (f === 'Schwerpunkte') {
+    if (f === spFeld || f === 'Schwerpunkte') {
       const toArr = (v: unknown): string[] => {
         if (Array.isArray(v)) return v.map(x=>String(x).trim()).filter(Boolean);
         if (v == null) return [];
